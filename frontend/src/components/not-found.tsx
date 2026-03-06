@@ -1,7 +1,7 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from '@tanstack/react-router'
 
-import { Button } from "@/components/ui/button";
-import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Button } from '@/components/ui/button'
+import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 
 export function NotFound() {
   return (
@@ -17,5 +17,5 @@ export function NotFound() {
         </EmptyContent>
       </Empty>
     </div>
-  );
+  )
 }

@@ -1,20 +1,20 @@
-import type { QueryClient } from "@tanstack/react-query";
-import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import type { QueryClient } from '@tanstack/react-query'
+import { Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 
-import { NotFound } from "@/components/not-found";
-import { Toaster } from "@/components/ui/sonner";
-import { ThemeProvider } from "@/contexts/theme-provider";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { NotFound } from '@/components/not-found'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { ThemeProvider } from '@/contexts/theme-provider'
 
 interface MyRouterContext {
-  queryClient: QueryClient;
+  queryClient: QueryClient
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   component: RootComponent,
   notFoundComponent: NotFound,
-});
+})
 
 function RootComponent() {
   return (
@@ -25,5 +25,5 @@ function RootComponent() {
         <TanStackRouterDevtools position="bottom-right" />
       </ThemeProvider>
     </TooltipProvider>
-  );
+  )
 }
