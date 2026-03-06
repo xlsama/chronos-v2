@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": true,
+  "arrowParens": "avoid",
+  "sortTailwindcss": {
+    "stylesheet": "src/styles.css",
+    "functions": ["cn", "clsx", "cva"]
+  },
+  "sortImports": {},
+  "ignorePatterns": ["public", ".claude", "src/components/ui", "src/routeTree.gen.ts"]
+}
