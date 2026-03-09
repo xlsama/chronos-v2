@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # App
     DEBUG: bool = False
     SKILLS_DIR: str = "skills"
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE_MB: int = 20
 
     @property
     def sync_database_url(self) -> str:

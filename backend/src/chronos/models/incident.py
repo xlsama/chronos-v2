@@ -78,6 +78,8 @@ class IncidentMessage(UUIDMixin, TimestampMixin, Base):
     incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("incidents.id", ondelete="CASCADE"), index=True)
     role: Mapped[MessageRole] = mapped_column(Enum(MessageRole, name="message_role_enum"))
     content: Mapped[str] = mapped_column(Text)
+    content_parts: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    attachments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     incident: Mapped[Incident] = relationship(back_populates="messages")

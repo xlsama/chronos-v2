@@ -6,10 +6,27 @@ from fastapi.responses import StreamingResponse
 
 from chronos.api.deps import DB
 from chronos.models.incident import IncidentMessage, MessageRole
-from chronos.schemas.chat import ChatSendRequest
-from chronos.services import chat_service, execution_service, incident_service
+from chronos.schemas.chat import ChatCompletionRequest, ChatSendRequest
+from chronos.services import chat_service, completions_service, execution_service, incident_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+@router.post("/completions")
+async def chat_completions(db: DB, request: ChatCompletionRequest):
+    """OpenAI-compatible chat completions endpoint."""
+    incident = await incident_service.get_incident(db, request.incident_id)
+    if not incident:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+
+    if request.stream:
+        return StreamingResponse(
+            completions_service.stream_chat_completion(db, request),
+            media_type="text/event-stream",
+        )
+
+    response = await completions_service.non_stream_chat_completion(db, request)
+    return response
 
 
 @router.get("/stream/{incident_id}")
