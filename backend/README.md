@@ -20,8 +20,7 @@ AI 驱动的运维事件处置平台后端。
 
 - Python >= 3.12
 - [uv](https://docs.astral.sh/uv/)
-- PostgreSQL
-- Redis
+- Docker
 
 ### 1. 安装依赖
 
@@ -39,7 +38,7 @@ cp .env.example .env
 编辑 `.env`，修改数据库连接和 AI 配置：
 
 ```env
-DATABASE_URL=postgresql+asyncpg://xlsama@localhost:5432/chronos
+DATABASE_URL=postgresql+asyncpg://chronos:chronos@localhost:5432/chronos
 REDIS_URL=redis://localhost:6379/0
 DASHSCOPE_API_KEY=sk-xxx
 DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
@@ -48,11 +47,13 @@ DEBUG=true
 SKILLS_DIR=skills
 ```
 
-### 3. 创建数据库
+### 3. 启动 PostgreSQL 和 Redis
 
 ```bash
-createdb chronos
+docker compose up -d postgres redis
 ```
+
+后端默认连接 `localhost:5432` 和 `localhost:6379`，这里对应的是 Docker Compose 暴露到宿主机的端口。
 
 ### 4. 运行数据库迁移
 
@@ -103,7 +104,7 @@ backend/
 ├── migrations/              # Alembic 迁移文件
 ├── pyproject.toml
 ├── alembic.ini
-└── docker-compose.yml       # PostgreSQL + Redis（可选）
+└── docker-compose.yml       # 本地开发依赖（PostgreSQL + Redis）
 ```
 
 ## API 概览
