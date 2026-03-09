@@ -24,3 +24,15 @@ dist-ssr
 *.sw?
 
 .tanstack
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+*.egg
+
+.ruff_cache
+.venv
+py_cache__/
