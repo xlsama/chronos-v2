@@ -28,11 +28,15 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  emptyTitle,
+  emptyDescription = '没有任何数据',
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
 
@@ -78,10 +82,10 @@ export function DataTable<TData, TValue>({
                 <Empty className="py-12">
                   <EmptyHeader>
                     <EmptyMedia>
-                      <Inbox className="size-8" />
+                      <Inbox className="size-8 text-muted-foreground" />
                     </EmptyMedia>
-                    <EmptyTitle>暂无事件</EmptyTitle>
-                    <EmptyDescription>当前没有任何事件需要处理</EmptyDescription>
+                    {emptyTitle && <EmptyTitle>{emptyTitle}</EmptyTitle>}
+                    <EmptyDescription>{emptyDescription}</EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               </TableCell>

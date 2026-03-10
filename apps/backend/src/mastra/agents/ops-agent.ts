@@ -1,4 +1,5 @@
 import { Agent } from '@mastra/core/agent'
+import { env } from '../../env'
 import { tools } from '../tools'
 
 const SYSTEM_PROMPT = `# 身份
@@ -66,6 +67,10 @@ export const opsAgent = new Agent({
   id: 'ops-agent',
   name: 'Chronos OpsAgent',
   instructions: SYSTEM_PROMPT,
-  model: 'openai/gpt-4o',
+  model: {
+    id: `openai/${env.OPENAI_MODEL}`,
+    ...(env.OPENAI_BASE_URL && { url: env.OPENAI_BASE_URL }),
+    apiKey: env.OPENAI_API_KEY,
+  },
   tools,
 })

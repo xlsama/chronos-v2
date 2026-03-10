@@ -23,5 +23,11 @@ export function RunbookList({ runbooks }: RunbookListProps) {
     [navigate, deleteMutation],
   )
 
-  return <DataTable columns={columns} data={runbooks} />
+  return (
+    <DataTable
+      columns={columns}
+      data={runbooks}
+      emptyDescription="没有创建任何运营手册"
+    />
+  )
 }

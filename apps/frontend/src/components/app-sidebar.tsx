@@ -3,7 +3,7 @@ import {
   Cable,
   Inbox,
 } from 'lucide-react'
-import { Link, useMatchRoute } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 
 import {
   Sidebar,
@@ -32,7 +32,7 @@ const platformNav = [
 ]
 
 export function AppSidebar() {
-  const matchRoute = useMatchRoute()
+  const { pathname } = useLocation()
 
   return (
     <Sidebar collapsible="icon">
@@ -48,7 +48,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={!!matchRoute({ to: item.to, fuzzy: true })}
+                    isActive={pathname === item.to || pathname.startsWith(item.to + '/')}
                     tooltip={item.title}
                   >
                     <Link to={item.to}>
@@ -69,7 +69,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={!!matchRoute({ to: item.to, fuzzy: true })}
+                    isActive={pathname === item.to || pathname.startsWith(item.to + '/')}
                     tooltip={item.title}
                   >
                     <Link to={item.to}>

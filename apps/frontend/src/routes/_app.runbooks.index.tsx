@@ -28,7 +28,7 @@ function RunbooksPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">运行手册</h1>
         <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 size-4" />
+          <Plus className="size-4" />
           新建
         </Button>
       </div>

@@ -56,7 +56,7 @@ export function ServiceGrid({ connections }: ServiceGridProps) {
           />
         </div>
         <Button onClick={handleAdd}>
-          <Plus className="mr-2 size-4" />
+          <Plus className="size-4" />
           添加服务
         </Button>
       </div>
