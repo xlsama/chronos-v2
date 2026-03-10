@@ -1,6 +1,5 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Connection } from '@chronos/shared'
-import { api } from '@/lib/api'
+import { client, unwrap } from '@/lib/api'
 import type { ConnectionFormValues } from '@/lib/schemas/connection'
 
 export const connectionQueries = {
@@ -8,12 +7,12 @@ export const connectionQueries = {
   list: () =>
     queryOptions({
       queryKey: connectionQueries.all(),
-      queryFn: () => api<Connection[]>('/connections'),
+      queryFn: () => unwrap(client.api.connections.$get()),
     }),
   detail: (id: string) =>
     queryOptions({
       queryKey: [...connectionQueries.all(), id],
-      queryFn: () => api<Connection>(`/connections/${id}`),
+      queryFn: () => unwrap(client.api.connections[':id'].$get({ param: { id } })),
     }),
 }
 
@@ -21,7 +20,7 @@ export function useCreateConnection() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: ConnectionFormValues) =>
-      api<Connection>('/connections', { method: 'POST', body: data }),
+      unwrap(client.api.connections.$post({ json: data })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: connectionQueries.all() }),
   })
 }
@@ -30,7 +29,7 @@ export function useUpdateConnection() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<ConnectionFormValues> }) =>
-      api<Connection>(`/connections/${id}`, { method: 'PUT', body: data }),
+      unwrap(client.api.connections[':id'].$put({ param: { id }, json: data })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: connectionQueries.all() }),
   })
 }
@@ -38,7 +37,7 @@ export function useUpdateConnection() {
 export function useDeleteConnection() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api(`/connections/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => unwrap(client.api.connections[':id'].$delete({ param: { id } })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: connectionQueries.all() }),
   })
 }
@@ -47,7 +46,7 @@ export function useTestConnection() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) =>
-      api<{ status: string }>(`/connections/${id}/test`, { method: 'POST' }),
+      unwrap(client.api.connections[':id'].test.$post({ param: { id } })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: connectionQueries.all() }),
   })
 }

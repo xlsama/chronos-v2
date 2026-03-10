@@ -8,7 +8,7 @@ function LogoIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
       className={cn('size-6', className)}
       {...props}
     >
-      <g fill="currentColor">
+      <g fill="hsl(224.3 76.3% 40%)" className="dark:fill-[hsl(224.3_76.3%_60%)]">
         <circle
           transform="translate(3.3231, 11.4462) rotate(45) translate(-3.3231, -11.4462)"
           cx="3.32307692"
@@ -75,7 +75,7 @@ function LogoFull({ className, ...props }: React.SVGProps<SVGSVGElement>) {
       className={cn('h-6', className)}
       {...props}
     >
-      <g fill="currentColor">
+      <g fill="hsl(224.3 76.3% 40%)" className="dark:fill-[hsl(224.3_76.3%_60%)]">
         <circle
           transform="translate(3.3231, 11.4462) rotate(45) translate(-3.3231, -11.4462)"
           cx="3.32307692"
