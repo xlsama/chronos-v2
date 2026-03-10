@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, CircleHelp, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,8 +15,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useSettingsStore } from "@/stores/settings";
 import { cn } from "@/lib/utils";
+import { client } from "@/lib/api";
+import { NOTIFICATION_SCENARIOS } from "@/constants/notification";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -31,11 +39,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl min-w-[720px] p-0">
+      <DialogContent className="max-w-6xl min-w-[900px] p-0 gap-0">
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
-        <div className="flex h-[480px]">
+        <div className="flex h-[600px]">
           <nav className="flex w-48 shrink-0 flex-col gap-1 border-r p-2">
             {tabs.map((tab) => (
               <button
@@ -66,15 +74,59 @@ function NotificationSettings() {
   const { feishu, setFeishu } = useSettingsStore();
   const [platform, setPlatform] = useState("feishu");
   const [draft, setDraft] = useState(feishu);
+  const [testing, setTesting] = useState(false);
 
   const handleSave = () => {
     setFeishu(draft);
   };
 
+  const handleTest = async () => {
+    setTesting(true);
+    try {
+      const res = await client.api.webhooks.test.$post({
+        json: {
+          webhookUrl: draft.webhookUrl,
+          signKey: draft.signKey || undefined,
+          platform: "feishu" as const,
+        },
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        const errorJson = json as { error: string };
+        throw new Error(errorJson.error);
+      }
+      toast.success("测试消息发送成功");
+    } catch (err) {
+      toast.error("测试消息发送失败", {
+        description: err instanceof Error ? err.message : "未知错误",
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">通知</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-medium">通知</h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <CircleHelp className="text-muted-foreground size-4 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-sm">
+              <p className="mb-2 font-medium">通知触发场景</p>
+              <ul className="space-y-1.5">
+                {NOTIFICATION_SCENARIOS.map((s) => (
+                  <li key={s.title} className="text-xs">
+                    <span className="font-medium">{s.title}</span>
+                    <span className="text-muted-foreground"> - {s.description}</span>
+                  </li>
+                ))}
+              </ul>
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <p className="text-muted-foreground text-sm">配置告警通知集成</p>
       </div>
       <Separator />
@@ -119,7 +171,15 @@ function NotificationSettings() {
           </>
         )}
 
-        <div className="pt-2">
+        <div className="flex gap-2 pt-2">
+          <Button
+            variant="outline"
+            onClick={handleTest}
+            disabled={!draft.webhookUrl.trim() || testing}
+          >
+            {testing && <Loader2 className="animate-spin" />}
+            测试
+          </Button>
           <Button onClick={handleSave} disabled={!draft.webhookUrl.trim()}>
             保存
           </Button>
