@@ -61,7 +61,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </button>
             ))}
           </nav>
-          <ScrollArea className="flex-1 p-6 pt-0">
+          <ScrollArea className="flex-1 p-6">
             {activeTab === "notifications" && <NotificationSettings />}
           </ScrollArea>
         </div>
