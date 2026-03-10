@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Bell, CircleHelp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,11 +16,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useSettingsStore } from "@/stores/settings";
 import { cn } from "@/lib/utils";
 import { client } from "@/lib/api";
 import { NOTIFICATION_SCENARIOS } from "@/constants/notification";
+import {
+  notificationSettingsQueries,
+  useUpdateNotificationSettings,
+} from "@/lib/queries/notification-settings";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -67,13 +72,52 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 }
 
 function NotificationSettings() {
-  const { feishu, setFeishu } = useSettingsStore();
   const [platform, setPlatform] = useState("feishu");
-  const [draft, setDraft] = useState(feishu);
+  const [draft, setDraft] = useState({ webhookUrl: "", signKey: "", enabled: true });
   const [testing, setTesting] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  const { data: settings, isLoading } = useQuery(notificationSettingsQueries.detail(platform));
+  const updateMutation = useUpdateNotificationSettings();
+
+  // Sync from server to draft when data loads
+  useEffect(() => {
+    if (settings && !initialized) {
+      setDraft({
+        webhookUrl: settings.webhookUrl ?? "",
+        signKey: settings.signKey ?? "",
+        enabled: settings.enabled ?? true,
+      });
+      setInitialized(true);
+    } else if (!settings && !isLoading && !initialized) {
+      setDraft({ webhookUrl: "", signKey: "", enabled: true });
+      setInitialized(true);
+    }
+  }, [settings, isLoading, initialized]);
+
+  // Reset initialized when platform changes
+  useEffect(() => {
+    setInitialized(false);
+  }, [platform]);
 
   const handleSave = () => {
-    setFeishu(draft);
+    updateMutation.mutate(
+      {
+        platform,
+        data: {
+          webhookUrl: draft.webhookUrl,
+          signKey: draft.signKey || undefined,
+          enabled: draft.enabled,
+        },
+      },
+      {
+        onSuccess: () => toast.success("保存成功"),
+        onError: (err) =>
+          toast.error("保存失败", {
+            description: err instanceof Error ? err.message : "未知错误",
+          }),
+      },
+    );
   };
 
   const handleTest = async () => {
@@ -100,6 +144,14 @@ function NotificationSettings() {
       setTesting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="text-muted-foreground size-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -141,6 +193,14 @@ function NotificationSettings() {
 
         {platform === "feishu" && (
           <>
+            <div className="flex items-center justify-between">
+              <Label>启用通知</Label>
+              <Switch
+                checked={draft.enabled}
+                onCheckedChange={(checked) => setDraft((d) => ({ ...d, enabled: checked }))}
+              />
+            </div>
+
             <div className="grid gap-2">
               <Label>
                 Webhook URL <span className="text-destructive">*</span>
@@ -176,7 +236,8 @@ function NotificationSettings() {
             {testing && <Loader2 className="animate-spin" />}
             测试
           </Button>
-          <Button onClick={handleSave} disabled={!draft.webhookUrl.trim()}>
+          <Button onClick={handleSave} disabled={!draft.webhookUrl.trim() || updateMutation.isPending}>
+            {updateMutation.isPending && <Loader2 className="animate-spin" />}
             保存
           </Button>
         </div>

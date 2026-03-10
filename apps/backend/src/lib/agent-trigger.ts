@@ -5,6 +5,7 @@ import { opsAgent } from '../mastra/agents/ops-agent'
 import { publisher, redis } from './redis'
 import { logger } from './logger'
 import { buildMultimodalParts } from './attachment-parts'
+import { notifyIncidentStatusChanged } from './notify'
 
 type IncidentRow = NonNullable<Awaited<ReturnType<typeof incidentService.getById>>>
 
@@ -75,7 +76,10 @@ export async function triggerAgentForIncident(incident: IncidentRow): Promise<{ 
     })
     .catch(async (err) => {
       logger.error({ err, threadId, incidentId: incident.id }, 'Agent failed to process incident')
-      await incidentService.update(incident.id, { status: 'waiting_human' }).catch(() => {})
+      const updated = await incidentService.update(incident.id, { status: 'waiting_human' }).catch(() => null)
+      if (updated) {
+        notifyIncidentStatusChanged(updated, 'triaging', 'waiting_human')
+      }
       await redis.del(`stream:active:${threadId}`).catch(() => {})
       publisher.publish(`chat:${threadId}`, '[DONE]')
     })

@@ -6,6 +6,7 @@ import { AppError } from '../lib/errors'
 import { triggerAgentForIncident } from '../lib/agent-trigger'
 import { generateIncidentSummary } from '../lib/generate-summary'
 import { logger } from '../lib/logger'
+import { notifyIncidentCreated, notifyIncidentStatusChanged } from '../lib/notify'
 
 const attachmentSchema = z.object({
   type: z.enum(['image', 'file']),
@@ -34,9 +35,10 @@ export const incidentRoutes = new Hono()
       attachments: input.attachments ?? null,
       source: 'manual',
     })
-    // fire-and-forget: async summary + agent trigger
+    // fire-and-forget: async summary + agent trigger + notification
     generateAndUpdateSummary(incident.id, input.content, input.attachments ?? null)
     triggerAgentForIncident(incident)
+    notifyIncidentCreated(incident)
     return c.json({ data: incident }, 201)
   })
   .get('/:id', async (c) => {
@@ -50,8 +52,14 @@ export const incidentRoutes = new Hono()
     threadId: z.string().optional(),
   })), async (c) => {
     const input = c.req.valid('json')
+    // Read old status before update for notification
+    const oldIncident = input.status ? await incidentService.getById(c.req.param('id')) : null
     const incident = await incidentService.update(c.req.param('id'), input)
     if (!incident) throw new AppError(404, 'Incident not found')
+    // fire-and-forget: notify status change
+    if (input.status && oldIncident && oldIncident.status !== input.status) {
+      notifyIncidentStatusChanged(incident, oldIncident.status, input.status)
+    }
     return c.json({ data: incident })
   })
 

@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { incidentService } from '../../services/incident.service'
+import { notifyIncidentStatusChanged } from '../../lib/notify'
 
 export const updateIncidentStatus = createTool({
   id: 'update-incident-status',
@@ -19,8 +20,13 @@ export const updateIncidentStatus = createTool({
   }),
   execute: async (inputData) => {
     const { incidentId, ...updates } = inputData
+    const oldIncident = updates.status ? await incidentService.getById(incidentId) : null
     const incident = await incidentService.update(incidentId, updates)
     if (!incident) return { error: 'Incident not found' }
+    // fire-and-forget: notify status change
+    if (updates.status && oldIncident && oldIncident.status !== updates.status) {
+      notifyIncidentStatusChanged(incident, oldIncident.status, updates.status)
+    }
     return { success: true, incident }
   },
 })
