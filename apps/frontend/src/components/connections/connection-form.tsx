@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { ConnectionType } from '@chronos/shared'
 import { useNavigate } from '@tanstack/react-router'
+import { Loader2, TestTube } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +12,7 @@ import { ConnectionConfigFields } from './connection-config-fields'
 import {
   useCreateConnection,
   useUpdateConnection,
+  useTestConnectionDirect,
 } from '@/lib/queries/connections'
 
 interface ConnectionFormProps {
@@ -29,7 +32,26 @@ export function ConnectionForm({ mode, type, defaultValues }: ConnectionFormProp
 
   const createMutation = useCreateConnection()
   const updateMutation = useUpdateConnection()
+  const testMutation = useTestConnectionDirect()
   const isSubmitting = createMutation.isPending || updateMutation.isPending
+
+  const handleTest = () => {
+    testMutation.mutate(
+      { type, config },
+      {
+        onSuccess: (data: any) => {
+          if (data.success) {
+            toast.success('连接测试成功')
+          } else {
+            toast.error('连接测试失败', { description: data.message })
+          }
+        },
+        onError: (err) => {
+          toast.error('连接测试失败', { description: err.message })
+        },
+      },
+    )
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,6 +91,19 @@ export function ConnectionForm({ mode, type, defaultValues }: ConnectionFormProp
           onClick={() => navigate({ to: '/connections' })}
         >
           取消
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={handleTest}
+          disabled={testMutation.isPending}
+        >
+          {testMutation.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <TestTube className="size-4" />
+          )}
+          测试连接
         </Button>
         <Button type="submit" disabled={isSubmitting || !name.trim()}>
           {isSubmitting ? '保存中...' : mode === 'create' ? '创建' : '保存'}

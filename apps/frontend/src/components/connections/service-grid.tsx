@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Plus, Search } from 'lucide-react'
 import type { Connection } from '@chronos/shared'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -69,7 +70,20 @@ export function ServiceGrid({ connections }: ServiceGridProps) {
             <ServiceCard
               key={connection.id}
               connection={connection}
-              onTest={(id) => testMutation.mutate(id)}
+              onTest={(id) =>
+                testMutation.mutate(id, {
+                  onSuccess: (data: any) => {
+                    if (data.success) {
+                      toast.success(`${connection.name} 连接测试成功`)
+                    } else {
+                      toast.error(`${connection.name} 连接测试失败`, { description: data.message })
+                    }
+                  },
+                  onError: (err) => {
+                    toast.error(`${connection.name} 连接测试失败`, { description: err.message })
+                  },
+                })
+              }
               isTesting={testMutation.isPending && testMutation.variables === connection.id}
             />
           ))}

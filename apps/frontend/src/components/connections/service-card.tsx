@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { Connection } from '@chronos/shared'
-import { Pencil, TestTube } from 'lucide-react'
+import { CheckCircle2, Circle, Loader2, Pencil, TestTube, XCircle } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,9 +9,9 @@ import { cn } from '@/lib/utils'
 import { getConnectionMeta } from '@/lib/constants/connection-types'
 
 const statusConfig = {
-  connected: { label: '已连接', className: 'bg-green-500' },
-  disconnected: { label: '未连接', className: 'bg-gray-400' },
-  error: { label: '错误', className: 'bg-red-500' },
+  connected: { label: '已连接', icon: CheckCircle2, className: 'text-green-500' },
+  disconnected: { label: '未连接', icon: Circle, className: 'text-gray-400' },
+  error: { label: '错误', icon: XCircle, className: 'text-red-500' },
 }
 
 interface ServiceCardProps {
@@ -23,19 +23,20 @@ interface ServiceCardProps {
 export function ServiceCard({ connection, onTest, isTesting }: ServiceCardProps) {
   const meta = getConnectionMeta(connection.type)
   const status = statusConfig[connection.status]
-  const Icon = meta.icon
+  const TypeIcon = meta.icon
+  const StatusIcon = status.icon
 
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className="relative transition-shadow hover:shadow-md">
+      <div className={cn('absolute right-3 top-3', status.className)} title={status.label}>
+        <StatusIcon className="size-4" />
+      </div>
       <CardContent className="flex items-center gap-4 p-4">
         <div className={cn('rounded-lg bg-muted p-2.5', meta.color)}>
-          <Icon className="size-5" />
+          <TypeIcon className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-medium">{connection.name}</span>
-            <div className={cn('size-2 rounded-full', status.className)} title={status.label} />
-          </div>
+          <span className="truncate font-medium">{connection.name}</span>
           <div className="mt-1">
             <Badge variant="secondary" className="text-xs">
               {meta.label}
@@ -50,7 +51,11 @@ export function ServiceCard({ connection, onTest, isTesting }: ServiceCardProps)
             onClick={() => onTest(connection.id)}
             disabled={isTesting}
           >
-            <TestTube className="size-4" />
+            {isTesting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <TestTube className="size-4" />
+            )}
           </Button>
           <Button
             variant="ghost"

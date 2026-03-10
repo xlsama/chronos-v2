@@ -50,3 +50,10 @@ export function useTestConnection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: connectionQueries.all() }),
   })
 }
+
+export function useTestConnectionDirect() {
+  return useMutation({
+    mutationFn: (data: { type: string; config: Record<string, unknown> }) =>
+      unwrap(client.api.connections.test.$post({ json: data as any })),
+  })
+}
