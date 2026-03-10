@@ -1,0 +1,20 @@
+{
+  "name": "chronos-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @chronos/backend dev & pnpm --filter @chronos/frontend dev",
+    "build": "pnpm -r build",
+    "dev:backend": "pnpm --filter @chronos/backend dev",
+    "dev:frontend": "pnpm --filter @chronos/frontend dev",
+    "db:generate": "pnpm --filter @chronos/backend db:generate",
+    "db:migrate": "pnpm --filter @chronos/backend db:migrate",
+    "db:push": "pnpm --filter @chronos/backend db:push",
+    "db:studio": "pnpm --filter @chronos/backend db:studio"
+  },
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22"
+  }
+}
