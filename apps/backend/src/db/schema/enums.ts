@@ -9,3 +9,4 @@ export const connectionTypeEnum = pgEnum('connection_type', [
   'grafana', 'prometheus', 'sentry', 'jenkins',
 ])
 export const connectionStatusEnum = pgEnum('connection_status', ['connected', 'disconnected', 'error'])
+export const mcpStatusEnum = pgEnum('mcp_status', ['idle', 'registering', 'registered', 'error'])

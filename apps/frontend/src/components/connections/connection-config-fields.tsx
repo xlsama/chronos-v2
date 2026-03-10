@@ -9,9 +9,10 @@ interface ConnectionConfigFieldsProps {
   type: ConnectionType
   config: Record<string, string>
   onChange: (config: Record<string, string>) => void
+  mode?: 'create' | 'edit'
 }
 
-export function ConnectionConfigFields({ type, config, onChange }: ConnectionConfigFieldsProps) {
+export function ConnectionConfigFields({ type, config, onChange, mode }: ConnectionConfigFieldsProps) {
   const fields = connectionConfigFields[type] ?? []
 
   const handleChange = (key: string, value: string) => {
@@ -38,7 +39,11 @@ export function ConnectionConfigFields({ type, config, onChange }: ConnectionCon
               type={field.type === 'password' ? 'password' : 'text'}
               value={config[field.key] ?? ''}
               onChange={(e) => handleChange(field.key, e.target.value)}
-              placeholder={field.placeholder ?? (field.type === 'number' ? '0' : '')}
+              placeholder={
+                field.type === 'password' && mode === 'edit'
+                  ? '保持不变（留空则不修改）'
+                  : field.placeholder ?? (field.type === 'number' ? '0' : '')
+              }
             />
           )}
         </div>

@@ -1,9 +1,11 @@
 import type { Attachment, Incident } from '@chronos/shared'
 import { Link } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight, FileIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { CodeBlockCode } from '@/components/ui/code-block'
+import { useTheme } from '@/contexts/theme-provider'
 import {
   Dialog,
   DialogContent,
@@ -12,10 +14,10 @@ import {
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { FilePreviewDialog } from './file-preview-dialog'
 
 const TEXT_LIMIT = 30
@@ -62,6 +64,17 @@ function TextWithTooltip({
   truncated: boolean
 }) {
   const showTooltip = truncated || !!incident.summary
+  const [open, setOpen] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  const handleEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => setOpen(true), 200)
+  }
+  const handleLeave = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => setOpen(false), 100)
+  }
 
   const link = (
     <Link
@@ -76,12 +89,21 @@ function TextWithTooltip({
   if (!showTooltip) return link
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        asChild
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        onClick={(e) => e.preventDefault()}
+      >
+        {link}
+      </PopoverTrigger>
+      <PopoverContent
         side="bottom"
         align="start"
-        className="max-w-sm"
+        className="w-80"
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
       >
         {incident.summary && (
           <>
@@ -90,8 +112,8 @@ function TextWithTooltip({
           </>
         )}
         <p className="whitespace-pre-wrap text-xs text-muted-foreground">{fullText}</p>
-      </TooltipContent>
-    </Tooltip>
+      </PopoverContent>
+    </Popover>
   )
 }
 

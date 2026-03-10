@@ -8,6 +8,8 @@ import { logger } from '../lib/logger'
 import { slugify } from './utils'
 import type { SpawnConfigBuilder, MCPClientConnection } from './types'
 
+export type McpStatusChangeCallback = (id: string, status: 'registering' | 'registered' | 'error', error?: string) => void
+
 class MCPRegistry {
   private builders = new Map<string, SpawnConfigBuilder>()
   private clients = new Map<string, MCPClientConnection>()
@@ -25,38 +27,34 @@ class MCPRegistry {
 
     await this.unregister(connection.id)
 
-    try {
-      const spawnConfig = builder(connection.config)
-      const transport = new StdioClientTransport({
-        command: spawnConfig.command,
-        args: spawnConfig.args,
-        env: { ...process.env, ...spawnConfig.env } as Record<string, string>,
-      })
-      const client = new Client({ name: 'chronos', version: '1.0.0' })
-      await client.connect(transport)
+    const spawnConfig = builder(connection.config)
+    const transport = new StdioClientTransport({
+      command: spawnConfig.command,
+      args: spawnConfig.args,
+      env: { ...process.env, ...spawnConfig.env } as Record<string, string>,
+    })
+    const client = new Client({ name: 'chronos', version: '1.0.0' })
+    await client.connect(transport)
 
-      const { tools } = await client.listTools()
+    const { tools } = await client.listTools()
 
-      const mcpConnection: MCPClientConnection = {
-        connectionId: connection.id,
-        connectionName: connection.name,
-        connectionType: connection.type,
-        client,
-        transport,
-        tools,
-        dispose: async () => {
-          await client.close()
-        },
-      }
-
-      this.clients.set(connection.id, mcpConnection)
-      logger.info(
-        { connectionId: connection.id, name: connection.name, type: connection.type, tools: tools.map(t => t.name) },
-        'MCP client connected',
-      )
-    } catch (err) {
-      logger.error({ err, connectionId: connection.id, name: connection.name }, 'Failed to connect MCP client')
+    const mcpConnection: MCPClientConnection = {
+      connectionId: connection.id,
+      connectionName: connection.name,
+      connectionType: connection.type,
+      client,
+      transport,
+      tools,
+      dispose: async () => {
+        await client.close()
+      },
     }
+
+    this.clients.set(connection.id, mcpConnection)
+    logger.info(
+      { connectionId: connection.id, name: connection.name, type: connection.type, tools: tools.map(t => t.name) },
+      'MCP client connected',
+    )
   }
 
   async unregister(connectionId: string) {
@@ -70,6 +68,10 @@ class MCPRegistry {
       this.clients.delete(connectionId)
       logger.info({ connectionId }, 'MCP client disconnected')
     }
+  }
+
+  hasClient(connectionId: string) {
+    return this.clients.has(connectionId)
   }
 
   getAllToolsAsAISDK() {
@@ -104,15 +106,19 @@ class MCPRegistry {
     return allTools
   }
 
-  async initialize() {
+  async initialize(onStatusChange?: McpStatusChangeCallback) {
     const rows = await db.select().from(connections)
     logger.info({ count: rows.length }, 'Initializing MCP clients from DB')
 
     for (const row of rows) {
       try {
         const config = JSON.parse(decrypt(row.config)) as Record<string, unknown>
+        onStatusChange?.(row.id, 'registering')
         await this.register({ id: row.id, name: row.name, type: row.type, config })
+        onStatusChange?.(row.id, 'registered')
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err)
+        onStatusChange?.(row.id, 'error', errorMsg)
         logger.error({ err, connectionId: row.id, name: row.name }, 'Failed to initialize MCP client')
       }
     }

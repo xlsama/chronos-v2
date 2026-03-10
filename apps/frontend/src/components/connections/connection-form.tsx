@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { ConnectionConfigFields } from './connection-config-fields'
+import { connectionConfigFields } from '@/lib/schemas/connection'
 import {
   useCreateConnection,
   useUpdateConnection,
@@ -57,7 +58,20 @@ export function ConnectionForm({ mode, type, defaultValues }: ConnectionFormProp
     e.preventDefault()
     if (!name.trim()) return
 
-    const data = { name: name.trim(), type, config }
+    // In edit mode, strip empty password fields so backend preserves original values
+    let submitConfig = config
+    if (mode === 'edit') {
+      const passwordKeys = new Set(
+        (connectionConfigFields[type] ?? [])
+          .filter(f => f.type === 'password')
+          .map(f => f.key)
+      )
+      submitConfig = Object.fromEntries(
+        Object.entries(config).filter(([key, value]) => !passwordKeys.has(key) || value !== '')
+      )
+    }
+
+    const data = { name: name.trim(), type, config: submitConfig }
 
     if (mode === 'edit' && defaultValues) {
       updateMutation.mutate(
@@ -83,7 +97,7 @@ export function ConnectionForm({ mode, type, defaultValues }: ConnectionFormProp
         />
       </div>
       <Separator />
-      <ConnectionConfigFields type={type} config={config} onChange={setConfig} />
+      <ConnectionConfigFields type={type} config={config} onChange={setConfig} mode={mode} />
       <div className="flex gap-2 pt-2">
         <Button
           type="button"

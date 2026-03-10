@@ -15,6 +15,7 @@ import {
 import { ConnectionForm } from '@/components/connections/connection-form'
 import { connectionQueries } from '@/lib/queries/connections'
 import { getConnectionMeta } from '@/lib/constants/connection-types'
+import { connectionConfigFields } from '@/lib/schemas/connection'
 
 export const Route = createFileRoute('/_app/connections/$id/edit')({
   loader: ({ context, params }) =>
@@ -32,11 +33,18 @@ function EditConnectionPage() {
   const { data: connection } = useSuspenseQuery(connectionQueries.detail(id))
   const meta = getConnectionMeta(connection.type)
 
-  let parsedConfig: Record<string, string> = {}
-  try {
-    parsedConfig = JSON.parse(connection.config)
-  } catch {
-    // ignore
+  // Filter out masked password fields (value '••••••••') so they show as empty
+  const passwordKeys = new Set(
+    (connectionConfigFields[connection.type] ?? [])
+      .filter(f => f.type === 'password')
+      .map(f => f.key)
+  )
+
+  const parsedConfig: Record<string, string> = {}
+  for (const [key, value] of Object.entries(connection.config)) {
+    if (!passwordKeys.has(key)) {
+      parsedConfig[key] = String(value)
+    }
   }
 
   return (

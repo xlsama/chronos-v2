@@ -163,6 +163,7 @@ export function CreateIncidentDialog({ open, onOpenChange }: CreateIncidentDialo
             <PromptInputTextarea
               placeholder="描述告警内容..."
               onPaste={handlePaste}
+              className="min-h-[120px]"
             />
 
             <PromptInputActions className="justify-between px-2 pb-1">

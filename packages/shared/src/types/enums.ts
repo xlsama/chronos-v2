@@ -31,3 +31,6 @@ export type ConnectionType =
   | "jenkins";
 
 export type ConnectionStatus = "connected" | "disconnected" | "error";
+
+// ── MCP ─────────────────────────────────────────────────────
+export type McpStatus = "idle" | "registering" | "registered" | "error";

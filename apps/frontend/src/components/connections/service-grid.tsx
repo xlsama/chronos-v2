@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Plus, Search } from 'lucide-react'
 import type { Connection } from '@chronos/shared'
@@ -14,7 +15,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { ServiceCard } from './service-card'
-import { useTestConnection } from '@/lib/queries/connections'
+import { connectionQueries, useTestConnection } from '@/lib/queries/connections'
 
 interface ServiceGridProps {
   connections: Connection[]
@@ -23,6 +24,17 @@ interface ServiceGridProps {
 export function ServiceGrid({ connections }: ServiceGridProps) {
   const [search, setSearch] = useState('')
   const testMutation = useTestConnection()
+  const queryClient = useQueryClient()
+
+  // Auto-poll when any connection is in 'registering' state
+  const hasRegistering = connections.some(c => c.mcpStatus === 'registering')
+  useEffect(() => {
+    if (!hasRegistering) return
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: connectionQueries.all() })
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [hasRegistering, queryClient])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return connections

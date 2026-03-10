@@ -10,6 +10,7 @@ import { handleError } from "./lib/errors";
 import { apiRoutes } from "./routes/index";
 import { registerAllBuilders } from "./mcp";
 import { mcpRegistry } from "./mcp/registry";
+import { connectionService } from "./services/connection.service";
 
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 
@@ -66,7 +67,11 @@ app.onError(handleError);
 
 // Initialize MCP
 registerAllBuilders();
-mcpRegistry.initialize().catch((err) => {
+mcpRegistry.initialize((id, status, error) => {
+  connectionService.updateMcpStatus(id, status, error).catch((err) => {
+    logger.error({ err, connectionId: id }, "Failed to update MCP status");
+  });
+}).catch((err) => {
   logger.error(err, "Failed to initialize MCP registry");
 });
 

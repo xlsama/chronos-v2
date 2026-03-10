@@ -58,7 +58,7 @@ async function testPostgresql(config: Record<string, unknown>): Promise<TestResu
     host: config.host as string,
     port: Number(config.port ?? 5432),
     database: config.database as string,
-    username: config.user as string,
+    username: config.username as string,
     password: config.password as string,
     connect_timeout: 5,
     max: 1,

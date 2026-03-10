@@ -2,9 +2,10 @@ import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index'
 import { connections } from '../db/schema/index'
 import { encrypt, decrypt } from '../lib/crypto'
+import { logger } from '../lib/logger'
 import { mcpRegistry } from '../mcp/registry'
 
-import type { connectionTypeEnum } from '../db/schema/enums'
+import type { connectionTypeEnum, mcpStatusEnum } from '../db/schema/enums'
 
 export type CreateConnectionInput = {
   name: string
@@ -36,6 +37,25 @@ function maskConfig(configStr: string): Record<string, unknown> {
   }
 }
 
+async function updateMcpStatus(id: string, status: (typeof mcpStatusEnum.enumValues)[number], error?: string) {
+  await db.update(connections).set({
+    mcpStatus: status,
+    mcpError: error ?? null,
+  }).where(eq(connections.id, id))
+}
+
+function registerMcpAsync(connection: { id: string; name: string; type: string; config: Record<string, unknown> }) {
+  updateMcpStatus(connection.id, 'registering').then(() =>
+    mcpRegistry.register(connection)
+  ).then(() =>
+    updateMcpStatus(connection.id, 'registered')
+  ).catch((err) => {
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    logger.error({ err, connectionId: connection.id }, 'Async MCP registration failed')
+    updateMcpStatus(connection.id, 'error', errorMsg)
+  })
+}
+
 export const connectionService = {
   async list() {
     const data = await db.select().from(connections).orderBy(desc(connections.createdAt))
@@ -65,8 +85,8 @@ export const connectionService = {
       config: encryptedConfig,
     }).returning()
 
-    // Register MCP server for this connection
-    await mcpRegistry.register({
+    // Register MCP server asynchronously (fire-and-forget)
+    registerMcpAsync({
       id: row.id,
       name: row.name,
       type: row.type,
@@ -77,6 +97,16 @@ export const connectionService = {
   },
 
   async update(id: string, input: UpdateConnectionInput) {
+    // Merge config with existing if partial update
+    if (input.config) {
+      const [existing] = await db.select().from(connections).where(eq(connections.id, id))
+      if (existing) {
+        const existingConfig = JSON.parse(decrypt(existing.config))
+        const mergedConfig = { ...existingConfig, ...input.config }
+        input.config = mergedConfig
+      }
+    }
+
     const updateData: Record<string, unknown> = {}
     if (input.name) updateData.name = input.name
     if (input.status) updateData.status = input.status
@@ -85,11 +115,11 @@ export const connectionService = {
     const [row] = await db.update(connections).set(updateData).where(eq(connections.id, id)).returning()
     if (!row) return null
 
-    // Re-register MCP server if name or config changed
+    // Re-register MCP server asynchronously if name or config changed
     if (input.name || input.config) {
       const config = input.config ?? JSON.parse(decrypt(row.config)) as Record<string, unknown>
       await mcpRegistry.unregister(id)
-      await mcpRegistry.register({ id: row.id, name: row.name, type: row.type, config })
+      registerMcpAsync({ id: row.id, name: row.name, type: row.type, config })
     }
 
     return { ...row, config: maskConfig(row.config) }
@@ -107,6 +137,8 @@ export const connectionService = {
       lastTestedAt: new Date(),
     }).where(eq(connections.id, id))
   },
+
+  updateMcpStatus,
 
   async getAllActive() {
     return db.select().from(connections).where(eq(connections.status, 'connected'))
