@@ -122,3 +122,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ReactFlow Controls - separated buttons */
+.react-flow .react-flow__controls {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.react-flow .react-flow__controls-button {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--background) !important;
+  fill: var(--foreground) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05) !important;
+  transition: background 0.15s;
+}
+
+.react-flow .react-flow__controls-button:hover {
+  background: var(--accent) !important;
+}
+
+.react-flow .react-flow__controls-button svg {
+  fill: var(--foreground) !important;
+}

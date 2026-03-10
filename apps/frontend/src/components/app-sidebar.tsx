@@ -41,7 +41,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>主要</SidebarGroupLabel>
+
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNav.map((item) => (
@@ -62,7 +62,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>平台</SidebarGroupLabel>
+          <SidebarGroupLabel>Context</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {platformNav.map((item) => (
@@ -97,12 +97,12 @@ function SidebarHeaderContent() {
     <div className="flex items-center justify-between px-1 py-1">
       {state === 'expanded' ? (
         <>
-          <LogoFull className="h-6 w-auto" />
+          <LogoFull className="h-7 w-auto text-foreground" />
           <SidebarTrigger />
         </>
       ) : (
         <SidebarTrigger className="mx-auto">
-          <LogoIcon className="size-5" />
+          <LogoIcon className="size-5 text-foreground" />
         </SidebarTrigger>
       )}
     </div>

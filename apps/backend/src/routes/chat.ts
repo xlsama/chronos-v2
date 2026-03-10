@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { streamSSE } from 'hono/streaming'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod/v4'
 import { streamText, stepCountIs, tool, type ModelMessage } from 'ai'
@@ -10,6 +11,10 @@ import { runbookService } from '../services/runbook.service'
 import { skillService } from '../services/skill.service'
 import { connectionService } from '../services/connection.service'
 import { serviceMapService } from '../services/service-map.service'
+import { messageService } from '../services/message.service'
+import { publisher, redis, createSubscriber } from '../lib/redis'
+import { logger } from '../lib/logger'
+import { mcpRegistry } from '../mcp/registry'
 
 const SYSTEM_PROMPT = `# 身份
 
@@ -24,18 +29,32 @@ const SYSTEM_PROMPT = `# 身份
 - **updateIncidentStatus**：更新事件状态
 - **getServiceNeighbors**：查询服务上下游依赖
 
+# MCP 工具能力
+
+你可以通过 MCP 工具直接操作已接入的服务：
+- 数据库（MySQL/PostgreSQL）：执行 SQL、查看表结构、查看进程
+- 缓存（Redis）：执行命令、查看 INFO、搜索 keys
+- 日志（Elasticsearch）：搜索日志、查看索引、集群健康
+- 容器（Kubernetes）：查看 Pods/日志/事件、查看资源详情、在 Pod 中执行命令
+- 监控（Grafana/Prometheus）：查询指标、查看告警、搜索仪表盘
+
+工具名称格式: {服务名}_{操作}，先用 listConnections 查看可用服务。
+
 # 工作流程
 
 1. **分析事件**：阅读标题、描述、严重级别、来源
 2. **检索知识**：searchSkills + searchRunbooks（先看摘要，按需深入）
 3. **了解环境**：listConnections + getServiceNeighbors
-4. **执行修复**：获取完整 Skill/Runbook 内容，按步骤操作
-5. **生成 Runbook**：解决后沉淀为运行手册
+4. **诊断问题**：使用 MCP 工具查询数据库、日志、监控指标等
+5. **执行修复**：获取完整 Skill/Runbook 内容，按步骤操作
+6. **生成 Runbook**：解决后沉淀为运行手册
 
-# 原则
+# 操作原则
 
-- 先诊断后操作，避免盲目修复
-- 高风险操作前主动确认
+- 先只读诊断（SELECT/GET/查日志），再考虑写操作
+- 写操作前向用户说明影响并确认
+- DDL（DROP/ALTER/TRUNCATE）禁止执行
+- 如果现有工具无法完成诊断，告诉用户需要在哪台机器执行什么命令，请用户提供结果
 - 用中文回复用户`
 
 const openai = createOpenAI({
@@ -165,20 +184,106 @@ export const chatRoutes = new Hono()
       }),
     ),
     async (c) => {
-      const { messages } = c.req.valid('json')
+      const { messages, incidentId } = c.req.valid('json')
+      const threadId = c.req.valid('json').threadId ?? crypto.randomUUID()
+
+      // Save user message
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage?.role === 'user') {
+        await messageService.create({
+          threadId,
+          ...(incidentId && { incidentId }),
+          role: 'user',
+          content: lastMessage.content,
+        })
+      }
+
+      // Merge static tools with dynamic MCP tools
+      const mcpTools = mcpRegistry.getAllToolsAsAISDK()
+      const allTools = { ...chatTools, ...mcpTools }
 
       const result = streamText({
         model: openai(env.OPENAI_MODEL),
         system: SYSTEM_PROMPT,
         messages: messages as ModelMessage[],
-        tools: chatTools,
-        stopWhen: stepCountIs(10),
+        tools: allTools,
+        stopWhen: stepCountIs(50),
+        onFinish: async ({ text, steps }) => {
+          try {
+            await messageService.create({
+              threadId,
+              ...(incidentId && { incidentId }),
+              role: 'assistant',
+              content: text,
+              toolInvocations: steps.length > 0 ? steps : undefined,
+            })
+          } catch (err) {
+            logger.error(err, 'Failed to save assistant message')
+          }
+          await redis.del(`stream:active:${threadId}`).catch(() => {})
+        },
       })
 
-      return result.toTextStreamResponse()
+      // Mark stream as active
+      await redis.set(`stream:active:${threadId}`, '1', 'EX', 300)
+
+      // Get the text stream response and intercept for Redis publishing
+      const response = result.toTextStreamResponse()
+      const body = response.body!
+
+      const transform = new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          controller.enqueue(chunk)
+          const decoded = new TextDecoder().decode(chunk)
+          publisher.publish(`chat:${threadId}`, decoded)
+        },
+        flush() {
+          publisher.publish(`chat:${threadId}`, '[DONE]')
+        },
+      })
+
+      const headers = new Headers(response.headers)
+      headers.set('X-Thread-Id', threadId)
+
+      return new Response(body.pipeThrough(transform), { headers })
     },
   )
+  .get('/:threadId/subscribe', async (c) => {
+    const threadId = c.req.param('threadId')
+
+    const isActive = await redis.get(`stream:active:${threadId}`)
+    if (!isActive) {
+      return c.json({ error: 'No active stream for this thread' }, 404)
+    }
+
+    return streamSSE(c, async (stream) => {
+      const subscriber = createSubscriber()
+
+      await subscriber.subscribe(`chat:${threadId}`)
+
+      await new Promise<void>((resolve) => {
+        subscriber.on('message', async (_channel, message) => {
+          try {
+            if (message === '[DONE]') {
+              await stream.writeSSE({ data: '', event: 'done' })
+              resolve()
+              return
+            }
+            await stream.writeSSE({ data: message, event: 'chunk' })
+          } catch {
+            resolve()
+          }
+        })
+
+        stream.onAbort(() => resolve())
+      })
+
+      await subscriber.unsubscribe(`chat:${threadId}`).catch(() => {})
+      await subscriber.quit().catch(() => {})
+    })
+  })
   .get('/:threadId/messages', async (c) => {
-    // TODO: Implement message history storage
-    return c.json({ data: [] })
+    const threadId = c.req.param('threadId')
+    const data = await messageService.listByThreadId(threadId)
+    return c.json({ data })
   })

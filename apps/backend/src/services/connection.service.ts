@@ -2,6 +2,7 @@ import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index'
 import { connections } from '../db/schema/index'
 import { encrypt, decrypt } from '../lib/crypto'
+import { mcpRegistry } from '../mcp/registry'
 
 export type CreateConnectionInput = {
   name: string
@@ -61,6 +62,15 @@ export const connectionService = {
       type: input.type,
       config: encryptedConfig,
     }).returning()
+
+    // Register MCP server for this connection
+    await mcpRegistry.register({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      config: input.config,
+    })
+
     return { ...row, config: maskConfig(row.config) }
   },
 
@@ -72,10 +82,19 @@ export const connectionService = {
 
     const [row] = await db.update(connections).set(updateData).where(eq(connections.id, id)).returning()
     if (!row) return null
+
+    // Re-register MCP server if name or config changed
+    if (input.name || input.config) {
+      const config = input.config ?? JSON.parse(decrypt(row.config)) as Record<string, unknown>
+      await mcpRegistry.unregister(id)
+      await mcpRegistry.register({ id: row.id, name: row.name, type: row.type, config })
+    }
+
     return { ...row, config: maskConfig(row.config) }
   },
 
   async delete(id: string) {
+    await mcpRegistry.unregister(id)
     const [row] = await db.delete(connections).where(eq(connections.id, id)).returning()
     return row ?? null
   },
