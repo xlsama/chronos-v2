@@ -19,9 +19,7 @@ function InboxPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
 
-  const { data } = useQuery(
-    incidentQueries.list({ limit: PAGE_SIZE, offset: page * PAGE_SIZE })
-  );
+  const { data } = useQuery(incidentQueries.list({ limit: PAGE_SIZE, offset: page * PAGE_SIZE }));
 
   const items = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -30,7 +28,7 @@ function InboxPage() {
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">收件箱</h1>
+        <h1 className="text-xl font-medium tracking-tight">收件箱</h1>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="size-4" />
           创建事件
