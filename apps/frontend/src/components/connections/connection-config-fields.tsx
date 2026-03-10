@@ -30,6 +30,7 @@ export function ConnectionConfigFields({ type, config, onChange }: ConnectionCon
               onChange={(e) => handleChange(field.key, e.target.value)}
               rows={6}
               className="font-mono text-sm"
+              placeholder={field.placeholder}
             />
           ) : (
             <Input
@@ -37,7 +38,7 @@ export function ConnectionConfigFields({ type, config, onChange }: ConnectionCon
               type={field.type === 'password' ? 'password' : 'text'}
               value={config[field.key] ?? ''}
               onChange={(e) => handleChange(field.key, e.target.value)}
-              placeholder={field.type === 'number' ? '0' : ''}
+              placeholder={field.placeholder ?? (field.type === 'number' ? '0' : '')}
             />
           )}
         </div>

@@ -1,19 +1,13 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import type { Incident } from '@chronos/shared'
 import { Link } from '@tanstack/react-router'
-import { ArrowUpDown, Eye } from 'lucide-react'
+import { ArrowUpDown, MessageSquare } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-
-const severityConfig = {
-  critical: { label: 'Critical', className: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20' },
-  high: { label: 'High', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/20' },
-  medium: { label: 'Medium', className: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/20' },
-  low: { label: 'Low', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20' },
-} as const
+import { AlertContentCell } from './alert-content-cell'
 
 const statusConfig = {
   new: { label: '新建', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/20' },
@@ -24,46 +18,21 @@ const statusConfig = {
   closed: { label: '已关闭', className: 'bg-gray-500/15 text-gray-700 dark:text-gray-400 border-gray-500/20' },
 } as const
 
+const sourceConfig: Record<string, { label: string; className: string }> = {
+  webhook: { label: 'Webhook', className: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/20' },
+  manual: { label: '手动', className: 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border-teal-500/20' },
+}
+
 export const columns: ColumnDef<Incident>[] = [
   {
-    accessorKey: 'title',
-    header: '标题',
-    cell: ({ row }) => (
-      <Link
-        to="/inbox/$id"
-        params={{ id: row.original.id }}
-        className="font-medium hover:underline"
-      >
-        {row.getValue('title')}
-      </Link>
-    ),
-  },
-  {
-    accessorKey: 'severity',
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="-ml-3"
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        严重程度
-        <ArrowUpDown className="ml-1 size-3.5" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const severity = row.getValue('severity') as keyof typeof severityConfig
-      const config = severityConfig[severity]
-      return (
-        <Badge variant="outline" className={config.className}>
-          {config.label}
-        </Badge>
-      )
-    },
+    accessorKey: 'content',
+    header: '告警信息',
+    cell: ({ row }) => <AlertContentCell incident={row.original} />,
   },
   {
     accessorKey: 'status',
     header: '状态',
+    size: 100,
     cell: ({ row }) => {
       const status = row.getValue('status') as keyof typeof statusConfig
       const config = statusConfig[status]
@@ -77,12 +46,23 @@ export const columns: ColumnDef<Incident>[] = [
   {
     accessorKey: 'source',
     header: '来源',
-    cell: ({ row }) => (
-      <span className="text-muted-foreground">{row.getValue('source')}</span>
-    ),
+    size: 100,
+    cell: ({ row }) => {
+      const source = row.getValue('source') as string | null
+      const config = source ? sourceConfig[source] : null
+      if (config) {
+        return (
+          <Badge variant="outline" className={config.className}>
+            {config.label}
+          </Badge>
+        )
+      }
+      return <span className="text-muted-foreground">{source ?? '-'}</span>
+    },
   },
   {
     accessorKey: 'createdAt',
+    size: 120,
     header: ({ column }) => (
       <Button
         variant="ghost"
@@ -106,10 +86,11 @@ export const columns: ColumnDef<Incident>[] = [
   {
     id: 'actions',
     header: '',
+    size: 50,
     cell: ({ row }) => (
       <Button variant="ghost" size="icon-sm" asChild>
         <Link to="/inbox/$id" params={{ id: row.original.id }}>
-          <Eye className="size-4" />
+          <MessageSquare className="size-4" />
         </Link>
       </Button>
     ),

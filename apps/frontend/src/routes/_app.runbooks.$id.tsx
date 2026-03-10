@@ -1,17 +1,17 @@
-import { useCallback, useRef, useState } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
-import { useDebounceFn } from 'ahooks'
+import { useCallback, useRef, useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowLeft, Save, Trash2 } from "lucide-react";
+import { useDebounceFn } from "ahooks";
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Spinner } from '@/components/ui/spinner'
-import { RunbookEditor } from '@/components/runbooks/runbook-editor'
-import { runbookQueries, useUpdateRunbook, useDeleteRunbook } from '@/lib/queries/runbooks'
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { RunbookEditor } from "@/components/runbooks/runbook-editor";
+import { runbookQueries, useUpdateRunbook, useDeleteRunbook } from "@/lib/queries/runbooks";
 
-export const Route = createFileRoute('/_app/runbooks/$id')({
+export const Route = createFileRoute("/_app/runbooks/$id")({
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(runbookQueries.detail(params.id)),
   pendingComponent: () => (
@@ -20,44 +20,44 @@ export const Route = createFileRoute('/_app/runbooks/$id')({
     </div>
   ),
   component: RunbookEditPage,
-})
+});
 
 function RunbookEditPage() {
-  const { id } = Route.useParams()
-  const navigate = Route.useNavigate()
-  const { data: runbook } = useSuspenseQuery(runbookQueries.detail(id))
+  const { id } = Route.useParams();
+  const navigate = Route.useNavigate();
+  const { data: runbook } = useSuspenseQuery(runbookQueries.detail(id));
 
-  const [title, setTitle] = useState(runbook.title)
-  const [tagsInput, setTagsInput] = useState(runbook.tags.join(', '))
-  const contentRef = useRef(runbook.content)
+  const [title, setTitle] = useState(runbook.title);
+  const [tagsInput, setTagsInput] = useState(runbook.tags.join(", "));
+  const contentRef = useRef(runbook.content);
 
-  const updateMutation = useUpdateRunbook()
-  const deleteMutation = useDeleteRunbook()
+  const updateMutation = useUpdateRunbook();
+  const deleteMutation = useDeleteRunbook();
 
   const handleContentChange = useCallback((markdown: string) => {
-    contentRef.current = markdown
-  }, [])
+    contentRef.current = markdown;
+  }, []);
 
   const { run: handleSave } = useDebounceFn(
     () => {
       const tags = tagsInput
-        .split(',')
+        .split(",")
         .map((t) => t.trim())
-        .filter(Boolean)
+        .filter(Boolean);
 
       updateMutation.mutate({
         id,
         data: { title, content: contentRef.current, tags },
-      })
+      });
     },
     { wait: 300 },
-  )
+  );
 
   const handleDelete = () => {
     deleteMutation.mutate(id, {
-      onSuccess: () => navigate({ to: '/runbooks' }),
-    })
-  }
+      onSuccess: () => navigate({ to: "/runbooks" }),
+    });
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -71,7 +71,7 @@ function RunbookEditPage() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="max-w-sm border-none text-lg font-semibold shadow-none focus-visible:ring-0"
-          placeholder="运行手册标题"
+          placeholder="Runbook 标题"
         />
         <div className="flex items-center gap-1">
           {runbook.tags.map((tag) => (
@@ -88,7 +88,7 @@ function RunbookEditPage() {
         />
         <Button onClick={handleSave} disabled={updateMutation.isPending} size="sm">
           <Save className="mr-2 size-4" />
-          {updateMutation.isPending ? '保存中...' : '保存'}
+          {updateMutation.isPending ? "保存中..." : "保存"}
         </Button>
         <Button
           variant="destructive"
@@ -104,5 +104,5 @@ function RunbookEditPage() {
         <RunbookEditor initialContent={runbook.content} onChange={handleContentChange} />
       </div>
     </div>
-  )
+  );
 }

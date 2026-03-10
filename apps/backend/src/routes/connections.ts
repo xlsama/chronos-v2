@@ -11,7 +11,7 @@ export const connectionRoutes = new Hono()
   })
   .post('/', zValidator('json', z.object({
     name: z.string().min(1),
-    type: z.enum(['mysql', 'postgresql', 'redis', 'grafana', 'elasticsearch', 'kubernetes', 'prometheus']),
+    type: z.enum(['mysql', 'postgresql', 'redis', 'mongodb', 'clickhouse', 'elasticsearch', 'kafka', 'rabbitmq', 'kubernetes', 'docker', 'argocd', 'grafana', 'prometheus', 'sentry', 'jenkins']),
     config: z.record(z.string(), z.unknown()),
   })), async (c) => {
     const input = c.req.valid('json')

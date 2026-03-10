@@ -4,9 +4,11 @@ import { connections } from '../db/schema/index'
 import { encrypt, decrypt } from '../lib/crypto'
 import { mcpRegistry } from '../mcp/registry'
 
+import type { connectionTypeEnum } from '../db/schema/enums'
+
 export type CreateConnectionInput = {
   name: string
-  type: 'mysql' | 'postgresql' | 'redis' | 'grafana' | 'elasticsearch' | 'kubernetes' | 'prometheus'
+  type: (typeof connectionTypeEnum.enumValues)[number]
   config: Record<string, unknown>
 }
 

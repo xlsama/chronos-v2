@@ -19,6 +19,10 @@ import { Route as AppInboxIndexRouteImport } from './routes/_app.inbox.index'
 import { Route as AppConnectionsIndexRouteImport } from './routes/_app.connections.index'
 import { Route as AppRunbooksIdRouteImport } from './routes/_app.runbooks.$id'
 import { Route as AppInboxIdRouteImport } from './routes/_app.inbox.$id'
+import { Route as AppConnectionsCreateRouteImport } from './routes/_app.connections.create'
+import { Route as AppConnectionsCreateIndexRouteImport } from './routes/_app.connections.create.index'
+import { Route as AppConnectionsCreateTypeRouteImport } from './routes/_app.connections.create.$type'
+import { Route as AppConnectionsIdEditRouteImport } from './routes/_app.connections.$id.edit'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -69,17 +73,43 @@ const AppInboxIdRoute = AppInboxIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppInboxRoute,
 } as any)
+const AppConnectionsCreateRoute = AppConnectionsCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => AppConnectionsRoute,
+} as any)
+const AppConnectionsCreateIndexRoute =
+  AppConnectionsCreateIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppConnectionsCreateRoute,
+  } as any)
+const AppConnectionsCreateTypeRoute =
+  AppConnectionsCreateTypeRouteImport.update({
+    id: '/$type',
+    path: '/$type',
+    getParentRoute: () => AppConnectionsCreateRoute,
+  } as any)
+const AppConnectionsIdEditRoute = AppConnectionsIdEditRouteImport.update({
+  id: '/$id/edit',
+  path: '/$id/edit',
+  getParentRoute: () => AppConnectionsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/connections': typeof AppConnectionsRouteWithChildren
   '/inbox': typeof AppInboxRouteWithChildren
   '/runbooks': typeof AppRunbooksRouteWithChildren
+  '/connections/create': typeof AppConnectionsCreateRouteWithChildren
   '/inbox/$id': typeof AppInboxIdRoute
   '/runbooks/$id': typeof AppRunbooksIdRoute
   '/connections/': typeof AppConnectionsIndexRoute
   '/inbox/': typeof AppInboxIndexRoute
   '/runbooks/': typeof AppRunbooksIndexRoute
+  '/connections/$id/edit': typeof AppConnectionsIdEditRoute
+  '/connections/create/$type': typeof AppConnectionsCreateTypeRoute
+  '/connections/create/': typeof AppConnectionsCreateIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -88,6 +118,9 @@ export interface FileRoutesByTo {
   '/connections': typeof AppConnectionsIndexRoute
   '/inbox': typeof AppInboxIndexRoute
   '/runbooks': typeof AppRunbooksIndexRoute
+  '/connections/$id/edit': typeof AppConnectionsIdEditRoute
+  '/connections/create/$type': typeof AppConnectionsCreateTypeRoute
+  '/connections/create': typeof AppConnectionsCreateIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,11 +129,15 @@ export interface FileRoutesById {
   '/_app/inbox': typeof AppInboxRouteWithChildren
   '/_app/runbooks': typeof AppRunbooksRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/connections/create': typeof AppConnectionsCreateRouteWithChildren
   '/_app/inbox/$id': typeof AppInboxIdRoute
   '/_app/runbooks/$id': typeof AppRunbooksIdRoute
   '/_app/connections/': typeof AppConnectionsIndexRoute
   '/_app/inbox/': typeof AppInboxIndexRoute
   '/_app/runbooks/': typeof AppRunbooksIndexRoute
+  '/_app/connections/$id/edit': typeof AppConnectionsIdEditRoute
+  '/_app/connections/create/$type': typeof AppConnectionsCreateTypeRoute
+  '/_app/connections/create/': typeof AppConnectionsCreateIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -109,11 +146,15 @@ export interface FileRouteTypes {
     | '/connections'
     | '/inbox'
     | '/runbooks'
+    | '/connections/create'
     | '/inbox/$id'
     | '/runbooks/$id'
     | '/connections/'
     | '/inbox/'
     | '/runbooks/'
+    | '/connections/$id/edit'
+    | '/connections/create/$type'
+    | '/connections/create/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +163,9 @@ export interface FileRouteTypes {
     | '/connections'
     | '/inbox'
     | '/runbooks'
+    | '/connections/$id/edit'
+    | '/connections/create/$type'
+    | '/connections/create'
   id:
     | '__root__'
     | '/_app'
@@ -129,11 +173,15 @@ export interface FileRouteTypes {
     | '/_app/inbox'
     | '/_app/runbooks'
     | '/_app/'
+    | '/_app/connections/create'
     | '/_app/inbox/$id'
     | '/_app/runbooks/$id'
     | '/_app/connections/'
     | '/_app/inbox/'
     | '/_app/runbooks/'
+    | '/_app/connections/$id/edit'
+    | '/_app/connections/create/$type'
+    | '/_app/connections/create/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -212,15 +260,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInboxIdRouteImport
       parentRoute: typeof AppInboxRoute
     }
+    '/_app/connections/create': {
+      id: '/_app/connections/create'
+      path: '/create'
+      fullPath: '/connections/create'
+      preLoaderRoute: typeof AppConnectionsCreateRouteImport
+      parentRoute: typeof AppConnectionsRoute
+    }
+    '/_app/connections/create/': {
+      id: '/_app/connections/create/'
+      path: '/'
+      fullPath: '/connections/create/'
+      preLoaderRoute: typeof AppConnectionsCreateIndexRouteImport
+      parentRoute: typeof AppConnectionsCreateRoute
+    }
+    '/_app/connections/create/$type': {
+      id: '/_app/connections/create/$type'
+      path: '/$type'
+      fullPath: '/connections/create/$type'
+      preLoaderRoute: typeof AppConnectionsCreateTypeRouteImport
+      parentRoute: typeof AppConnectionsCreateRoute
+    }
+    '/_app/connections/$id/edit': {
+      id: '/_app/connections/$id/edit'
+      path: '/$id/edit'
+      fullPath: '/connections/$id/edit'
+      preLoaderRoute: typeof AppConnectionsIdEditRouteImport
+      parentRoute: typeof AppConnectionsRoute
+    }
   }
 }
 
+interface AppConnectionsCreateRouteChildren {
+  AppConnectionsCreateTypeRoute: typeof AppConnectionsCreateTypeRoute
+  AppConnectionsCreateIndexRoute: typeof AppConnectionsCreateIndexRoute
+}
+
+const AppConnectionsCreateRouteChildren: AppConnectionsCreateRouteChildren = {
+  AppConnectionsCreateTypeRoute: AppConnectionsCreateTypeRoute,
+  AppConnectionsCreateIndexRoute: AppConnectionsCreateIndexRoute,
+}
+
+const AppConnectionsCreateRouteWithChildren =
+  AppConnectionsCreateRoute._addFileChildren(AppConnectionsCreateRouteChildren)
+
 interface AppConnectionsRouteChildren {
+  AppConnectionsCreateRoute: typeof AppConnectionsCreateRouteWithChildren
   AppConnectionsIndexRoute: typeof AppConnectionsIndexRoute
+  AppConnectionsIdEditRoute: typeof AppConnectionsIdEditRoute
 }
 
 const AppConnectionsRouteChildren: AppConnectionsRouteChildren = {
+  AppConnectionsCreateRoute: AppConnectionsCreateRouteWithChildren,
   AppConnectionsIndexRoute: AppConnectionsIndexRoute,
+  AppConnectionsIdEditRoute: AppConnectionsIdEditRoute,
 }
 
 const AppConnectionsRouteWithChildren = AppConnectionsRoute._addFileChildren(

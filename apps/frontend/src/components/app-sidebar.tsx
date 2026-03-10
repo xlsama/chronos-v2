@@ -1,9 +1,5 @@
-import {
-  BookOpen,
-  Cable,
-  Inbox,
-} from 'lucide-react'
-import { Link, useLocation } from '@tanstack/react-router'
+import { BookOpen, Cable, Inbox } from "lucide-react";
+import { Link, useLocation } from "@tanstack/react-router";
 
 import {
   Sidebar,
@@ -18,21 +14,19 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
   useSidebar,
-} from '@/components/ui/sidebar'
-import { NavUser } from '@/components/sidebar/nav-user'
-import { LogoFull, LogoIcon } from '@/components/logo'
+} from "@/components/ui/sidebar";
+import { NavUser } from "@/components/sidebar/nav-user";
+import { LogoFull, LogoIcon } from "@/components/logo";
 
-const mainNav = [
-  { title: '收件箱', icon: Inbox, to: '/inbox' as const },
-]
+const mainNav = [{ title: "收件箱", icon: Inbox, to: "/inbox" as const }];
 
 const platformNav = [
-  { title: '连接', icon: Cable, to: '/connections' as const },
-  { title: '运行手册', icon: BookOpen, to: '/runbooks' as const },
-]
+  { title: "连接", icon: Cable, to: "/connections" as const },
+  { title: "Runbook", icon: BookOpen, to: "/runbooks" as const },
+];
 
 export function AppSidebar() {
-  const { pathname } = useLocation()
+  const { pathname } = useLocation();
 
   return (
     <Sidebar collapsible="icon">
@@ -41,14 +35,13 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.to || pathname.startsWith(item.to + '/')}
+                    isActive={pathname === item.to || pathname.startsWith(item.to + "/")}
                     tooltip={item.title}
                   >
                     <Link to={item.to}>
@@ -69,7 +62,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.to || pathname.startsWith(item.to + '/')}
+                    isActive={pathname === item.to || pathname.startsWith(item.to + "/")}
                     tooltip={item.title}
                   >
                     <Link to={item.to}>
@@ -87,17 +80,19 @@ export function AppSidebar() {
         <NavUser />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
 
 function SidebarHeaderContent() {
-  const { state } = useSidebar()
+  const { state } = useSidebar();
 
   return (
     <div className="flex items-center justify-between px-1 py-1">
-      {state === 'expanded' ? (
+      {state === "expanded" ? (
         <>
-          <LogoFull className="h-7 w-auto text-foreground" />
+          <Link to="/inbox">
+            <LogoFull className="h-7 w-auto text-foreground" />
+          </Link>
           <SidebarTrigger />
         </>
       ) : (
@@ -106,5 +101,5 @@ function SidebarHeaderContent() {
         </SidebarTrigger>
       )}
     </div>
-  )
+  );
 }

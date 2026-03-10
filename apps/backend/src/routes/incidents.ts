@@ -3,29 +3,40 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod/v4'
 import { incidentService } from '../services/incident.service'
 import { AppError } from '../lib/errors'
+import { triggerAgentForIncident } from '../lib/agent-trigger'
+import { generateIncidentSummary } from '../lib/generate-summary'
+import { logger } from '../lib/logger'
+
+const attachmentSchema = z.object({
+  type: z.enum(['image', 'file']),
+  url: z.string(),
+  name: z.string(),
+  mimeType: z.string(),
+})
 
 export const incidentRoutes = new Hono()
   .get('/', zValidator('query', z.object({
     status: z.string().optional(),
-    severity: z.string().optional(),
     limit: z.coerce.number().optional(),
     offset: z.coerce.number().optional(),
   })), async (c) => {
     const query = c.req.valid('query')
-    const data = await incidentService.list(query)
-    return c.json({ data })
+    const { items, total } = await incidentService.list(query)
+    return c.json({ data: items, total })
   })
   .post('/', zValidator('json', z.object({
-    title: z.string().min(1),
-    description: z.string().optional(),
-    source: z.string().optional(),
-    sourceId: z.string().optional(),
-    severity: z.enum(['critical', 'high', 'medium', 'low']).optional(),
-    category: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
+    content: z.string().min(1),
+    attachments: z.array(attachmentSchema).optional(),
   })), async (c) => {
     const input = c.req.valid('json')
-    const incident = await incidentService.create(input)
+    const incident = await incidentService.create({
+      content: input.content,
+      attachments: input.attachments ?? null,
+      source: 'manual',
+    })
+    // fire-and-forget: async summary + agent trigger
+    generateAndUpdateSummary(incident.id, input.content, input.attachments ?? null)
+    triggerAgentForIncident(incident)
     return c.json({ data: incident }, 201)
   })
   .get('/:id', async (c) => {
@@ -34,17 +45,23 @@ export const incidentRoutes = new Hono()
     return c.json({ data: incident })
   })
   .patch('/:id', zValidator('json', z.object({
-    title: z.string().optional(),
-    description: z.string().optional(),
-    severity: z.enum(['critical', 'high', 'medium', 'low']).optional(),
     status: z.enum(['new', 'triaging', 'in_progress', 'waiting_human', 'resolved', 'closed']).optional(),
     processingMode: z.enum(['automatic', 'semi_automatic']).nullable().optional(),
-    category: z.string().optional(),
     threadId: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
   })), async (c) => {
     const input = c.req.valid('json')
     const incident = await incidentService.update(c.req.param('id'), input)
     if (!incident) throw new AppError(404, 'Incident not found')
     return c.json({ data: incident })
   })
+
+type Attachment = { type: 'image' | 'file'; url: string; name: string; mimeType: string }
+
+export async function generateAndUpdateSummary(id: string, content: string, attachments: Attachment[] | null) {
+  try {
+    const summary = await generateIncidentSummary(content, attachments)
+    if (summary) await incidentService.update(id, { summary })
+  } catch (err) {
+    logger.warn({ err, incidentId: id }, 'Failed to generate summary')
+  }
+}

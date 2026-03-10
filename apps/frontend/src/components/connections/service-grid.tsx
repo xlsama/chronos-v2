@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { Plus, Search } from 'lucide-react'
 import type { Connection } from '@chronos/shared'
 
@@ -12,7 +13,6 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { ServiceCard } from './service-card'
-import { ConnectionFormDialog } from './connection-form-dialog'
 import { useTestConnection } from '@/lib/queries/connections'
 
 interface ServiceGridProps {
@@ -21,8 +21,6 @@ interface ServiceGridProps {
 
 export function ServiceGrid({ connections }: ServiceGridProps) {
   const [search, setSearch] = useState('')
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingConnection, setEditingConnection] = useState<Connection | null>(null)
   const testMutation = useTestConnection()
 
   const filtered = useMemo(() => {
@@ -32,16 +30,6 @@ export function ServiceGrid({ connections }: ServiceGridProps) {
       (c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q),
     )
   }, [connections, search])
-
-  const handleEdit = (connection: Connection) => {
-    setEditingConnection(connection)
-    setDialogOpen(true)
-  }
-
-  const handleAdd = () => {
-    setEditingConnection(null)
-    setDialogOpen(true)
-  }
 
   return (
     <>
@@ -55,9 +43,11 @@ export function ServiceGrid({ connections }: ServiceGridProps) {
             className="pl-9"
           />
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="size-4" />
-          添加服务
+        <Button asChild>
+          <Link to="/connections/create">
+            <Plus className="size-4" />
+            添加服务
+          </Link>
         </Button>
       </div>
 
@@ -79,19 +69,12 @@ export function ServiceGrid({ connections }: ServiceGridProps) {
             <ServiceCard
               key={connection.id}
               connection={connection}
-              onEdit={handleEdit}
               onTest={(id) => testMutation.mutate(id)}
               isTesting={testMutation.isPending && testMutation.variables === connection.id}
             />
           ))}
         </div>
       )}
-
-      <ConnectionFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        connection={editingConnection}
-      />
     </>
   )
 }

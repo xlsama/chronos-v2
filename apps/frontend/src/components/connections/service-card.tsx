@@ -1,31 +1,12 @@
-import type { Connection, ConnectionType } from '@chronos/shared'
-import {
-  Activity,
-  BarChart3,
-  Container,
-  Database,
-  Pencil,
-  Search,
-  TestTube,
-} from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import type { Connection } from '@chronos/shared'
+import { Pencil, TestTube } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-
-const serviceTypeConfig: Record<
-  ConnectionType,
-  { label: string; icon: typeof Database; color: string }
-> = {
-  mysql: { label: 'MySQL', icon: Database, color: 'text-blue-500' },
-  postgresql: { label: 'PostgreSQL', icon: Database, color: 'text-sky-600' },
-  redis: { label: 'Redis', icon: Database, color: 'text-red-500' },
-  grafana: { label: 'Grafana', icon: BarChart3, color: 'text-orange-500' },
-  elasticsearch: { label: 'Elasticsearch', icon: Search, color: 'text-yellow-500' },
-  kubernetes: { label: 'Kubernetes', icon: Container, color: 'text-blue-600' },
-  prometheus: { label: 'Prometheus', icon: Activity, color: 'text-orange-600' },
-}
+import { getConnectionMeta } from '@/lib/constants/connection-types'
 
 const statusConfig = {
   connected: { label: '已连接', className: 'bg-green-500' },
@@ -35,20 +16,19 @@ const statusConfig = {
 
 interface ServiceCardProps {
   connection: Connection
-  onEdit: (connection: Connection) => void
   onTest: (id: string) => void
   isTesting?: boolean
 }
 
-export function ServiceCard({ connection, onEdit, onTest, isTesting }: ServiceCardProps) {
-  const typeConfig = serviceTypeConfig[connection.type]
+export function ServiceCard({ connection, onTest, isTesting }: ServiceCardProps) {
+  const meta = getConnectionMeta(connection.type)
   const status = statusConfig[connection.status]
-  const Icon = typeConfig.icon
+  const Icon = meta.icon
 
   return (
     <Card className="transition-shadow hover:shadow-md">
       <CardContent className="flex items-center gap-4 p-4">
-        <div className={cn('rounded-lg bg-muted p-2.5', typeConfig.color)}>
+        <div className={cn('rounded-lg bg-muted p-2.5', meta.color)}>
           <Icon className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -58,7 +38,7 @@ export function ServiceCard({ connection, onEdit, onTest, isTesting }: ServiceCa
           </div>
           <div className="mt-1">
             <Badge variant="secondary" className="text-xs">
-              {typeConfig.label}
+              {meta.label}
             </Badge>
           </div>
         </div>
@@ -76,14 +56,14 @@ export function ServiceCard({ connection, onEdit, onTest, isTesting }: ServiceCa
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => onEdit(connection)}
+            asChild
           >
-            <Pencil className="size-4" />
+            <Link to="/connections/$id/edit" params={{ id: connection.id }}>
+              <Pencil className="size-4" />
+            </Link>
           </Button>
         </div>
       </CardContent>
     </Card>
   )
 }
-
-export { serviceTypeConfig }

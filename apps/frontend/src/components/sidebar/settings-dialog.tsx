@@ -15,11 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSettingsStore } from "@/stores/settings";
 import { cn } from "@/lib/utils";
 import { client } from "@/lib/api";
@@ -61,7 +57,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </button>
             ))}
           </nav>
-          <ScrollArea className="flex-1 p-6">
+          <ScrollArea className="flex-1 p-5 pt-2">
             {activeTab === "notifications" && <NotificationSettings />}
           </ScrollArea>
         </div>

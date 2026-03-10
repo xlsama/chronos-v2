@@ -1,22 +1,21 @@
-import type {
-  IncidentSeverity,
-  IncidentStatus,
-  MessageRole,
-  ProcessingMode,
-} from "./enums";
+import type { IncidentStatus, MessageRole, ProcessingMode } from "./enums";
+
+export interface Attachment {
+  type: "image" | "file";
+  url: string;
+  name: string;
+  mimeType: string;
+}
 
 export interface Incident {
   id: string;
-  title: string;
-  description: string | null;
+  content: string;
+  summary: string | null;
+  attachments: Attachment[] | null;
   source: string | null;
-  sourceId: string | null;
-  severity: IncidentSeverity;
   status: IncidentStatus;
   processingMode: ProcessingMode | null;
-  category: string | null;
   threadId: string | null;
-  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }

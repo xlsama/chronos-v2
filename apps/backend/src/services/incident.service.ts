@@ -1,45 +1,39 @@
-import { eq, desc, and, SQL } from 'drizzle-orm'
+import { eq, desc, and, count, SQL } from 'drizzle-orm'
 import { db } from '../db/index'
 import { incidents } from '../db/schema/index'
 
 export type CreateIncidentInput = {
-  title: string
-  description?: string
+  content: string
+  attachments?: { type: 'image' | 'file'; url: string; name: string; mimeType: string }[] | null
   source?: string
-  sourceId?: string
-  severity?: 'critical' | 'high' | 'medium' | 'low'
-  category?: string
-  metadata?: Record<string, unknown>
+  summary?: string | null
 }
 
 export type UpdateIncidentInput = {
-  title?: string
-  description?: string
-  severity?: 'critical' | 'high' | 'medium' | 'low'
   status?: 'new' | 'triaging' | 'in_progress' | 'waiting_human' | 'resolved' | 'closed'
   processingMode?: 'automatic' | 'semi_automatic' | null
-  category?: string
   threadId?: string
-  metadata?: Record<string, unknown>
+  summary?: string | null
 }
 
 export type ListIncidentsQuery = {
   status?: string
-  severity?: string
   limit?: number
   offset?: number
 }
 
 export const incidentService = {
   async list(query: ListIncidentsQuery = {}) {
-    const { status, severity, limit = 50, offset = 0 } = query
+    const { status, limit = 50, offset = 0 } = query
     const conditions: SQL[] = []
     if (status) conditions.push(eq(incidents.status, status as any))
-    if (severity) conditions.push(eq(incidents.severity, severity as any))
 
     const where = conditions.length > 0 ? and(...conditions) : undefined
-    const data = await db.select().from(incidents).where(where).orderBy(desc(incidents.createdAt)).limit(limit).offset(offset)
-    return data
+    const [items, [{ total }]] = await Promise.all([
+      db.select().from(incidents).where(where).orderBy(desc(incidents.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(incidents).where(where),
+    ])
+    return { items, total }
   },
 
   async getById(id: string) {

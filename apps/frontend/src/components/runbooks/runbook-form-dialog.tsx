@@ -1,56 +1,56 @@
-import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 
-import { Button } from '@/components/ui/button'
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useCreateRunbook } from '@/lib/queries/runbooks'
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useCreateRunbook } from "@/lib/queries/runbooks";
 
 interface RunbookFormDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function RunbookFormDialog({ open, onOpenChange }: RunbookFormDialogProps) {
-  const [title, setTitle] = useState('')
-  const [tagsInput, setTagsInput] = useState('')
-  const navigate = useNavigate()
-  const createMutation = useCreateRunbook()
+  const [title, setTitle] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const navigate = useNavigate();
+  const createMutation = useCreateRunbook();
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!title.trim()) return
+    e.preventDefault();
+    if (!title.trim()) return;
 
     const tags = tagsInput
-      .split(',')
+      .split(",")
       .map((t) => t.trim())
-      .filter(Boolean)
+      .filter(Boolean);
 
     createMutation.mutate(
-      { title: title.trim(), content: '', tags },
+      { title: title.trim(), content: "", tags },
       {
         onSuccess: (runbook) => {
-          onOpenChange(false)
-          setTitle('')
-          setTagsInput('')
-          navigate({ to: '/runbooks/$id', params: { id: runbook.id } })
+          onOpenChange(false);
+          setTitle("");
+          setTagsInput("");
+          navigate({ to: "/runbooks/$id", params: { id: runbook.id } });
         },
       },
-    )
-  }
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>新建运行手册</DialogTitle>
+          <DialogTitle>新建 Runbook</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-1.5">
@@ -59,7 +59,7 @@ export function RunbookFormDialog({ open, onOpenChange }: RunbookFormDialogProps
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="例如: MySQL 主从切换手册"
+              placeholder="例如: MySQL 主从切换 Runbook"
             />
           </div>
           <div className="grid gap-1.5">
@@ -76,11 +76,11 @@ export function RunbookFormDialog({ open, onOpenChange }: RunbookFormDialogProps
               取消
             </Button>
             <Button type="submit" disabled={createMutation.isPending || !title.trim()}>
-              {createMutation.isPending ? '创建中...' : '创建'}
+              {createMutation.isPending ? "创建中..." : "创建"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

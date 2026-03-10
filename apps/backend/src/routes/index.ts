@@ -5,6 +5,8 @@ import { runbookRoutes } from './runbooks'
 import { skillRoutes } from './skills'
 import { connectionRoutes } from './connections'
 import { serviceMapRoutes } from './service-maps'
+import { webhookRoutes } from './webhooks'
+import { uploadRoutes } from './upload'
 
 export const apiRoutes = new Hono()
   .route('/api/incidents', incidentRoutes)
@@ -13,5 +15,7 @@ export const apiRoutes = new Hono()
   .route('/api/skills', skillRoutes)
   .route('/api/connections', connectionRoutes)
   .route('/api/service-maps', serviceMapRoutes)
+  .route('/api/webhooks', webhookRoutes)
+  .route('/api', uploadRoutes)
 
 export type AppType = typeof apiRoutes

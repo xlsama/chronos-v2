@@ -1,21 +1,20 @@
-import type { z } from 'zod'
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import type { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
-export interface MCPTool {
-  description: string
-  parameters: z.ZodSchema
-  execute: (input: any) => Promise<unknown>
+export interface MCPSpawnConfig {
+  command: string
+  args: string[]
+  env: Record<string, string>
 }
 
-export interface MCPServer {
+export type SpawnConfigBuilder = (config: Record<string, unknown>) => MCPSpawnConfig
+
+export interface MCPClientConnection {
   connectionId: string
   connectionName: string
   connectionType: string
-  tools: Record<string, MCPTool>
+  client: Client
+  transport: StdioClientTransport
+  tools: { name: string; description?: string; inputSchema: Record<string, unknown> }[]
   dispose: () => Promise<void>
 }
-
-export type MCPFactory = (connection: {
-  id: string
-  name: string
-  config: Record<string, unknown>
-}) => Promise<MCPServer>

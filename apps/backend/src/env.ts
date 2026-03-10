@@ -9,9 +9,11 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string(),
   OPENAI_BASE_URL: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o'),
+  OPENAI_MODEL_MINI: z.string().default('qwen3.5-flash'),
   LOG_LEVEL: z.string().default('info'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   CORS_ORIGIN: z.string().default('*'),
+  UPLOAD_DIR: z.string().default('./uploads'),
 })
 
 export const env = envSchema.parse(process.env)

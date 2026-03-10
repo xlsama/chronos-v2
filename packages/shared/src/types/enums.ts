@@ -1,6 +1,4 @@
 // ── Incident ────────────────────────────────────────────────
-export type IncidentSeverity = "critical" | "high" | "medium" | "low";
-
 export type IncidentStatus =
   | "new"
   | "triaging"
@@ -19,9 +17,17 @@ export type ConnectionType =
   | "mysql"
   | "postgresql"
   | "redis"
-  | "grafana"
+  | "mongodb"
+  | "clickhouse"
   | "elasticsearch"
+  | "kafka"
+  | "rabbitmq"
   | "kubernetes"
-  | "prometheus";
+  | "docker"
+  | "argocd"
+  | "grafana"
+  | "prometheus"
+  | "sentry"
+  | "jenkins";
 
 export type ConnectionStatus = "connected" | "disconnected" | "error";
