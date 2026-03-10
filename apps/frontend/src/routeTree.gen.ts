@@ -11,8 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppRunbooksRouteImport } from './routes/_app.runbooks'
 import { Route as AppInboxRouteImport } from './routes/_app.inbox'
+import { Route as AppConnectionsRouteImport } from './routes/_app.connections'
+import { Route as AppRunbooksIndexRouteImport } from './routes/_app.runbooks.index'
 import { Route as AppInboxIndexRouteImport } from './routes/_app.inbox.index'
+import { Route as AppConnectionsIndexRouteImport } from './routes/_app.connections.index'
+import { Route as AppRunbooksIdRouteImport } from './routes/_app.runbooks.$id'
 import { Route as AppInboxIdRouteImport } from './routes/_app.inbox.$id'
 
 const AppRoute = AppRouteImport.update({
@@ -24,15 +29,40 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRunbooksRoute = AppRunbooksRouteImport.update({
+  id: '/runbooks',
+  path: '/runbooks',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
   getParentRoute: () => AppRoute,
 } as any)
+const AppConnectionsRoute = AppConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRunbooksIndexRoute = AppRunbooksIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRunbooksRoute,
+} as any)
 const AppInboxIndexRoute = AppInboxIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppInboxRoute,
+} as any)
+const AppConnectionsIndexRoute = AppConnectionsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppConnectionsRoute,
+} as any)
+const AppRunbooksIdRoute = AppRunbooksIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppRunbooksRoute,
 } as any)
 const AppInboxIdRoute = AppInboxIdRouteImport.update({
   id: '/$id',
@@ -42,35 +72,68 @@ const AppInboxIdRoute = AppInboxIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/connections': typeof AppConnectionsRouteWithChildren
   '/inbox': typeof AppInboxRouteWithChildren
+  '/runbooks': typeof AppRunbooksRouteWithChildren
   '/inbox/$id': typeof AppInboxIdRoute
+  '/runbooks/$id': typeof AppRunbooksIdRoute
+  '/connections/': typeof AppConnectionsIndexRoute
   '/inbox/': typeof AppInboxIndexRoute
+  '/runbooks/': typeof AppRunbooksIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/inbox/$id': typeof AppInboxIdRoute
+  '/runbooks/$id': typeof AppRunbooksIdRoute
+  '/connections': typeof AppConnectionsIndexRoute
   '/inbox': typeof AppInboxIndexRoute
+  '/runbooks': typeof AppRunbooksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/_app/connections': typeof AppConnectionsRouteWithChildren
   '/_app/inbox': typeof AppInboxRouteWithChildren
+  '/_app/runbooks': typeof AppRunbooksRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/inbox/$id': typeof AppInboxIdRoute
+  '/_app/runbooks/$id': typeof AppRunbooksIdRoute
+  '/_app/connections/': typeof AppConnectionsIndexRoute
   '/_app/inbox/': typeof AppInboxIndexRoute
+  '/_app/runbooks/': typeof AppRunbooksIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/inbox' | '/inbox/$id' | '/inbox/'
+  fullPaths:
+    | '/'
+    | '/connections'
+    | '/inbox'
+    | '/runbooks'
+    | '/inbox/$id'
+    | '/runbooks/$id'
+    | '/connections/'
+    | '/inbox/'
+    | '/runbooks/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inbox/$id' | '/inbox'
+  to:
+    | '/'
+    | '/inbox/$id'
+    | '/runbooks/$id'
+    | '/connections'
+    | '/inbox'
+    | '/runbooks'
   id:
     | '__root__'
     | '/_app'
+    | '/_app/connections'
     | '/_app/inbox'
+    | '/_app/runbooks'
     | '/_app/'
     | '/_app/inbox/$id'
+    | '/_app/runbooks/$id'
+    | '/_app/connections/'
     | '/_app/inbox/'
+    | '/_app/runbooks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,6 +156,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/runbooks': {
+      id: '/_app/runbooks'
+      path: '/runbooks'
+      fullPath: '/runbooks'
+      preLoaderRoute: typeof AppRunbooksRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/inbox': {
       id: '/_app/inbox'
       path: '/inbox'
@@ -100,12 +170,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInboxRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/connections': {
+      id: '/_app/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof AppConnectionsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/runbooks/': {
+      id: '/_app/runbooks/'
+      path: '/'
+      fullPath: '/runbooks/'
+      preLoaderRoute: typeof AppRunbooksIndexRouteImport
+      parentRoute: typeof AppRunbooksRoute
+    }
     '/_app/inbox/': {
       id: '/_app/inbox/'
       path: '/'
       fullPath: '/inbox/'
       preLoaderRoute: typeof AppInboxIndexRouteImport
       parentRoute: typeof AppInboxRoute
+    }
+    '/_app/connections/': {
+      id: '/_app/connections/'
+      path: '/'
+      fullPath: '/connections/'
+      preLoaderRoute: typeof AppConnectionsIndexRouteImport
+      parentRoute: typeof AppConnectionsRoute
+    }
+    '/_app/runbooks/$id': {
+      id: '/_app/runbooks/$id'
+      path: '/$id'
+      fullPath: '/runbooks/$id'
+      preLoaderRoute: typeof AppRunbooksIdRouteImport
+      parentRoute: typeof AppRunbooksRoute
     }
     '/_app/inbox/$id': {
       id: '/_app/inbox/$id'
@@ -116,6 +214,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AppConnectionsRouteChildren {
+  AppConnectionsIndexRoute: typeof AppConnectionsIndexRoute
+}
+
+const AppConnectionsRouteChildren: AppConnectionsRouteChildren = {
+  AppConnectionsIndexRoute: AppConnectionsIndexRoute,
+}
+
+const AppConnectionsRouteWithChildren = AppConnectionsRoute._addFileChildren(
+  AppConnectionsRouteChildren,
+)
 
 interface AppInboxRouteChildren {
   AppInboxIdRoute: typeof AppInboxIdRoute
@@ -131,13 +241,31 @@ const AppInboxRouteWithChildren = AppInboxRoute._addFileChildren(
   AppInboxRouteChildren,
 )
 
+interface AppRunbooksRouteChildren {
+  AppRunbooksIdRoute: typeof AppRunbooksIdRoute
+  AppRunbooksIndexRoute: typeof AppRunbooksIndexRoute
+}
+
+const AppRunbooksRouteChildren: AppRunbooksRouteChildren = {
+  AppRunbooksIdRoute: AppRunbooksIdRoute,
+  AppRunbooksIndexRoute: AppRunbooksIndexRoute,
+}
+
+const AppRunbooksRouteWithChildren = AppRunbooksRoute._addFileChildren(
+  AppRunbooksRouteChildren,
+)
+
 interface AppRouteChildren {
+  AppConnectionsRoute: typeof AppConnectionsRouteWithChildren
   AppInboxRoute: typeof AppInboxRouteWithChildren
+  AppRunbooksRoute: typeof AppRunbooksRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppConnectionsRoute: AppConnectionsRouteWithChildren,
   AppInboxRoute: AppInboxRouteWithChildren,
+  AppRunbooksRoute: AppRunbooksRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }
 

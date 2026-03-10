@@ -9,7 +9,7 @@ import { incidentService } from '../services/incident.service'
 import { runbookService } from '../services/runbook.service'
 import { skillService } from '../services/skill.service'
 import { connectionService } from '../services/connection.service'
-import { topologyService } from '../services/topology.service'
+import { serviceMapService } from '../services/service-map.service'
 
 const SYSTEM_PROMPT = `# 身份
 
@@ -22,7 +22,7 @@ const SYSTEM_PROMPT = `# 身份
 - **searchRunbooks / getRunbook / createRunbook**：搜索、读取、创建运行手册
 - **listConnections**：列出已接入的基础设施连接
 - **updateIncidentStatus**：更新事件状态
-- **getServiceNeighbors**：查询服务上下游拓扑
+- **getServiceNeighbors**：查询服务上下游依赖
 
 # 工作流程
 
@@ -116,21 +116,21 @@ const chatTools = {
     },
   }),
   getServiceNeighbors: tool({
-    description: 'Get upstream/downstream services from topology.',
+    description: 'Get upstream/downstream services from service map.',
     inputSchema: z3.object({
       connectionId: z3.string(),
-      topologyId: z3.string().optional(),
+      serviceMapId: z3.string().optional(),
     }),
-    execute: async ({ connectionId, topologyId }) => {
-      let topo
-      if (topologyId) {
-        topo = await topologyService.getById(topologyId)
+    execute: async ({ connectionId, serviceMapId }) => {
+      let serviceMap
+      if (serviceMapId) {
+        serviceMap = await serviceMapService.getById(serviceMapId)
       } else {
-        const all = await topologyService.list()
-        topo = all[0]
+        const all = await serviceMapService.list()
+        serviceMap = all[0]
       }
-      if (!topo) return { error: 'No topology found' }
-      const graph = topo.graph as { nodes: any[]; edges: any[] }
+      if (!serviceMap) return { error: 'No service map found' }
+      const graph = serviceMap.graph as { nodes: any[]; edges: any[] }
       const upstream = graph.edges
         .filter((e: any) => e.target === connectionId)
         .map((e: any) => ({

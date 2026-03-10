@@ -13,7 +13,7 @@ const SYSTEM_PROMPT = `# 身份
 - **Skills（技能库）**：运维方法论知识库，包含各类问题的排查和修复流程
 - **Runbooks（运行手册）**：过往事件的解决方案记录，可参考类似案例
 - **Connections（基础设施连接）**：已接入的 MySQL、PostgreSQL、Redis、K8s 等系统
-- **Topology（拓扑关系）**：服务间的上下游依赖关系图
+- **Service Map（服务地图）**：服务间的上下游依赖关系图
 - **MCP 工具**：可直接操作已连接的基础设施（查询数据库、执行 kubectl 命令等）
 
 # 工作流程

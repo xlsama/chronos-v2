@@ -2,7 +2,7 @@ import { updateIncidentStatus } from './incident-tools'
 import { searchRunbooks, getRunbook, createRunbook } from './runbook-tools'
 import { searchSkills, getSkill } from './skill-tools'
 import { listConnections } from './connection-tools'
-import { getServiceNeighbors, getTopologyGraph } from './topology-tools'
+import { getServiceNeighbors, getServiceMap } from './service-map-tools'
 
 export const tools = {
   updateIncidentStatus,
@@ -13,5 +13,5 @@ export const tools = {
   getSkill,
   listConnections,
   getServiceNeighbors,
-  getTopologyGraph,
+  getServiceMap,
 }

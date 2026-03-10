@@ -1,11 +1,11 @@
-export interface TopologyNode {
+export interface ServiceMapNode {
   id: string;
   type: string;
   position: { x: number; y: number };
   data: Record<string, unknown>;
 }
 
-export interface TopologyEdge {
+export interface ServiceMapEdge {
   id: string;
   source: string;
   target: string;
@@ -13,16 +13,16 @@ export interface TopologyEdge {
   data?: Record<string, unknown>;
 }
 
-export interface TopologyGraph {
-  nodes: TopologyNode[];
-  edges: TopologyEdge[];
+export interface ServiceMapGraph {
+  nodes: ServiceMapNode[];
+  edges: ServiceMapEdge[];
 }
 
-export interface Topology {
+export interface ServiceMap {
   id: string;
   name: string;
   description: string | null;
-  graph: TopologyGraph;
+  graph: ServiceMapGraph;
   createdAt: string;
   updatedAt: string;
 }

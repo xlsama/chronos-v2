@@ -1,29 +1,29 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
-import { topologyService } from '../../services/topology.service'
+import { serviceMapService } from '../../services/service-map.service'
 
 export const getServiceNeighbors = createTool({
   id: 'get-service-neighbors',
   description:
-    'Get the direct upstream and downstream services for a given connection/service from the topology graph. Useful for understanding blast radius.',
+    'Get the direct upstream and downstream services for a given connection/service from the service map. Useful for understanding blast radius.',
   inputSchema: z.object({
     connectionId: z.string().describe('The connection/node ID to look up neighbors for'),
-    topologyId: z
+    serviceMapId: z
       .string()
       .optional()
-      .describe('Topology ID (uses first topology if not specified)'),
+      .describe('Service map ID (uses first service map if not specified)'),
   }),
   execute: async (inputData) => {
-    let topo
-    if (inputData.topologyId) {
-      topo = await topologyService.getById(inputData.topologyId)
+    let serviceMap
+    if (inputData.serviceMapId) {
+      serviceMap = await serviceMapService.getById(inputData.serviceMapId)
     } else {
-      const all = await topologyService.list()
-      topo = all[0]
+      const all = await serviceMapService.list()
+      serviceMap = all[0]
     }
-    if (!topo) return { error: 'No topology found' }
+    if (!serviceMap) return { error: 'No service map found' }
 
-    const graph = topo.graph as { nodes: any[]; edges: any[] }
+    const graph = serviceMap.graph as { nodes: any[]; edges: any[] }
     const upstream = graph.edges
       .filter((e: any) => e.target === inputData.connectionId)
       .map((e: any) => {
@@ -41,16 +41,16 @@ export const getServiceNeighbors = createTool({
   },
 })
 
-export const getTopologyGraph = createTool({
-  id: 'get-topology-graph',
+export const getServiceMap = createTool({
+  id: 'get-service-map',
   description:
-    'Get the complete topology graph with all nodes and edges. Use when you need to understand the full service dependency map.',
+    'Get the complete service map with all nodes and edges. Use when you need to understand the full service dependency map.',
   inputSchema: z.object({
-    id: z.string().describe('Topology UUID'),
+    id: z.string().describe('Service map UUID'),
   }),
   execute: async (inputData) => {
-    const topo = await topologyService.getById(inputData.id)
-    if (!topo) return { error: 'Topology not found' }
-    return topo
+    const serviceMap = await serviceMapService.getById(inputData.id)
+    if (!serviceMap) return { error: 'Service map not found' }
+    return serviceMap
   },
 })

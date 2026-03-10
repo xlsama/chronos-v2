@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
 
-export const topology = pgTable('topology', {
+export const serviceMaps = pgTable('service_maps', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   description: text('description'),

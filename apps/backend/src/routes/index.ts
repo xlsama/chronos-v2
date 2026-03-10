@@ -4,7 +4,7 @@ import { chatRoutes } from './chat'
 import { runbookRoutes } from './runbooks'
 import { skillRoutes } from './skills'
 import { connectionRoutes } from './connections'
-import { topologyRoutes } from './topology'
+import { serviceMapRoutes } from './service-maps'
 
 export const apiRoutes = new Hono()
   .route('/api/incidents', incidentRoutes)
@@ -12,6 +12,6 @@ export const apiRoutes = new Hono()
   .route('/api/runbooks', runbookRoutes)
   .route('/api/skills', skillRoutes)
   .route('/api/connections', connectionRoutes)
-  .route('/api/topology', topologyRoutes)
+  .route('/api/service-maps', serviceMapRoutes)
 
 export type AppType = typeof apiRoutes

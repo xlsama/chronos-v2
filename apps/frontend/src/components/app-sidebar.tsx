@@ -1,13 +1,10 @@
 import {
   BookOpen,
+  Cable,
   Inbox,
-  LayoutDashboard,
-  Map,
-  Zap,
 } from 'lucide-react'
 import { Link, useMatchRoute } from '@tanstack/react-router'
 
-import { ModeToggle } from '@/components/theme-toggle'
 import {
   Sidebar,
   SidebarContent,
@@ -19,53 +16,66 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar'
+import { NavUser } from '@/components/sidebar/nav-user'
+import { LogoFull, LogoIcon } from '@/components/logo'
 
-const navItems = [
-  { title: '收件箱', icon: Inbox, to: '/inbox' as const, disabled: false },
-  { title: '仪表盘', icon: LayoutDashboard, to: '/' as const, disabled: true },
-  { title: '运行手册', icon: BookOpen, to: '/' as const, disabled: true },
-  { title: '拓扑', icon: Map, to: '/' as const, disabled: true },
-  { title: '技能', icon: Zap, to: '/' as const, disabled: true },
+const mainNav = [
+  { title: '收件箱', icon: Inbox, to: '/inbox' as const },
+]
+
+const platformNav = [
+  { title: '连接', icon: Cable, to: '/connections' as const },
+  { title: '运行手册', icon: BookOpen, to: '/runbooks' as const },
 ]
 
 export function AppSidebar() {
   const matchRoute = useMatchRoute()
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <div className="bg-primary text-primary-foreground flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold">
-            C
-          </div>
-          <span className="text-lg font-semibold">Chronos</span>
-        </div>
+        <SidebarHeaderContent />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>导航</SidebarGroupLabel>
+          <SidebarGroupLabel>主要</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {mainNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    asChild={!item.disabled}
-                    isActive={!item.disabled && !!matchRoute({ to: item.to, fuzzy: true })}
-                    disabled={item.disabled}
+                    asChild
+                    isActive={!!matchRoute({ to: item.to, fuzzy: true })}
                     tooltip={item.title}
                   >
-                    {item.disabled ? (
-                      <span className="opacity-50">
-                        <item.icon className="size-4" />
-                        <span>{item.title}</span>
-                      </span>
-                    ) : (
-                      <Link to={item.to}>
-                        <item.icon className="size-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    )}
+                    <Link to={item.to}>
+                      <item.icon className="size-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>平台</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {platformNav.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={!!matchRoute({ to: item.to, fuzzy: true })}
+                    tooltip={item.title}
+                  >
+                    <Link to={item.to}>
+                      <item.icon className="size-4" />
+                      <span>{item.title}</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -74,10 +84,27 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex items-center justify-between px-2">
-          <ModeToggle />
-        </div>
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
+  )
+}
+
+function SidebarHeaderContent() {
+  const { state } = useSidebar()
+
+  return (
+    <div className="flex items-center justify-between px-1 py-1">
+      {state === 'expanded' ? (
+        <>
+          <LogoFull className="h-6 w-auto" />
+          <SidebarTrigger />
+        </>
+      ) : (
+        <SidebarTrigger className="mx-auto">
+          <LogoIcon className="size-5" />
+        </SidebarTrigger>
+      )}
+    </div>
   )
 }
