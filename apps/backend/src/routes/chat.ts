@@ -46,6 +46,14 @@ export const chatRoutes = new Hono()
       const result = await opsAgent.stream(messages as any, {
         maxSteps: 50,
         toolsets: Object.keys(mcpTools).length > 0 ? { mcp: mcpTools } : undefined,
+        ...(incidentId && {
+          context: [
+            {
+              role: 'system' as const,
+              content: `当前处理的事件 ID: ${incidentId}\n在调用 updateIncidentStatus 等工具时，请使用此 ID。`,
+            },
+          ],
+        }),
       })
 
       // Save assistant message after stream completes

@@ -39,6 +39,12 @@ export async function triggerAgentForIncident(incident: IncidentRow): Promise<{ 
     .stream(messages as any, {
       maxSteps: 50,
       toolsets: Object.keys(mcpTools).length > 0 ? { mcp: mcpTools } : undefined,
+      context: [
+        {
+          role: 'system' as const,
+          content: `当前处理的事件 ID: ${incident.id}\n在调用 updateIncidentStatus 等工具时，请使用此 ID。`,
+        },
+      ],
     })
     .then(async (result) => {
       // Mark stream as active

@@ -21,7 +21,7 @@ export async function generateIncidentSummary(
     logger.info({ model: env.OPENAI_MODEL_MINI, content: content.slice(0, 200) }, 'Summary request');
 
     const { text } = await generateText({
-      model: openai(env.OPENAI_MODEL_MINI),
+      model: openai.chat(env.OPENAI_MODEL_MINI),
       system:
         "你是一个运维告警摘要生成器。根据告警内容（可能包含文本、图片、文件），用一句简洁的中文概括核心问题。要求：不超过50字，直接描述问题本身，不要加前缀。",
       messages: [{ role: "user", content: userContent }],
