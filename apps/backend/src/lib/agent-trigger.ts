@@ -33,6 +33,8 @@ export async function triggerAgentForIncident(incident: IncidentRow): Promise<{ 
   const mcpTools = mcpRegistry.getAllToolsAsAISDK()
   const messages = [{ role: 'user' as const, content: messageContent }]
 
+  logger.info({ incidentId: incident.id, messageCount: messages.length, content: incident.content.slice(0, 200) }, 'Agent request (auto-trigger)')
+
   opsAgent
     .stream(messages as any, {
       maxSteps: 50,
@@ -71,8 +73,8 @@ export async function triggerAgentForIncident(incident: IncidentRow): Promise<{ 
         toolInvocations: steps.length > 0 ? steps : undefined,
       })
 
+      logger.info({ threadId, incidentId: incident.id, text: text.slice(0, 200), stepsCount: steps.length }, 'Agent response (auto-trigger)')
       await redis.del(`stream:active:${threadId}`).catch(() => {})
-      logger.info({ threadId, incidentId: incident.id }, 'Agent completed processing incident')
     })
     .catch(async (err) => {
       logger.error({ err, threadId, incidentId: incident.id }, 'Agent failed to process incident')

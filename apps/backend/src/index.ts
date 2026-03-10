@@ -13,11 +13,41 @@ import { mcpRegistry } from "./mcp/registry";
 
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 
+const reqStartTimes = new WeakMap<object, number>();
+
 const app = new Hono();
 
 // Global middleware
 app.use("*", cors({ origin: env.CORS_ORIGIN }));
-app.use("*", pinoLogger({ pino: logger }));
+app.use(
+  "*",
+  pinoLogger({
+    pino: logger,
+    http:
+      env.NODE_ENV === "development"
+        ? {
+            reqId: () => undefined as unknown as string,
+            onReqMessage: false,
+            onReqBindings: (c) => {
+              reqStartTimes.set(c.req.raw, performance.now());
+              return {};
+            },
+            onResBindings: () => ({}),
+            onResMessage: (c) => {
+              const start = reqStartTimes.get(c.req.raw);
+              const ms = start ? Math.round(performance.now() - start) : 0;
+              reqStartTimes.delete(c.req.raw);
+              return `${c.req.method} ${c.req.path} ${c.res.status} ${ms}ms`;
+            },
+            onResLevel: (c) => {
+              if (c.res.status >= 500) return "error";
+              if (c.res.status >= 400) return "warn";
+              return "info";
+            },
+          }
+        : undefined,
+  }),
+);
 
 // Static file serving for uploads
 app.use(

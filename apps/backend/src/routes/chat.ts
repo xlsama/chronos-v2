@@ -41,6 +41,8 @@ export const chatRoutes = new Hono()
 
       // Stream via Mastra Agent, inject MCP tools as toolset
       const mcpTools = mcpRegistry.getAllToolsAsAISDK()
+      logger.info({ threadId, lastMessage: lastMessage?.content?.slice(0, 200) }, 'Agent request (chat)')
+
       const result = await opsAgent.stream(messages as any, {
         maxSteps: 50,
         toolsets: Object.keys(mcpTools).length > 0 ? { mcp: mcpTools } : undefined,
@@ -49,6 +51,7 @@ export const chatRoutes = new Hono()
       // Save assistant message after stream completes
       Promise.all([result.text, result.steps])
         .then(async ([text, steps]) => {
+          logger.info({ threadId, text: text.slice(0, 200), stepsCount: steps.length }, 'Agent response (chat)')
           await messageService.create({
             threadId,
             ...(incidentId && { incidentId }),

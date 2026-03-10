@@ -18,6 +18,8 @@ export async function generateIncidentSummary(
   try {
     const userContent = await buildMultimodalParts(content, attachments);
 
+    logger.info({ model: env.OPENAI_MODEL_MINI, content: content.slice(0, 200) }, 'Summary request');
+
     const { text } = await generateText({
       model: openai(env.OPENAI_MODEL_MINI),
       system:
@@ -25,6 +27,8 @@ export async function generateIncidentSummary(
       messages: [{ role: "user", content: userContent }],
       maxOutputTokens: 100,
     });
+
+    logger.info({ text }, 'Summary response');
 
     return text.trim() || null;
   } catch (err) {
