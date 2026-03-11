@@ -10,6 +10,7 @@ const envSchema = z.object({
   OPENAI_BASE_URL: z.string().optional(),
   OPENAI_MODEL: z.string().default("qwen3.5-plus"),
   OPENAI_MODEL_MINI: z.string().default("qwen3.5-flash"),
+  OPENAI_ASR_MODEL: z.string().default("qwen3-asr-flash"),
   LOG_LEVEL: z.string().default("info"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   CORS_ORIGIN: z.string().default("*"),

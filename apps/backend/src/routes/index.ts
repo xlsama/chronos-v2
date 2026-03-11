@@ -7,6 +7,7 @@ import { connectionRoutes } from './connections'
 import { serviceMapRoutes } from './service-maps'
 import { webhookRoutes } from './webhooks'
 import { uploadRoutes } from './upload'
+import { transcribeRoutes } from './transcribe'
 import { notificationSettingsRoutes } from './notification-settings'
 
 export const apiRoutes = new Hono()
@@ -19,5 +20,6 @@ export const apiRoutes = new Hono()
   .route('/api/webhooks', webhookRoutes)
   .route('/api/notification-settings', notificationSettingsRoutes)
   .route('/api', uploadRoutes)
+  .route('/api', transcribeRoutes)
 
 export type AppType = typeof apiRoutes
