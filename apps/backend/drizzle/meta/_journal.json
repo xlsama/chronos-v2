@@ -8,6 +8,20 @@
       "when": 1773072255802,
       "tag": "0000_curly_luminals",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773216677888,
+      "tag": "0001_kb_connection_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773221059199,
+      "tag": "0002_rag_mastra_migration",
+      "breakpoints": true
     }
   ]
 }

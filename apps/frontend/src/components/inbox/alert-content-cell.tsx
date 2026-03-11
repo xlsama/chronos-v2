@@ -1,7 +1,7 @@
 import type { Attachment, Incident } from '@chronos/shared'
 import { Link } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight, FileIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { CodeBlockCode } from '@/components/ui/code-block'
@@ -67,6 +67,12 @@ function TextWithTooltip({
   const [open, setOpen] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
 
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
+
   const handleEnter = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => setOpen(true), 200)
@@ -80,7 +86,7 @@ function TextWithTooltip({
     <Link
       to="/inbox/$id"
       params={{ id: incident.id }}
-      className="font-medium hover:underline"
+      className="font-medium hover:underline outline-none"
     >
       {displayText}
     </Link>
@@ -94,7 +100,6 @@ function TextWithTooltip({
         asChild
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
-        onClick={(e) => e.preventDefault()}
       >
         {link}
       </PopoverTrigger>

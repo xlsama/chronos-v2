@@ -1,6 +1,8 @@
 import { Mastra } from '@mastra/core'
-import { opsAgent } from './agents/ops-agent'
+import { supervisorAgent } from './agents/supervisor-agent'
 
 export const mastra = new Mastra({
-  agents: { 'ops-agent': opsAgent },
+  agents: {
+    'supervisor-agent': supervisorAgent,
+  },
 })

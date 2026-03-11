@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { Plus, Search } from 'lucide-react'
+import { useState } from 'react'
+import { Search } from 'lucide-react'
 import type { Connection } from '@chronos/shared'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Empty,
   EmptyDescription,
@@ -15,92 +21,92 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { ServiceCard } from './service-card'
-import { connectionQueries, useTestConnection } from '@/lib/queries/connections'
+import { useDeleteConnection, useTestConnection } from '@/lib/queries/connections'
 
 interface ServiceGridProps {
   connections: Connection[]
+  search?: string
 }
 
-export function ServiceGrid({ connections }: ServiceGridProps) {
-  const [search, setSearch] = useState('')
+export function ServiceGrid({ connections, search }: ServiceGridProps) {
   const testMutation = useTestConnection()
-  const queryClient = useQueryClient()
+  const deleteMutation = useDeleteConnection()
+  const [deleteTarget, setDeleteTarget] = useState<Connection | null>(null)
 
-  // Auto-poll when any connection is in 'registering' state
-  const hasRegistering = connections.some(c => c.mcpStatus === 'registering')
-  useEffect(() => {
-    if (!hasRegistering) return
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: connectionQueries.all() })
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [hasRegistering, queryClient])
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return connections
-    const q = search.toLowerCase()
-    return connections.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q),
+  if (connections.length === 0) {
+    return (
+      <Empty className="py-12">
+        <EmptyHeader>
+          <EmptyMedia>
+            <Search className="size-8" />
+          </EmptyMedia>
+          <EmptyTitle>暂无连接</EmptyTitle>
+          <EmptyDescription>
+            {search ? '没有匹配的服务' : '点击"添加服务"开始配置'}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
-  }, [connections, search])
+  }
 
   return (
     <>
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
-          <Input
-            placeholder="搜索服务..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {connections.map((connection) => (
+          <ServiceCard
+            key={connection.id}
+            connection={connection}
+            onTest={(id) =>
+              testMutation.mutate(id, {
+                onSuccess: (data) => {
+                  if (data.success) {
+                    toast.success(`${connection.name} 连接测试成功`)
+                  } else {
+                    toast.error(`${connection.name} 连接测试失败`, { description: data.message })
+                  }
+                },
+                onError: (err) => {
+                  toast.error(`${connection.name} 连接测试失败`, { description: err.message })
+                },
+              })
+            }
+            isTesting={testMutation.isPending && testMutation.variables === connection.id}
+            onDelete={() => setDeleteTarget(connection)}
+            isDeleting={deleteMutation.isPending && deleteMutation.variables === connection.id}
           />
-        </div>
-        <Button asChild>
-          <Link to="/connections/create">
-            <Plus className="size-4" />
-            添加服务
-          </Link>
-        </Button>
+        ))}
       </div>
 
-      {filtered.length === 0 ? (
-        <Empty className="py-12">
-          <EmptyHeader>
-            <EmptyMedia>
-              <Search className="size-8" />
-            </EmptyMedia>
-            <EmptyTitle>暂无连接</EmptyTitle>
-            <EmptyDescription>
-              {search ? '没有匹配的服务' : '点击"添加服务"开始配置'}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((connection) => (
-            <ServiceCard
-              key={connection.id}
-              connection={connection}
-              onTest={(id) =>
-                testMutation.mutate(id, {
-                  onSuccess: (data: any) => {
-                    if (data.success) {
-                      toast.success(`${connection.name} 连接测试成功`)
-                    } else {
-                      toast.error(`${connection.name} 连接测试失败`, { description: data.message })
-                    }
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除连接</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除连接 <span className="font-medium text-foreground">{deleteTarget?.name}</span> 吗？删除后将同时注销 MCP 注册，此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (!deleteTarget) return
+                deleteMutation.mutate(deleteTarget.id, {
+                  onSuccess: () => {
+                    toast.success(`${deleteTarget.name} 已删除`)
+                    setDeleteTarget(null)
                   },
                   onError: (err) => {
-                    toast.error(`${connection.name} 连接测试失败`, { description: err.message })
+                    toast.error(`删除 ${deleteTarget.name} 失败`, { description: err.message })
                   },
                 })
-              }
-              isTesting={testMutation.isPending && testMutation.variables === connection.id}
-            />
-          ))}
-        </div>
-      )}
+              }}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

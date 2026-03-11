@@ -1,15 +1,22 @@
+import type { MessageListInput } from '@mastra/core/agent/message-list'
 import { incidentService } from '../services/incident.service'
 import { messageService } from '../services/message.service'
-import { mcpRegistry } from '../mcp/registry'
-import { opsAgent } from '../mastra/agents/ops-agent'
+import { kbService } from '../services/knowledge-base.service'
+import { supervisorAgent } from '../mastra/agents/supervisor-agent'
 import { publisher, redis } from './redis'
 import { logger } from './logger'
 import { buildMultimodalParts } from './attachment-parts'
 import { notifyIncidentStatusChanged } from './notify'
+import { formatKbContext } from './kb-context'
+import { buildSkillsManifest } from './skills-manifest'
 
 type IncidentRow = NonNullable<Awaited<ReturnType<typeof incidentService.getById>>>
 
-export async function triggerAgentForIncident(incident: IncidentRow): Promise<{ threadId: string }> {
+interface TriggerOptions {
+  knowledgeBaseIds?: string[]
+}
+
+export async function triggerAgentForIncident(incident: IncidentRow, options?: TriggerOptions): Promise<{ threadId: string }> {
   const threadId = crypto.randomUUID()
 
   // Update incident with threadId and status
@@ -29,23 +36,65 @@ export async function triggerAgentForIncident(incident: IncidentRow): Promise<{ 
     content: incident.content,
   })
 
-  // Fire-and-forget: stream agent response
-  const mcpTools = mcpRegistry.getAllToolsAsAISDK()
+  // Build context array
+  const context: { role: 'system'; content: string }[] = [
+    {
+      role: 'system' as const,
+      content: `当前处理的事件 ID: ${incident.id}\n在调用 updateIncidentStatus 等工具时，请使用此 ID。`,
+    },
+  ]
+
+  // Knowledge base vector search
+  if (options?.knowledgeBaseIds && options.knowledgeBaseIds.length > 0) {
+    try {
+      const kbResults = await kbService.searchByVector(incident.content, {
+        projectIds: options.knowledgeBaseIds,
+        limit: 10,
+      })
+      if (kbResults.length > 0) {
+        context.push({
+          role: 'system' as const,
+          content: formatKbContext(kbResults),
+        })
+      }
+    } catch (err) {
+      logger.warn({ err, incidentId: incident.id }, 'Failed to search knowledge base for incident')
+    }
+  }
+
+  // Skills manifest for supervisor agent
+  const skillsManifest = await buildSkillsManifest()
+  if (skillsManifest) {
+    context.push({ role: 'system' as const, content: skillsManifest })
+  }
+
   const messages = [{ role: 'user' as const, content: messageContent }]
 
-  logger.info({ incidentId: incident.id, messageCount: messages.length, content: incident.content.slice(0, 200) }, 'Agent request (auto-trigger)')
+  logger.info({ incidentId: incident.id, content: incident.content.slice(0, 200) }, 'Agent request (auto-trigger)')
 
-  opsAgent
-    .stream(messages as any, {
-      maxSteps: 50,
-      toolsets: Object.keys(mcpTools).length > 0 ? { mcp: mcpTools } : undefined,
-      context: [
-        {
-          role: 'system' as const,
-          content: `当前处理的事件 ID: ${incident.id}\n在调用 updateIncidentStatus 等工具时，请使用此 ID。`,
-        },
-      ],
-    })
+  // Fire-and-forget: stream agent response
+  supervisorAgent.stream(messages as MessageListInput, {
+    maxSteps: 50,
+    context,
+    memory: { thread: threadId, resource: threadId },
+    onIterationComplete: async (ctx) => {
+      logger.info({ threadId, incidentId: incident.id, iteration: ctx.iteration, finishReason: ctx.finishReason }, 'Iteration complete')
+      return { continue: true }
+    },
+    delegation: {
+      onDelegationStart: async (ctx) => {
+        logger.info({ threadId, incidentId: incident.id, primitiveId: ctx.primitiveId }, 'Delegation start')
+        return { proceed: true }
+      },
+      onDelegationComplete: async (ctx) => {
+        if (ctx.error) {
+          logger.error({ threadId, incidentId: incident.id, primitiveId: ctx.primitiveId, error: ctx.error }, 'Delegation failed')
+          return { feedback: `${ctx.primitiveId} 执行失败: ${ctx.error}，请考虑替代方案。` }
+        }
+        logger.info({ threadId, incidentId: incident.id, primitiveId: ctx.primitiveId }, 'Delegation complete')
+      },
+    },
+  })
     .then(async (result) => {
       // Mark stream as active
       await redis.set(`stream:active:${threadId}`, '1', 'EX', 300)
@@ -62,7 +111,7 @@ export async function triggerAgentForIncident(incident: IncidentRow): Promise<{ 
         },
       })
 
-      const reader = result.textStream.pipeThrough(transform as any).getReader()
+      const reader = (result.textStream as unknown as ReadableStream<string>).pipeThrough(transform).getReader()
       // Drain the stream
       while (true) {
         const { done } = await reader.read()

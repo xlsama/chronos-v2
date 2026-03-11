@@ -11,6 +11,15 @@ export type CreateConnectionInput = {
   name: string
   type: (typeof connectionTypeEnum.enumValues)[number]
   config: Record<string, unknown>
+  kbProjectId?: string | null
+  importSource?: 'manual' | 'kb'
+  importMetadata?: {
+    sourceDocuments: Array<{ id: string; title: string }>
+    warnings: string[]
+    confidence: number | null
+    sourceExcerpt: string | null
+    importedAt: string
+  } | null
 }
 
 export type UpdateConnectionInput = {
@@ -25,7 +34,7 @@ function maskConfig(configStr: string): Record<string, unknown> {
     const config = JSON.parse(decrypt(configStr))
     const masked: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(config)) {
-      if (['password', 'secret', 'token', 'apiKey', 'api_key'].some(s => key.toLowerCase().includes(s.toLowerCase()))) {
+      if (['password', 'secret', 'token', 'apiKey', 'api_key', 'appKey', 'adminKey', 'privateKey'].some(s => key.toLowerCase().includes(s.toLowerCase()))) {
         masked[key] = '••••••••'
       } else {
         masked[key] = value
@@ -83,6 +92,9 @@ export const connectionService = {
       name: input.name,
       type: input.type,
       config: encryptedConfig,
+      kbProjectId: input.kbProjectId ?? null,
+      importSource: input.importSource ?? 'manual',
+      importMetadata: input.importMetadata ?? null,
     }).returning()
 
     // Register MCP server asynchronously (fire-and-forget)

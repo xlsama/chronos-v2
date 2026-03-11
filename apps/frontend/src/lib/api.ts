@@ -8,8 +8,16 @@ export async function unwrap<T extends { data: unknown }>(
 ): Promise<T['data']> {
   const res = await responsePromise
   if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`API error ${res.status}: ${text}`)
+    let message = res.statusText
+    try {
+      const body = await res.json()
+      if (typeof body.error === 'string') {
+        message = body.error
+      } else if (body.error?.issues) {
+        message = body.error.issues.map((i: { message: string }) => i.message).join('; ')
+      }
+    } catch {}
+    throw new Error(message)
   }
   const json = (await res.json()) as T
   return json.data

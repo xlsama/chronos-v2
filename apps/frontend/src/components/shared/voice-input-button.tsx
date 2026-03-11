@@ -1,11 +1,13 @@
-import { useCallback } from 'react'
-import { Mic, Square, Loader2 } from 'lucide-react'
+import { useCallback, useRef } from 'react'
+import { Mic, X, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { useAudioRecorder } from '@/hooks/use-audio-recorder'
+import { useAudioRecorder, type UseAudioRecorderReturn } from '@/hooks/use-audio-recorder'
+import { useAudioAnalyser } from '@/hooks/use-audio-analyser'
 import { useTranscribe } from '@/lib/queries/transcribe'
 import { Button } from '@/components/ui/button'
 import { PromptInputAction } from '@/components/ui/prompt-input'
+import { AudioWaveform } from '@/components/ui/audio-waveform'
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60)
@@ -13,17 +15,23 @@ function formatDuration(seconds: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-interface VoiceInputButtonProps {
-  disabled?: boolean
-  onTranscribed: (text: string) => void
+// --- useVoiceInput hook ---
+
+interface UseVoiceInputReturn {
+  recorder: UseAudioRecorderReturn
+  isTranscribing: boolean
+  handleToggle: () => void
+  handleCancel: () => void
 }
 
-export function VoiceInputButton({ disabled, onTranscribed }: VoiceInputButtonProps) {
+export function useVoiceInput(onTranscribed: (text: string) => void): UseVoiceInputReturn {
   const recorder = useAudioRecorder()
   const transcribe = useTranscribe()
-  const isTranscribing = transcribe.isPending
 
-  const handleClick = useCallback(async () => {
+  const onTranscribedRef = useRef(onTranscribed)
+  onTranscribedRef.current = onTranscribed
+
+  const handleToggle = useCallback(async () => {
     if (recorder.state === 'idle') {
       await recorder.start()
       if (recorder.error) {
@@ -34,7 +42,7 @@ export function VoiceInputButton({ disabled, onTranscribed }: VoiceInputButtonPr
       transcribe.mutate(blob, {
         onSuccess: (text) => {
           if (text.trim()) {
-            onTranscribed(text)
+            onTranscribedRef.current(text)
           }
         },
         onError: () => {
@@ -42,33 +50,93 @@ export function VoiceInputButton({ disabled, onTranscribed }: VoiceInputButtonPr
         },
       })
     }
-  }, [recorder, transcribe, onTranscribed])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recorder.state, recorder.start, recorder.stop, recorder.error, transcribe.mutate])
+
+  const handleCancel = useCallback(() => {
+    recorder.cancel()
+  }, [recorder.cancel])
+
+  return {
+    recorder,
+    isTranscribing: transcribe.isPending,
+    handleToggle,
+    handleCancel,
+  }
+}
+
+// --- VoiceInputButton ---
+
+interface VoiceInputButtonProps {
+  disabled?: boolean
+  isTranscribing: boolean
+  state: UseAudioRecorderReturn['state']
+  onClick: () => void
+}
+
+export function VoiceInputButton({ disabled, isTranscribing, state, onClick }: VoiceInputButtonProps) {
+  return (
+    <PromptInputAction tooltip={isTranscribing ? '转录中...' : '语音输入'}>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        disabled={disabled || isTranscribing || state === 'requesting'}
+        onClick={onClick}
+      >
+        {isTranscribing ? (
+          <Loader2 className="size-5 animate-spin" />
+        ) : (
+          <Mic className="size-5" />
+        )}
+      </Button>
+    </PromptInputAction>
+  )
+}
+
+// --- RecordingOverlay ---
+
+interface RecordingOverlayProps {
+  stream: MediaStream | null
+  duration: number
+}
+
+export function RecordingOverlay({ stream, duration }: RecordingOverlayProps) {
+  const analyser = useAudioAnalyser(stream)
 
   return (
+    <div className="flex items-center justify-center px-4 py-6 min-h-[44px]">
+      <AudioWaveform analyser={analyser} className="h-8 flex-1" />
+      <span className="ml-3 text-sm tabular-nums text-muted-foreground shrink-0">
+        {formatDuration(duration)}
+      </span>
+    </div>
+  )
+}
+
+// --- RecordingActions ---
+
+interface RecordingActionsProps {
+  onStop: () => void
+  onCancel: () => void
+}
+
+export function RecordingActions({ onStop, onCancel }: RecordingActionsProps) {
+  return (
     <>
-      <PromptInputAction
-        tooltip={recorder.state === 'recording' ? '停止录音' : '语音输入'}
-      >
+      <PromptInputAction tooltip="取消">
+        <Button variant="ghost" size="icon-sm" onClick={onCancel}>
+          <X className="size-5" />
+        </Button>
+      </PromptInputAction>
+      <PromptInputAction tooltip="停止录音">
         <Button
           variant="ghost"
           size="icon-sm"
-          disabled={disabled || isTranscribing || recorder.state === 'requesting'}
-          onClick={handleClick}
+          onClick={onStop}
         >
-          {isTranscribing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : recorder.state === 'recording' ? (
-            <Square className="size-3.5 fill-current text-red-500" />
-          ) : (
-            <Mic className="size-4" />
-          )}
+          <Check className="size-5" />
         </Button>
       </PromptInputAction>
-      {recorder.state === 'recording' && (
-        <span className="text-xs tabular-nums text-red-500 animate-pulse">
-          {formatDuration(recorder.duration)}
-        </span>
-      )}
     </>
   )
 }

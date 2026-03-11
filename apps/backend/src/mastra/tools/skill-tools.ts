@@ -2,42 +2,17 @@ import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { skillService } from '../../services/skill.service'
 
-export const searchSkills = createTool({
-  id: 'search-skills',
+// Supervisor loads skill on demand (skills manifest already in system prompt)
+export const loadSkill = createTool({
+  id: 'load-skill',
   description:
-    'Search the skill knowledge base by keyword or category. Returns skill names and brief summaries. Use this to find relevant diagnostic methodologies.',
+    '加载指定 Skill 的完整方法论内容。仅在需要详细步骤时调用。Skill 列表已在上下文中提供。',
   inputSchema: z.object({
-    query: z.string().optional().describe('Search keyword'),
-    category: z
-      .string()
-      .optional()
-      .describe('Filter by category (database, cache, kubernetes, etc.)'),
+    id: z.string().describe('Skill UUID，从上下文中的 Skills 列表获取'),
   }),
-  execute: async (inputData) => {
-    const results = await skillService.list({
-      search: inputData.query,
-      category: inputData.category,
-    })
-    return results.map((s) => ({
-      id: s.id,
-      name: s.name,
-      summary: s.summary,
-      category: s.category,
-      tags: s.tags,
-    }))
-  },
-})
-
-export const getSkill = createTool({
-  id: 'get-skill',
-  description:
-    'Get the full content of a specific skill by ID. Use after searchSkills to read the complete methodology.',
-  inputSchema: z.object({
-    id: z.string().describe('Skill UUID'),
-  }),
-  execute: async (inputData) => {
-    const skill = await skillService.getById(inputData.id)
+  execute: async ({ id }) => {
+    const skill = await skillService.getById(id)
     if (!skill) return { error: 'Skill not found' }
-    return skill
+    return { name: skill.name, content: skill.content, category: skill.category }
   },
 })

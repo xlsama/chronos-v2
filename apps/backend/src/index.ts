@@ -11,6 +11,7 @@ import { apiRoutes } from "./routes/index";
 import { registerAllBuilders } from "./mcp";
 import { mcpRegistry } from "./mcp/registry";
 import { connectionService } from "./services/connection.service";
+import { initVectorStore } from "./db/vector-store";
 
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 
@@ -64,6 +65,11 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 
 // Error handler
 app.onError(handleError);
+
+// Initialize PgVector index
+initVectorStore().catch((err) => {
+  logger.error(err, "Failed to initialize vector store");
+});
 
 // Initialize MCP
 registerAllBuilders();

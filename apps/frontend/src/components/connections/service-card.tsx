@@ -1,12 +1,11 @@
 import { Link } from '@tanstack/react-router'
 import type { Connection } from '@chronos/shared'
-import { CheckCircle2, Circle, Loader2, Pencil, TestTube, XCircle } from 'lucide-react'
+import { CheckCircle2, Circle, Loader2, Pencil, TestTube, Trash2, XCircle } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 import { getConnectionMeta } from '@/lib/constants/connection-types'
 
 const statusConfig = {
@@ -19,22 +18,23 @@ interface ServiceCardProps {
   connection: Connection
   onTest: (id: string) => void
   isTesting?: boolean
+  onDelete: (id: string) => void
+  isDeleting?: boolean
 }
 
-export function ServiceCard({ connection, onTest, isTesting }: ServiceCardProps) {
+export function ServiceCard({ connection, onTest, isTesting, onDelete, isDeleting }: ServiceCardProps) {
   const meta = getConnectionMeta(connection.type)
   const status = statusConfig[connection.status]
-  const TypeIcon = meta.icon
   const StatusIcon = status.icon
 
   return (
     <Card className="relative transition-shadow hover:shadow-md">
-      <div className={cn('absolute right-3 top-3', status.className)} title={status.label}>
+      <div className={`absolute right-3 top-3 ${status.className}`} title={status.label}>
         <StatusIcon className="size-4" />
       </div>
       <CardContent className="flex items-center gap-4 p-4">
-        <div className={cn('rounded-lg bg-muted p-2.5', meta.color)}>
-          <TypeIcon className="size-5" />
+        <div className="rounded-lg bg-muted p-2.5">
+          <img src={meta.icon} alt={meta.label} className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
           <span className="truncate font-medium">{connection.name}</span>
@@ -42,6 +42,11 @@ export function ServiceCard({ connection, onTest, isTesting }: ServiceCardProps)
             <Badge variant="secondary" className="text-xs">
               {meta.label}
             </Badge>
+            {connection.importSource === 'kb' && (
+              <Badge variant="outline" className="text-xs">
+                来自知识库
+              </Badge>
+            )}
             {connection.mcpStatus === 'registering' && (
               <Badge variant="outline" className="border-blue-200 bg-blue-50 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
                 <Loader2 className="mr-1 size-3 animate-spin" />
@@ -92,6 +97,19 @@ export function ServiceCard({ connection, onTest, isTesting }: ServiceCardProps)
             <Link to="/connections/$id/edit" params={{ id: connection.id }}>
               <Pencil className="size-4" />
             </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 text-muted-foreground hover:text-destructive"
+            onClick={() => onDelete(connection.id)}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Trash2 className="size-4" />
+            )}
           </Button>
         </div>
       </CardContent>

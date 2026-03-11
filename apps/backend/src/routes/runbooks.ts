@@ -18,7 +18,7 @@ export const runbookRoutes = new Hono()
   })
   .post('/', zValidator('json', z.object({
     title: z.string().min(1),
-    content: z.string().min(1),
+    content: z.string().optional().default(""),
     incidentId: z.string().uuid().optional(),
     tags: z.array(z.string()).optional(),
   })), async (c) => {

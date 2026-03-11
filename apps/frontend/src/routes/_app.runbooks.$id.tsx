@@ -45,10 +45,10 @@ function RunbookEditPage() {
         .map((t) => t.trim())
         .filter(Boolean);
 
-      updateMutation.mutate({
-        id,
-        data: { title, content: contentRef.current, tags },
-      });
+      updateMutation.mutate(
+        { id, data: { title, content: contentRef.current, tags } },
+        { onSuccess: () => navigate({ to: "/runbooks" }) },
+      );
     },
     { wait: 300 },
   );

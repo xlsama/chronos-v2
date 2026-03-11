@@ -10,6 +10,8 @@ type ConnectionType =
   | 'mysql' | 'postgresql' | 'redis' | 'mongodb' | 'clickhouse'
   | 'elasticsearch' | 'kafka' | 'rabbitmq' | 'kubernetes' | 'docker'
   | 'argocd' | 'grafana' | 'prometheus' | 'sentry' | 'jenkins'
+  | 'datadog' | 'pagerduty' | 'opsgenie' | 'apisix' | 'kong'
+  | 'airflow' | 'loki' | 'ssh'
 
 interface TestResult {
   success: boolean
@@ -48,8 +50,8 @@ async function testHttpEndpoint(
       headers: options?.headers,
     })
     return { success: true }
-  } catch (err: any) {
-    return { success: false, message: err.message ?? String(err) }
+  } catch (err: unknown) {
+    return { success: false, message: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -66,8 +68,8 @@ async function testPostgresql(config: Record<string, unknown>): Promise<TestResu
   try {
     await sql`SELECT 1`
     return { success: true }
-  } catch (err: any) {
-    return { success: false, message: err.message }
+  } catch (err: unknown) {
+    return { success: false, message: err instanceof Error ? err.message : String(err) }
   } finally {
     await sql.end().catch(() => {})
   }
@@ -87,8 +89,8 @@ async function testRedis(config: Record<string, unknown>): Promise<TestResult> {
     await client.connect()
     await client.ping()
     return { success: true }
-  } catch (err: any) {
-    return { success: false, message: err.message }
+  } catch (err: unknown) {
+    return { success: false, message: err instanceof Error ? err.message : String(err) }
   } finally {
     await client.quit().catch(() => {})
   }
@@ -111,8 +113,8 @@ async function testMysql(config: Record<string, unknown>): Promise<TestResult> {
     } finally {
       await conn.end().catch(() => {})
     }
-  } catch (err: any) {
-    return { success: false, message: err.message }
+  } catch (err: unknown) {
+    return { success: false, message: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -225,6 +227,63 @@ async function testDocker(config: Record<string, unknown>): Promise<TestResult> 
   return { success: false, message: 'No socketPath or url configured' }
 }
 
+async function testDatadog(config: Record<string, unknown>): Promise<TestResult> {
+  const site = config.site as string || 'datadoghq.com'
+  return testHttpEndpoint(`https://api.${site}/api/v1/validate`, {
+    headers: { 'DD-API-KEY': String(config.apiKey || '') },
+  })
+}
+
+async function testPagerduty(config: Record<string, unknown>): Promise<TestResult> {
+  return testHttpEndpoint('https://api.pagerduty.com/abilities', {
+    headers: { Authorization: `Token token=${config.apiKey}` },
+  })
+}
+
+async function testOpsgenie(config: Record<string, unknown>): Promise<TestResult> {
+  const apiUrl = (config.apiUrl as string) || 'https://api.opsgenie.com'
+  return testHttpEndpoint(`${apiUrl.replace(/\/$/, '')}/v2/heartbeats`, {
+    headers: { Authorization: `GenieKey ${config.apiKey}` },
+  })
+}
+
+async function testApisix(config: Record<string, unknown>): Promise<TestResult> {
+  const host = config.host as string || 'localhost'
+  const adminApiPort = Number(config.adminApiPort ?? 9180)
+  return testHttpEndpoint(`http://${host}:${adminApiPort}/apisix/admin/routes`, {
+    headers: { 'X-API-KEY': String(config.adminKey || '') },
+  })
+}
+
+async function testKong(config: Record<string, unknown>): Promise<TestResult> {
+  const region = config.region as string || 'us'
+  return testHttpEndpoint(`https://${region}.api.konghq.com/v2/users/me`, {
+    headers: { Authorization: `Bearer ${config.accessToken}` },
+  })
+}
+
+async function testAirflow(config: Record<string, unknown>): Promise<TestResult> {
+  const url = config.url as string
+  const headers: Record<string, string> = {}
+  if (config.username) {
+    headers['Authorization'] = `Basic ${Buffer.from(`${config.username}:${config.password}`).toString('base64')}`
+  }
+  return testHttpEndpoint(`${url.replace(/\/$/, '')}/api/v1/health`, { headers })
+}
+
+async function testLoki(config: Record<string, unknown>): Promise<TestResult> {
+  const url = config.url as string
+  const headers: Record<string, string> = {}
+  if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`
+  return testHttpEndpoint(`${url.replace(/\/$/, '')}/api/health`, { headers })
+}
+
+async function testSsh(config: Record<string, unknown>): Promise<TestResult> {
+  const host = config.host as string
+  const port = Number(config.port ?? 22)
+  return testTcpConnection(host, port)
+}
+
 const testers: Record<ConnectionType, (config: Record<string, unknown>) => Promise<TestResult>> = {
   postgresql: testPostgresql,
   redis: testRedis,
@@ -241,6 +300,14 @@ const testers: Record<ConnectionType, (config: Record<string, unknown>) => Promi
   rabbitmq: testRabbitmq,
   kubernetes: testKubernetes,
   docker: testDocker,
+  datadog: testDatadog,
+  pagerduty: testPagerduty,
+  opsgenie: testOpsgenie,
+  apisix: testApisix,
+  kong: testKong,
+  airflow: testAirflow,
+  loki: testLoki,
+  ssh: testSsh,
 }
 
 export async function testConnection(
@@ -252,7 +319,7 @@ export async function testConnection(
 
   try {
     return await tester(config)
-  } catch (err: any) {
-    return { success: false, message: err.message ?? String(err) }
+  } catch (err: unknown) {
+    return { success: false, message: err instanceof Error ? err.message : String(err) }
   }
 }

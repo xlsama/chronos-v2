@@ -71,8 +71,8 @@ function EditConnectionPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className={`rounded-lg bg-muted p-2.5 ${meta.color}`}>
-          <meta.icon className="size-5" />
+        <div className="rounded-lg bg-muted p-2.5">
+          <img src={meta.icon} alt={meta.label} className="size-5" />
         </div>
         <h1 className="text-2xl font-bold">编辑 {meta.label} 连接</h1>
       </div>

@@ -2,11 +2,15 @@ import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod/v4'
+import type { MessageListInput } from '@mastra/core/agent/message-list'
+import type { LLMStepResult } from '@mastra/core/agent'
 import { messageService } from '../services/message.service'
+import { kbService } from '../services/knowledge-base.service'
 import { publisher, redis, createSubscriber } from '../lib/redis'
 import { logger } from '../lib/logger'
-import { mcpRegistry } from '../mcp/registry'
-import { opsAgent } from '../mastra/agents/ops-agent'
+import { supervisorAgent } from '../mastra/agents/supervisor-agent'
+import { formatKbContext } from '../lib/kb-context'
+import { buildSkillsManifest } from '../lib/skills-manifest'
 
 export const chatRoutes = new Hono()
   .post(
@@ -22,10 +26,11 @@ export const chatRoutes = new Hono()
         ),
         threadId: z.string().optional(),
         incidentId: z.string().optional(),
+        knowledgeBaseIds: z.array(z.string().uuid()).optional(),
       }),
     ),
     async (c) => {
-      const { messages, incidentId } = c.req.valid('json')
+      const { messages, incidentId, knowledgeBaseIds } = c.req.valid('json')
       const threadId = c.req.valid('json').threadId ?? crypto.randomUUID()
 
       // Save user message
@@ -39,26 +44,68 @@ export const chatRoutes = new Hono()
         })
       }
 
-      // Stream via Mastra Agent, inject MCP tools as toolset
-      const mcpTools = mcpRegistry.getAllToolsAsAISDK()
+      // Build context array
+      const context: { role: 'system'; content: string }[] = []
+
+      if (incidentId) {
+        context.push({
+          role: 'system' as const,
+          content: `当前处理的事件 ID: ${incidentId}\n在调用 updateIncidentStatus 等工具时，请使用此 ID。`,
+        })
+      }
+
+      // Knowledge base vector search
+      if (knowledgeBaseIds && knowledgeBaseIds.length > 0 && lastMessage?.role === 'user') {
+        try {
+          const kbResults = await kbService.searchByVector(lastMessage.content, {
+            projectIds: knowledgeBaseIds,
+            limit: 5,
+          })
+          if (kbResults.length > 0) {
+            context.push({
+              role: 'system' as const,
+              content: formatKbContext(kbResults),
+            })
+          }
+        } catch (err) {
+          logger.warn({ err, threadId }, 'Failed to search knowledge base')
+        }
+      }
+
+      // Skills manifest for supervisor agent
+      const skillsManifest = await buildSkillsManifest()
+      if (skillsManifest) {
+        context.push({ role: 'system' as const, content: skillsManifest })
+      }
+
       logger.info({ threadId, lastMessage: lastMessage?.content?.slice(0, 200) }, 'Agent request (chat)')
 
-      const result = await opsAgent.stream(messages as any, {
+      const result = await supervisorAgent.stream(messages as MessageListInput, {
         maxSteps: 50,
-        toolsets: Object.keys(mcpTools).length > 0 ? { mcp: mcpTools } : undefined,
-        ...(incidentId && {
-          context: [
-            {
-              role: 'system' as const,
-              content: `当前处理的事件 ID: ${incidentId}\n在调用 updateIncidentStatus 等工具时，请使用此 ID。`,
-            },
-          ],
-        }),
+        ...(context.length > 0 && { context }),
+        memory: { thread: threadId, resource: threadId },
+        onIterationComplete: async (ctx) => {
+          logger.info({ threadId, iteration: ctx.iteration, finishReason: ctx.finishReason }, 'Iteration complete')
+          return { continue: true }
+        },
+        delegation: {
+          onDelegationStart: async (ctx) => {
+            logger.info({ threadId, primitiveId: ctx.primitiveId }, 'Delegation start')
+            return { proceed: true }
+          },
+          onDelegationComplete: async (ctx) => {
+            if (ctx.error) {
+              logger.error({ threadId, primitiveId: ctx.primitiveId, error: ctx.error }, 'Delegation failed')
+              return { feedback: `${ctx.primitiveId} 执行失败: ${ctx.error}，请考虑替代方案。` }
+            }
+            logger.info({ threadId, primitiveId: ctx.primitiveId }, 'Delegation complete')
+          },
+        },
       })
 
       // Save assistant message after stream completes
       Promise.all([result.text, result.steps])
-        .then(async ([text, steps]) => {
+        .then(async ([text, steps]: [string, LLMStepResult<unknown>[]]) => {
           logger.info({ threadId, text: text.slice(0, 200), stepsCount: steps.length }, 'Agent response (chat)')
           await messageService.create({
             threadId,
@@ -86,7 +133,8 @@ export const chatRoutes = new Hono()
         },
       })
 
-      return new Response(result.textStream.pipeThrough(transform as any) as any, {
+      const readable = (result.textStream as unknown as ReadableStream<string>).pipeThrough(transform)
+      return new Response(readable, {
         headers: {
           'Content-Type': 'text/plain; charset=utf-8',
           'Transfer-Encoding': 'chunked',

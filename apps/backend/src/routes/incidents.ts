@@ -8,6 +8,8 @@ import { generateIncidentSummary } from '../lib/generate-summary'
 import { logger } from '../lib/logger'
 import { notifyIncidentCreated, notifyIncidentStatusChanged } from '../lib/notify'
 
+const incidentStatusValues = ['new', 'triaging', 'in_progress', 'waiting_human', 'resolved', 'closed'] as const
+
 const attachmentSchema = z.object({
   type: z.enum(['image', 'file']),
   url: z.string(),
@@ -17,7 +19,7 @@ const attachmentSchema = z.object({
 
 export const incidentRoutes = new Hono()
   .get('/', zValidator('query', z.object({
-    status: z.string().optional(),
+    status: z.enum(incidentStatusValues).optional(),
     limit: z.coerce.number().optional(),
     offset: z.coerce.number().optional(),
   })), async (c) => {
@@ -28,6 +30,7 @@ export const incidentRoutes = new Hono()
   .post('/', zValidator('json', z.object({
     content: z.string().min(1),
     attachments: z.array(attachmentSchema).optional(),
+    knowledgeBaseIds: z.array(z.string().uuid()).optional(),
   })), async (c) => {
     const input = c.req.valid('json')
     const incident = await incidentService.create({
@@ -37,7 +40,7 @@ export const incidentRoutes = new Hono()
     })
     // fire-and-forget: async summary + agent trigger + notification
     generateAndUpdateSummary(incident.id, input.content, input.attachments ?? null)
-    triggerAgentForIncident(incident)
+    triggerAgentForIncident(incident, { knowledgeBaseIds: input.knowledgeBaseIds })
     notifyIncidentCreated(incident)
     return c.json({ data: incident }, 201)
   })

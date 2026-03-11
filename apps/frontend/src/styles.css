@@ -152,3 +152,11 @@
 .react-flow .react-flow__controls-button svg {
   fill: var(--foreground) !important;
 }
+
+/* Service map edge flow animation */
+@keyframes dashdraw {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+

@@ -40,7 +40,7 @@ export function ConnectionForm({ mode, type, defaultValues }: ConnectionFormProp
     testMutation.mutate(
       { type, config },
       {
-        onSuccess: (data: any) => {
+        onSuccess: (data) => {
           if (data.success) {
             toast.success('连接测试成功')
           } else {

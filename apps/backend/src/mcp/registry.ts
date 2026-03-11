@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { dynamicTool, jsonSchema } from 'ai'
+import { dynamicTool, jsonSchema, type JSONSchema7, type Tool } from 'ai'
 import { db } from '../db/index'
 import { connections } from '../db/schema/index'
 import { decrypt } from '../lib/crypto'
@@ -75,7 +75,7 @@ class MCPRegistry {
   }
 
   getAllToolsAsAISDK() {
-    const allTools: Record<string, any> = {}
+    const allTools: Record<string, Tool<unknown, unknown> & { type: 'dynamic' }> = {}
     const usedNames = new Set<string>()
 
     for (const conn of this.clients.values()) {
@@ -91,7 +91,7 @@ class MCPRegistry {
 
         allTools[key] = dynamicTool({
           description: `[${conn.connectionName}] ${mcpTool.description || mcpTool.name}`,
-          inputSchema: jsonSchema(mcpTool.inputSchema as any),
+          inputSchema: jsonSchema(mcpTool.inputSchema as JSONSchema7),
           execute: async (input) => {
             const result = await conn.client.callTool({
               name: mcpTool.name,

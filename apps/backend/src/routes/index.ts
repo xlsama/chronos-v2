@@ -9,6 +9,7 @@ import { webhookRoutes } from './webhooks'
 import { uploadRoutes } from './upload'
 import { transcribeRoutes } from './transcribe'
 import { notificationSettingsRoutes } from './notification-settings'
+import { knowledgeBaseRoutes } from './knowledge-base'
 
 export const apiRoutes = new Hono()
   .route('/api/incidents', incidentRoutes)
@@ -19,6 +20,7 @@ export const apiRoutes = new Hono()
   .route('/api/service-maps', serviceMapRoutes)
   .route('/api/webhooks', webhookRoutes)
   .route('/api/notification-settings', notificationSettingsRoutes)
+  .route('/api/kb', knowledgeBaseRoutes)
   .route('/api', uploadRoutes)
   .route('/api', transcribeRoutes)
 

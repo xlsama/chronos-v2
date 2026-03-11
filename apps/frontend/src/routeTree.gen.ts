@@ -12,15 +12,20 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppRunbooksRouteImport } from './routes/_app.runbooks'
+import { Route as AppKnowledgeBaseRouteImport } from './routes/_app.knowledge-base'
 import { Route as AppInboxRouteImport } from './routes/_app.inbox'
 import { Route as AppConnectionsRouteImport } from './routes/_app.connections'
 import { Route as AppRunbooksIndexRouteImport } from './routes/_app.runbooks.index'
+import { Route as AppKnowledgeBaseIndexRouteImport } from './routes/_app.knowledge-base.index'
 import { Route as AppInboxIndexRouteImport } from './routes/_app.inbox.index'
 import { Route as AppConnectionsIndexRouteImport } from './routes/_app.connections.index'
 import { Route as AppRunbooksIdRouteImport } from './routes/_app.runbooks.$id'
+import { Route as AppKnowledgeBaseProjectIdRouteImport } from './routes/_app.knowledge-base.$projectId'
 import { Route as AppInboxIdRouteImport } from './routes/_app.inbox.$id'
 import { Route as AppConnectionsCreateRouteImport } from './routes/_app.connections.create'
+import { Route as AppKnowledgeBaseProjectIdIndexRouteImport } from './routes/_app.knowledge-base.$projectId.index'
 import { Route as AppConnectionsCreateIndexRouteImport } from './routes/_app.connections.create.index'
+import { Route as AppKnowledgeBaseProjectIdDocIdRouteImport } from './routes/_app.knowledge-base.$projectId.$docId'
 import { Route as AppConnectionsCreateTypeRouteImport } from './routes/_app.connections.create.$type'
 import { Route as AppConnectionsIdEditRouteImport } from './routes/_app.connections.$id.edit'
 
@@ -38,6 +43,11 @@ const AppRunbooksRoute = AppRunbooksRouteImport.update({
   path: '/runbooks',
   getParentRoute: () => AppRoute,
 } as any)
+const AppKnowledgeBaseRoute = AppKnowledgeBaseRouteImport.update({
+  id: '/knowledge-base',
+  path: '/knowledge-base',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -52,6 +62,11 @@ const AppRunbooksIndexRoute = AppRunbooksIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRunbooksRoute,
+} as any)
+const AppKnowledgeBaseIndexRoute = AppKnowledgeBaseIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppKnowledgeBaseRoute,
 } as any)
 const AppInboxIndexRoute = AppInboxIndexRouteImport.update({
   id: '/',
@@ -68,6 +83,12 @@ const AppRunbooksIdRoute = AppRunbooksIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppRunbooksRoute,
 } as any)
+const AppKnowledgeBaseProjectIdRoute =
+  AppKnowledgeBaseProjectIdRouteImport.update({
+    id: '/$projectId',
+    path: '/$projectId',
+    getParentRoute: () => AppKnowledgeBaseRoute,
+  } as any)
 const AppInboxIdRoute = AppInboxIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -78,11 +99,23 @@ const AppConnectionsCreateRoute = AppConnectionsCreateRouteImport.update({
   path: '/create',
   getParentRoute: () => AppConnectionsRoute,
 } as any)
+const AppKnowledgeBaseProjectIdIndexRoute =
+  AppKnowledgeBaseProjectIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppKnowledgeBaseProjectIdRoute,
+  } as any)
 const AppConnectionsCreateIndexRoute =
   AppConnectionsCreateIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AppConnectionsCreateRoute,
+  } as any)
+const AppKnowledgeBaseProjectIdDocIdRoute =
+  AppKnowledgeBaseProjectIdDocIdRouteImport.update({
+    id: '/$docId',
+    path: '/$docId',
+    getParentRoute: () => AppKnowledgeBaseProjectIdRoute,
   } as any)
 const AppConnectionsCreateTypeRoute =
   AppConnectionsCreateTypeRouteImport.update({
@@ -100,16 +133,21 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/connections': typeof AppConnectionsRouteWithChildren
   '/inbox': typeof AppInboxRouteWithChildren
+  '/knowledge-base': typeof AppKnowledgeBaseRouteWithChildren
   '/runbooks': typeof AppRunbooksRouteWithChildren
   '/connections/create': typeof AppConnectionsCreateRouteWithChildren
   '/inbox/$id': typeof AppInboxIdRoute
+  '/knowledge-base/$projectId': typeof AppKnowledgeBaseProjectIdRouteWithChildren
   '/runbooks/$id': typeof AppRunbooksIdRoute
   '/connections/': typeof AppConnectionsIndexRoute
   '/inbox/': typeof AppInboxIndexRoute
+  '/knowledge-base/': typeof AppKnowledgeBaseIndexRoute
   '/runbooks/': typeof AppRunbooksIndexRoute
   '/connections/$id/edit': typeof AppConnectionsIdEditRoute
   '/connections/create/$type': typeof AppConnectionsCreateTypeRoute
+  '/knowledge-base/$projectId/$docId': typeof AppKnowledgeBaseProjectIdDocIdRoute
   '/connections/create/': typeof AppConnectionsCreateIndexRoute
+  '/knowledge-base/$projectId/': typeof AppKnowledgeBaseProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -117,27 +155,35 @@ export interface FileRoutesByTo {
   '/runbooks/$id': typeof AppRunbooksIdRoute
   '/connections': typeof AppConnectionsIndexRoute
   '/inbox': typeof AppInboxIndexRoute
+  '/knowledge-base': typeof AppKnowledgeBaseIndexRoute
   '/runbooks': typeof AppRunbooksIndexRoute
   '/connections/$id/edit': typeof AppConnectionsIdEditRoute
   '/connections/create/$type': typeof AppConnectionsCreateTypeRoute
+  '/knowledge-base/$projectId/$docId': typeof AppKnowledgeBaseProjectIdDocIdRoute
   '/connections/create': typeof AppConnectionsCreateIndexRoute
+  '/knowledge-base/$projectId': typeof AppKnowledgeBaseProjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/connections': typeof AppConnectionsRouteWithChildren
   '/_app/inbox': typeof AppInboxRouteWithChildren
+  '/_app/knowledge-base': typeof AppKnowledgeBaseRouteWithChildren
   '/_app/runbooks': typeof AppRunbooksRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/connections/create': typeof AppConnectionsCreateRouteWithChildren
   '/_app/inbox/$id': typeof AppInboxIdRoute
+  '/_app/knowledge-base/$projectId': typeof AppKnowledgeBaseProjectIdRouteWithChildren
   '/_app/runbooks/$id': typeof AppRunbooksIdRoute
   '/_app/connections/': typeof AppConnectionsIndexRoute
   '/_app/inbox/': typeof AppInboxIndexRoute
+  '/_app/knowledge-base/': typeof AppKnowledgeBaseIndexRoute
   '/_app/runbooks/': typeof AppRunbooksIndexRoute
   '/_app/connections/$id/edit': typeof AppConnectionsIdEditRoute
   '/_app/connections/create/$type': typeof AppConnectionsCreateTypeRoute
+  '/_app/knowledge-base/$projectId/$docId': typeof AppKnowledgeBaseProjectIdDocIdRoute
   '/_app/connections/create/': typeof AppConnectionsCreateIndexRoute
+  '/_app/knowledge-base/$projectId/': typeof AppKnowledgeBaseProjectIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -145,16 +191,21 @@ export interface FileRouteTypes {
     | '/'
     | '/connections'
     | '/inbox'
+    | '/knowledge-base'
     | '/runbooks'
     | '/connections/create'
     | '/inbox/$id'
+    | '/knowledge-base/$projectId'
     | '/runbooks/$id'
     | '/connections/'
     | '/inbox/'
+    | '/knowledge-base/'
     | '/runbooks/'
     | '/connections/$id/edit'
     | '/connections/create/$type'
+    | '/knowledge-base/$projectId/$docId'
     | '/connections/create/'
+    | '/knowledge-base/$projectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -162,26 +213,34 @@ export interface FileRouteTypes {
     | '/runbooks/$id'
     | '/connections'
     | '/inbox'
+    | '/knowledge-base'
     | '/runbooks'
     | '/connections/$id/edit'
     | '/connections/create/$type'
+    | '/knowledge-base/$projectId/$docId'
     | '/connections/create'
+    | '/knowledge-base/$projectId'
   id:
     | '__root__'
     | '/_app'
     | '/_app/connections'
     | '/_app/inbox'
+    | '/_app/knowledge-base'
     | '/_app/runbooks'
     | '/_app/'
     | '/_app/connections/create'
     | '/_app/inbox/$id'
+    | '/_app/knowledge-base/$projectId'
     | '/_app/runbooks/$id'
     | '/_app/connections/'
     | '/_app/inbox/'
+    | '/_app/knowledge-base/'
     | '/_app/runbooks/'
     | '/_app/connections/$id/edit'
     | '/_app/connections/create/$type'
+    | '/_app/knowledge-base/$projectId/$docId'
     | '/_app/connections/create/'
+    | '/_app/knowledge-base/$projectId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -211,6 +270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRunbooksRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/knowledge-base': {
+      id: '/_app/knowledge-base'
+      path: '/knowledge-base'
+      fullPath: '/knowledge-base'
+      preLoaderRoute: typeof AppKnowledgeBaseRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/inbox': {
       id: '/_app/inbox'
       path: '/inbox'
@@ -231,6 +297,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/runbooks/'
       preLoaderRoute: typeof AppRunbooksIndexRouteImport
       parentRoute: typeof AppRunbooksRoute
+    }
+    '/_app/knowledge-base/': {
+      id: '/_app/knowledge-base/'
+      path: '/'
+      fullPath: '/knowledge-base/'
+      preLoaderRoute: typeof AppKnowledgeBaseIndexRouteImport
+      parentRoute: typeof AppKnowledgeBaseRoute
     }
     '/_app/inbox/': {
       id: '/_app/inbox/'
@@ -253,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRunbooksIdRouteImport
       parentRoute: typeof AppRunbooksRoute
     }
+    '/_app/knowledge-base/$projectId': {
+      id: '/_app/knowledge-base/$projectId'
+      path: '/$projectId'
+      fullPath: '/knowledge-base/$projectId'
+      preLoaderRoute: typeof AppKnowledgeBaseProjectIdRouteImport
+      parentRoute: typeof AppKnowledgeBaseRoute
+    }
     '/_app/inbox/$id': {
       id: '/_app/inbox/$id'
       path: '/$id'
@@ -267,12 +347,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConnectionsCreateRouteImport
       parentRoute: typeof AppConnectionsRoute
     }
+    '/_app/knowledge-base/$projectId/': {
+      id: '/_app/knowledge-base/$projectId/'
+      path: '/'
+      fullPath: '/knowledge-base/$projectId/'
+      preLoaderRoute: typeof AppKnowledgeBaseProjectIdIndexRouteImport
+      parentRoute: typeof AppKnowledgeBaseProjectIdRoute
+    }
     '/_app/connections/create/': {
       id: '/_app/connections/create/'
       path: '/'
       fullPath: '/connections/create/'
       preLoaderRoute: typeof AppConnectionsCreateIndexRouteImport
       parentRoute: typeof AppConnectionsCreateRoute
+    }
+    '/_app/knowledge-base/$projectId/$docId': {
+      id: '/_app/knowledge-base/$projectId/$docId'
+      path: '/$docId'
+      fullPath: '/knowledge-base/$projectId/$docId'
+      preLoaderRoute: typeof AppKnowledgeBaseProjectIdDocIdRouteImport
+      parentRoute: typeof AppKnowledgeBaseProjectIdRoute
     }
     '/_app/connections/create/$type': {
       id: '/_app/connections/create/$type'
@@ -334,6 +428,35 @@ const AppInboxRouteWithChildren = AppInboxRoute._addFileChildren(
   AppInboxRouteChildren,
 )
 
+interface AppKnowledgeBaseProjectIdRouteChildren {
+  AppKnowledgeBaseProjectIdDocIdRoute: typeof AppKnowledgeBaseProjectIdDocIdRoute
+  AppKnowledgeBaseProjectIdIndexRoute: typeof AppKnowledgeBaseProjectIdIndexRoute
+}
+
+const AppKnowledgeBaseProjectIdRouteChildren: AppKnowledgeBaseProjectIdRouteChildren =
+  {
+    AppKnowledgeBaseProjectIdDocIdRoute: AppKnowledgeBaseProjectIdDocIdRoute,
+    AppKnowledgeBaseProjectIdIndexRoute: AppKnowledgeBaseProjectIdIndexRoute,
+  }
+
+const AppKnowledgeBaseProjectIdRouteWithChildren =
+  AppKnowledgeBaseProjectIdRoute._addFileChildren(
+    AppKnowledgeBaseProjectIdRouteChildren,
+  )
+
+interface AppKnowledgeBaseRouteChildren {
+  AppKnowledgeBaseProjectIdRoute: typeof AppKnowledgeBaseProjectIdRouteWithChildren
+  AppKnowledgeBaseIndexRoute: typeof AppKnowledgeBaseIndexRoute
+}
+
+const AppKnowledgeBaseRouteChildren: AppKnowledgeBaseRouteChildren = {
+  AppKnowledgeBaseProjectIdRoute: AppKnowledgeBaseProjectIdRouteWithChildren,
+  AppKnowledgeBaseIndexRoute: AppKnowledgeBaseIndexRoute,
+}
+
+const AppKnowledgeBaseRouteWithChildren =
+  AppKnowledgeBaseRoute._addFileChildren(AppKnowledgeBaseRouteChildren)
+
 interface AppRunbooksRouteChildren {
   AppRunbooksIdRoute: typeof AppRunbooksIdRoute
   AppRunbooksIndexRoute: typeof AppRunbooksIndexRoute
@@ -351,6 +474,7 @@ const AppRunbooksRouteWithChildren = AppRunbooksRoute._addFileChildren(
 interface AppRouteChildren {
   AppConnectionsRoute: typeof AppConnectionsRouteWithChildren
   AppInboxRoute: typeof AppInboxRouteWithChildren
+  AppKnowledgeBaseRoute: typeof AppKnowledgeBaseRouteWithChildren
   AppRunbooksRoute: typeof AppRunbooksRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -358,6 +482,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppConnectionsRoute: AppConnectionsRouteWithChildren,
   AppInboxRoute: AppInboxRouteWithChildren,
+  AppKnowledgeBaseRoute: AppKnowledgeBaseRouteWithChildren,
   AppRunbooksRoute: AppRunbooksRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }

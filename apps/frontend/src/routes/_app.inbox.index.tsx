@@ -26,21 +26,25 @@ function InboxPage() {
   const pageCount = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-medium tracking-tight">收件箱</h1>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="size-4" />
-          创建事件
-        </Button>
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 p-4 pb-0">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-medium tracking-tight">收件箱</h1>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="size-4" />
+            创建事件
+          </Button>
+        </div>
       </div>
-      <DataTable
-        columns={columns}
-        data={items}
-        pageCount={pageCount}
-        page={page}
-        onPageChange={setPage}
-      />
+      <div className="flex-1 overflow-auto p-4">
+        <DataTable
+          columns={columns}
+          data={items}
+          pageCount={pageCount}
+          page={page}
+          onPageChange={setPage}
+        />
+      </div>
       <CreateIncidentDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );

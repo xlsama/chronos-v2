@@ -58,14 +58,15 @@ interface IncidentHeaderProps {
 export function IncidentHeader({ incident }: IncidentHeaderProps) {
   const incidentWithOptionalSeverity = incident as Incident & {
     severity?: keyof typeof severityConfig;
-    title?: string;
   };
   const severity = incidentWithOptionalSeverity.severity
     ? severityConfig[incidentWithOptionalSeverity.severity]
     : null;
   const status = statusConfig[incident.status];
-  const title =
-    incidentWithOptionalSeverity.title ?? incident.content.split("\n")[0] ?? "未命名事件";
+  const firstLine = incident.content.split("\n")[0] ?? "";
+  const title = incident.summary
+    || (firstLine.length > 50 ? firstLine.slice(0, 50) + "..." : firstLine)
+    || "未命名事件";
 
   return (
     <div className="flex items-center gap-3 border-b px-4 py-3">

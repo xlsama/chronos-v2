@@ -5,6 +5,7 @@ export type RecorderState = 'idle' | 'requesting' | 'recording'
 export interface UseAudioRecorderReturn {
   state: RecorderState
   duration: number
+  stream: MediaStream | null
   start: () => Promise<void>
   stop: () => Promise<Blob>
   cancel: () => void
@@ -23,6 +24,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   const [state, setState] = useState<RecorderState>('idle')
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(null)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -37,6 +39,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     }
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
+    setStream(null)
     mediaRecorderRef.current = null
     chunksRef.current = []
     setDuration(0)
@@ -48,6 +51,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
+      setStream(stream)
 
       const mimeType = getMimeType()
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
@@ -104,5 +108,5 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     }
   }, [cleanup])
 
-  return { state, duration, start, stop, cancel, error }
+  return { state, duration, stream, start, stop, cancel, error }
 }

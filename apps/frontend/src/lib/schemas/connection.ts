@@ -7,6 +7,7 @@ export const connectionFormSchema = z.object({
     'elasticsearch', 'kafka', 'rabbitmq',
     'kubernetes', 'docker', 'argocd',
     'grafana', 'prometheus', 'sentry', 'jenkins',
+    'datadog', 'pagerduty', 'opsgenie', 'apisix', 'kong', 'airflow', 'loki', 'ssh',
   ]),
   config: z.record(z.string(), z.string()),
 })
@@ -91,5 +92,44 @@ export const connectionConfigFields: Record<string, { key: string; label: string
     { key: 'url', label: 'URL', type: 'text', placeholder: 'http://localhost:8080' },
     { key: 'username', label: '用户名', type: 'text' },
     { key: 'apiToken', label: 'API Token', type: 'password' },
+  ],
+  datadog: [
+    { key: 'apiKey', label: 'API Key', type: 'password' },
+    { key: 'appKey', label: 'Application Key', type: 'password' },
+    { key: 'site', label: 'Site', type: 'text', placeholder: 'datadoghq.com' },
+  ],
+  pagerduty: [
+    { key: 'apiKey', label: 'API Key', type: 'password' },
+  ],
+  opsgenie: [
+    { key: 'apiKey', label: 'API Key', type: 'password' },
+    { key: 'apiUrl', label: 'API URL', type: 'text', placeholder: 'https://api.opsgenie.com' },
+  ],
+  apisix: [
+    { key: 'host', label: '主机', type: 'text', placeholder: 'localhost' },
+    { key: 'port', label: '端口', type: 'number', placeholder: '9080' },
+    { key: 'adminApiPort', label: 'Admin API 端口', type: 'number', placeholder: '9180' },
+    { key: 'adminKey', label: 'Admin Key', type: 'password' },
+  ],
+  kong: [
+    { key: 'accessToken', label: 'Access Token', type: 'password' },
+    { key: 'region', label: 'Region', type: 'text', placeholder: 'us' },
+    { key: 'binaryPath', label: 'MCP 二进制路径', type: 'text', placeholder: 'mcp-konnect' },
+  ],
+  airflow: [
+    { key: 'url', label: 'URL', type: 'text', placeholder: 'http://localhost:8080' },
+    { key: 'username', label: '用户名', type: 'text' },
+    { key: 'password', label: '密码', type: 'password' },
+  ],
+  loki: [
+    { key: 'url', label: 'Grafana URL', type: 'text', placeholder: 'http://localhost:3000' },
+    { key: 'apiKey', label: 'Grafana API Key', type: 'password' },
+  ],
+  ssh: [
+    { key: 'host', label: '主机', type: 'text', placeholder: '192.168.1.100' },
+    { key: 'port', label: '端口', type: 'number', placeholder: '22' },
+    { key: 'username', label: '用户名', type: 'text' },
+    { key: 'password', label: '密码', type: 'password' },
+    { key: 'privateKey', label: '私钥', type: 'textarea' },
   ],
 }

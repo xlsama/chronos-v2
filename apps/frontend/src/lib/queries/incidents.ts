@@ -26,7 +26,7 @@ export const incidentQueries = {
 export function useCreateIncident() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: { content: string; attachments?: { type: 'image' | 'file'; url: string; name: string; mimeType: string }[] }) =>
+    mutationFn: (data: { content: string; attachments?: { type: 'image' | 'file'; url: string; name: string; mimeType: string }[]; knowledgeBaseIds?: string[] }) =>
       unwrap(client.api.incidents.$post({ json: data })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: incidentQueries.all() }),
   })

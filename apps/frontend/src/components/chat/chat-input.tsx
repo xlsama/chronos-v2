@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Send } from 'lucide-react'
 
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { Button } from '@/components/ui/button'
 import { PromptInputWithUpload } from '@/components/shared/prompt-input-with-upload'
-import { VoiceInputButton } from '@/components/shared/voice-input-button'
+import { KbPicker, KbBadgeList } from '@/components/shared/kb-picker'
+import { useVoiceInput, VoiceInputButton, RecordingOverlay, RecordingActions } from '@/components/shared/voice-input-button'
 
 interface ChatInputProps {
   disabled?: boolean
@@ -12,14 +13,24 @@ interface ChatInputProps {
 
 export function ChatInput({ disabled = false }: ChatInputProps) {
   const [value, setValue] = useState('')
+  const [selectedKbIds, setSelectedKbIds] = useState<string[]>([])
   const fileUpload = useFileUpload()
+  const voice = useVoiceInput((text) => setValue((prev) => prev + text))
+  const isRecording = voice.recorder.state === 'recording'
+
+  const valueRef = useRef(value)
+  valueRef.current = value
+  const fileUploadRef = useRef(fileUpload)
+  fileUploadRef.current = fileUpload
 
   const handleSubmit = useCallback(() => {
-    if ((!value.trim() && fileUpload.doneAttachments.length === 0) || fileUpload.hasUploading) return
-    // TODO: send message to backend with fileUpload.doneAttachments
+    const currentValue = valueRef.current
+    const fu = fileUploadRef.current
+    if ((!currentValue.trim() && fu.doneAttachments.length === 0) || fu.hasUploading) return
+    // TODO: send message to backend with fu.doneAttachments + selectedKbIds
     setValue('')
-    fileUpload.cleanupAll()
-  }, [value, fileUpload])
+    fu.cleanupAll()
+  }, [])
 
   return (
     <PromptInputWithUpload
@@ -29,21 +40,45 @@ export function ChatInput({ disabled = false }: ChatInputProps) {
       disabled={disabled}
       fileUpload={fileUpload}
       placeholder={disabled ? 'AI 正在自动处理中...' : '输入消息...'}
-      className="mx-auto max-w-3xl"
+      className="mx-auto w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl"
       wrapperClassName="border-t px-4 py-3"
+      renderBeforeActions={() => (
+        <KbPicker selected={selectedKbIds} onChange={setSelectedKbIds} disabled={disabled || isRecording} />
+      )}
+      renderAboveTextarea={() => (
+        <KbBadgeList selected={selectedKbIds} onChange={setSelectedKbIds} />
+      )}
+      isRecording={isRecording}
+      renderRecordingOverlay={() => (
+        <RecordingOverlay
+          stream={voice.recorder.stream}
+          duration={voice.recorder.duration}
+        />
+      )}
       renderActions={() => (
-        <div className="flex items-center gap-1">
-          <VoiceInputButton
-            disabled={disabled}
-            onTranscribed={(text) => setValue((prev) => prev + text)}
-          />
-          <Button
-            size="icon-sm"
-            disabled={disabled || (!value.trim() && fileUpload.items.length === 0) || fileUpload.hasUploading}
-            onClick={handleSubmit}
-          >
-            <Send className="size-4" />
-          </Button>
+        <div className="flex items-center gap-2">
+          {isRecording ? (
+            <RecordingActions
+              onStop={voice.handleToggle}
+              onCancel={voice.handleCancel}
+            />
+          ) : (
+            <>
+              <VoiceInputButton
+                disabled={disabled}
+                isTranscribing={voice.isTranscribing}
+                state={voice.recorder.state}
+                onClick={voice.handleToggle}
+              />
+              <Button
+                size="icon-sm"
+                disabled={disabled || (!value.trim() && fileUpload.items.length === 0) || fileUpload.hasUploading}
+                onClick={handleSubmit}
+              >
+                <Send className="size-5" />
+              </Button>
+            </>
+          )}
         </div>
       )}
     />

@@ -166,4 +166,82 @@ export const spawnConfigBuilders: Record<string, SpawnConfigBuilder> = {
       JENKINS_API_TOKEN: String(config.apiToken || ''),
     },
   }),
+
+  datadog: (config) => ({
+    command: 'npx',
+    args: ['-y', '@winor30/mcp-server-datadog'],
+    env: {
+      DATADOG_API_KEY: String(config.apiKey || ''),
+      DATADOG_APP_KEY: String(config.appKey || ''),
+      DATADOG_SITE: String(config.site || 'datadoghq.com'),
+    },
+  }),
+
+  pagerduty: (config) => ({
+    command: 'uvx',
+    args: ['pagerduty-mcp', '--enable-write-tools'],
+    env: {
+      PAGERDUTY_API_KEY: String(config.apiKey || ''),
+    },
+  }),
+
+  opsgenie: (config) => ({
+    command: 'npx',
+    args: ['-y', 'mcp-opsgenie'],
+    env: {
+      OPSGENIE_API_KEY: String(config.apiKey || ''),
+      ...(config.apiUrl ? { OPSGENIE_API_URL: String(config.apiUrl) } : {}),
+    },
+  }),
+
+  apisix: (config) => ({
+    command: 'npx',
+    args: ['-y', 'apisix-mcp'],
+    env: {
+      APISIX_SERVER_HOST: String(config.host || 'localhost'),
+      APISIX_SERVER_PORT: String(config.port || 9080),
+      APISIX_ADMIN_API_PORT: String(config.adminApiPort || 9180),
+      APISIX_ADMIN_API_PREFIX: String(config.adminApiPrefix || '/apisix/admin'),
+      APISIX_ADMIN_KEY: String(config.adminKey || ''),
+    },
+  }),
+
+  kong: (config) => ({
+    command: String(config.binaryPath || 'mcp-konnect'),
+    args: [],
+    env: {
+      KONNECT_ACCESS_TOKEN: String(config.accessToken || ''),
+      KONNECT_REGION: String(config.region || 'us'),
+    },
+  }),
+
+  airflow: (config) => ({
+    command: 'uvx',
+    args: ['--python', '3.12', 'mcp-airflow-api'],
+    env: {
+      AIRFLOW_BASE_URL: String(config.url || ''),
+      AIRFLOW_USERNAME: String(config.username || ''),
+      AIRFLOW_PASSWORD: String(config.password || ''),
+    },
+  }),
+
+  loki: (config) => ({
+    command: 'uvx',
+    args: ['grafana-loki-mcp'],
+    env: {
+      GRAFANA_URL: String(config.url || ''),
+      GRAFANA_API_KEY: String(config.apiKey || ''),
+    },
+  }),
+
+  ssh: (config) => {
+    const env: Record<string, string> = {
+      SSH_HOST: String(config.host || ''),
+      SSH_PORT: String(config.port || 22),
+      SSH_USERNAME: String(config.username || ''),
+    }
+    if (config.password) env.SSH_PASSWORD = String(config.password)
+    if (config.privateKey) env.SSH_PRIVATE_KEY = String(config.privateKey)
+    return { command: 'uvx', args: ['ssh-mcp-server'], env }
+  },
 }

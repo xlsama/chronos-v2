@@ -1,6 +1,12 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { client, unwrap } from '@/lib/api'
 import type { ConnectionFormValues } from '@/lib/schemas/connection'
+import type {
+  ConnectionImportCandidate,
+  ConnectionImportCommitResponse,
+  ConnectionImportPreviewResponse,
+  ConnectionType,
+} from '@chronos/shared'
 
 export const connectionQueries = {
   all: () => ['connections'] as const,
@@ -45,6 +51,7 @@ export function useDeleteConnection() {
 export function useTestConnection() {
   const queryClient = useQueryClient()
   return useMutation({
+    meta: { skipGlobalErrorToast: true },
     mutationFn: (id: string) =>
       unwrap(client.api.connections[':id'].test.$post({ param: { id } })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: connectionQueries.all() }),
@@ -53,7 +60,34 @@ export function useTestConnection() {
 
 export function useTestConnectionDirect() {
   return useMutation({
-    mutationFn: (data: { type: string; config: Record<string, unknown> }) =>
-      unwrap(client.api.connections.test.$post({ json: data as any })),
+    meta: { skipGlobalErrorToast: true },
+    mutationFn: (data: { type: ConnectionType; config: Record<string, unknown> }) =>
+      unwrap(client.api.connections.test.$post({ json: data })),
+  })
+}
+
+export function usePreviewConnectionsFromKb() {
+  return useMutation({
+    meta: { skipGlobalErrorToast: true },
+    mutationFn: (data: { kbProjectId: string }) =>
+      unwrap<{ data: ConnectionImportPreviewResponse }>(
+        client.api.connections['import-from-kb'].preview.$post({ json: data }),
+      ),
+  })
+}
+
+export function useCommitConnectionsFromKb() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    meta: { skipGlobalErrorToast: true },
+    mutationFn: (data: {
+      kbProjectId: string
+      imports: ConnectionImportCandidate[]
+      selectedIds: string[]
+    }) =>
+      unwrap<{ data: ConnectionImportCommitResponse }>(
+        client.api.connections['import-from-kb'].commit.$post({ json: data }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: connectionQueries.all() }),
   })
 }

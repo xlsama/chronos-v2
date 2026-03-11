@@ -1,6 +1,9 @@
 import { eq, desc, and, count, SQL } from 'drizzle-orm'
 import { db } from '../db/index'
 import { incidents } from '../db/schema/index'
+import { incidentStatusEnum } from '../db/schema/enums'
+
+type IncidentStatusValue = (typeof incidentStatusEnum.enumValues)[number]
 
 export type CreateIncidentInput = {
   content: string
@@ -10,14 +13,14 @@ export type CreateIncidentInput = {
 }
 
 export type UpdateIncidentInput = {
-  status?: 'new' | 'triaging' | 'in_progress' | 'waiting_human' | 'resolved' | 'closed'
+  status?: IncidentStatusValue
   processingMode?: 'automatic' | 'semi_automatic' | null
   threadId?: string
   summary?: string | null
 }
 
 export type ListIncidentsQuery = {
-  status?: string
+  status?: IncidentStatusValue
   limit?: number
   offset?: number
 }
@@ -26,7 +29,7 @@ export const incidentService = {
   async list(query: ListIncidentsQuery = {}) {
     const { status, limit = 50, offset = 0 } = query
     const conditions: SQL[] = []
-    if (status) conditions.push(eq(incidents.status, status as any))
+    if (status) conditions.push(eq(incidents.status, status))
 
     const where = conditions.length > 0 ? and(...conditions) : undefined
     const [items, [{ total }]] = await Promise.all([

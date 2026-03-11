@@ -4,7 +4,8 @@ import { Plus, Loader2 } from 'lucide-react'
 import { useCreateIncident } from '@/lib/queries/incidents'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { Button } from '@/components/ui/button'
-import { VoiceInputButton } from '@/components/shared/voice-input-button'
+import { KbPicker, KbBadgeList } from '@/components/shared/kb-picker'
+import { useVoiceInput, VoiceInputButton, RecordingOverlay, RecordingActions } from '@/components/shared/voice-input-button'
 import {
   Dialog,
   DialogContent,
@@ -21,12 +22,16 @@ interface CreateIncidentDialogProps {
 
 export function CreateIncidentDialog({ open, onOpenChange }: CreateIncidentDialogProps) {
   const [content, setContent] = useState('')
+  const [selectedKbIds, setSelectedKbIds] = useState<string[]>([])
   const fileUpload = useFileUpload()
   const createIncident = useCreateIncident()
+  const voice = useVoiceInput((text) => setContent((prev) => prev + text))
+  const isRecording = voice.recorder.state === 'recording'
 
   useEffect(() => {
     if (!open) {
       setContent('')
+      setSelectedKbIds([])
       fileUpload.cleanupAll()
     }
   }, [open, fileUpload.cleanupAll])
@@ -37,6 +42,7 @@ export function CreateIncidentDialog({ open, onOpenChange }: CreateIncidentDialo
       {
         content: content.trim(),
         ...(fileUpload.doneAttachments.length > 0 && { attachments: fileUpload.doneAttachments }),
+        ...(selectedKbIds.length > 0 && { knowledgeBaseIds: selectedKbIds }),
       },
       {
         onSuccess: () => {
@@ -63,24 +69,46 @@ export function CreateIncidentDialog({ open, onOpenChange }: CreateIncidentDialo
           placeholder="描述告警内容..."
           textareaClassName="min-h-[120px]"
           className="rounded-2xl"
+          renderBeforeActions={() => (
+            <KbPicker selected={selectedKbIds} onChange={setSelectedKbIds} disabled={createIncident.isPending || isRecording} />
+          )}
+          renderAboveTextarea={() => (
+            <KbBadgeList selected={selectedKbIds} onChange={setSelectedKbIds} />
+          )}
+          isRecording={isRecording}
+          renderRecordingOverlay={() => (
+            <RecordingOverlay
+              stream={voice.recorder.stream}
+              duration={voice.recorder.duration}
+            />
+          )}
           renderActions={() => (
-            <div className="flex items-center gap-1">
-              <VoiceInputButton
-                disabled={createIncident.isPending}
-                onTranscribed={(text) => setContent((prev) => prev + text)}
-              />
-              <Button
-                size="sm"
-                disabled={!content.trim() || fileUpload.hasUploading || createIncident.isPending}
-                onClick={handleSubmit}
-              >
-                {createIncident.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Plus className="size-4" />
-                )}
-                创建
-              </Button>
+            <div className="flex items-center gap-2">
+              {isRecording ? (
+                <RecordingActions
+                  onStop={voice.handleToggle}
+                  onCancel={voice.handleCancel}
+                />
+              ) : (
+                <>
+                  <VoiceInputButton
+                    disabled={createIncident.isPending}
+                    isTranscribing={voice.isTranscribing}
+                    state={voice.recorder.state}
+                    onClick={voice.handleToggle}
+                  />
+                  <Button
+                    size="sm"
+                    disabled={!content.trim() || fileUpload.hasUploading || createIncident.isPending}
+                    onClick={handleSubmit}
+                  >
+                    {createIncident.isPending && (
+                      <Loader2 className="size-4 animate-spin" />
+                    )}
+                    创建
+                  </Button>
+                </>
+              )}
             </div>
           )}
         />

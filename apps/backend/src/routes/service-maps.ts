@@ -4,19 +4,48 @@ import { z } from 'zod/v4'
 import { serviceMapService } from '../services/service-map.service'
 import { AppError } from '../lib/errors'
 
+const serviceNodeTypes = [
+  'service', 'database', 'cache', 'queue', 'search',
+  'gateway', 'monitoring', 'cicd', 'container', 'external',
+] as const
+
+const edgeRelationTypes = [
+  'calls', 'depends-on', 'reads-from', 'writes-to', 'publishes', 'subscribes',
+] as const
+
+const edgeProtocols = [
+  'http', 'grpc', 'tcp', 'amqp', 'kafka', 'redis', 'sql', 'custom',
+] as const
+
+const nodeDataSchema = z.object({
+  label: z.string().min(1),
+  serviceType: z.enum(serviceNodeTypes),
+  description: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  connectionId: z.uuid().optional(),
+  kbProjectId: z.uuid().optional(),
+})
+
+const edgeDataSchema = z.object({
+  relationType: z.enum(edgeRelationTypes),
+  protocol: z.enum(edgeProtocols).optional(),
+  description: z.string().optional(),
+  critical: z.boolean().optional(),
+})
+
 const graphSchema = z.object({
   nodes: z.array(z.object({
     id: z.string(),
     type: z.string().optional(),
     position: z.object({ x: z.number(), y: z.number() }),
-    data: z.record(z.string(), z.unknown()).optional(),
+    data: nodeDataSchema,
   })),
   edges: z.array(z.object({
     id: z.string(),
     source: z.string(),
     target: z.string(),
     label: z.string().optional(),
-    data: z.record(z.string(), z.unknown()).optional(),
+    data: edgeDataSchema.optional(),
   })),
 })
 

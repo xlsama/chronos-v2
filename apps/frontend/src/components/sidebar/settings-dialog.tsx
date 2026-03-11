@@ -112,10 +112,6 @@ function NotificationSettings() {
       },
       {
         onSuccess: () => toast.success("保存成功"),
-        onError: (err) =>
-          toast.error("保存失败", {
-            description: err instanceof Error ? err.message : "未知错误",
-          }),
       },
     );
   };

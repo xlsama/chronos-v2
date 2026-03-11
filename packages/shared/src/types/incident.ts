@@ -20,13 +20,19 @@ export interface Incident {
   updatedAt: string;
 }
 
+export type MessageContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image'; image: string; mimeType?: string }
+  | { type: 'tool-call'; toolCallId: string; toolName: string; args: Record<string, unknown> }
+  | { type: 'tool-result'; toolCallId: string; toolName: string; result: unknown }
+
 export interface IncidentMessage {
   id: string;
   incidentId: string;
   role: MessageRole;
   content: string;
-  contentParts: unknown | null;
-  attachments: unknown | null;
+  contentParts: MessageContentPart[] | null;
+  attachments: Attachment[] | null;
   userId: string | null;
   createdAt: string;
 }

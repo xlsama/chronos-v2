@@ -7,7 +7,7 @@ export type CreateMessageInput = {
   incidentId?: string
   role: string
   content?: string
-  toolInvocations?: unknown
+  toolInvocations?: Record<string, unknown>[]
   metadata?: Record<string, unknown>
 }
 

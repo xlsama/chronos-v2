@@ -28,9 +28,21 @@ export type ConnectionType =
   | "grafana"
   | "prometheus"
   | "sentry"
-  | "jenkins";
+  | "jenkins"
+  | "datadog"
+  | "pagerduty"
+  | "opsgenie"
+  | "apisix"
+  | "kong"
+  | "airflow"
+  | "loki"
+  | "ssh";
 
 export type ConnectionStatus = "connected" | "disconnected" | "error";
 
 // ── MCP ─────────────────────────────────────────────────────
 export type McpStatus = "idle" | "registering" | "registered" | "error";
+
+// ── Knowledge Base ──────────────────────────────────────────
+export type DocumentType = "markdown" | "pdf" | "xlsx" | "csv" | "docx";
+export type DocumentStatus = "pending" | "processing" | "ready" | "error";

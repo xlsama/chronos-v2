@@ -1,4 +1,4 @@
-import { BookOpen, Cable, Inbox } from "lucide-react";
+import { Cable, Inbox, Library, ScrollText } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 
 import {
@@ -22,7 +22,8 @@ const mainNav = [{ title: "收件箱", icon: Inbox, to: "/inbox" as const }];
 
 const platformNav = [
   { title: "连接", icon: Cable, to: "/connections" as const },
-  { title: "Runbook", icon: BookOpen, to: "/runbooks" as const },
+  { title: "知识库", icon: Library, to: "/knowledge-base" as const },
+  { title: "Runbook", icon: ScrollText, to: "/runbooks" as const },
 ];
 
 export function AppSidebar() {

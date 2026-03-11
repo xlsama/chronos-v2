@@ -1,17 +1,24 @@
 import { updateIncidentStatus } from './incident-tools'
 import { searchRunbooks, getRunbook, createRunbook } from './runbook-tools'
-import { searchSkills, getSkill } from './skill-tools'
+import { loadSkill } from './skill-tools'
 import { listConnections } from './connection-tools'
-import { getServiceNeighbors, getServiceMap } from './service-map-tools'
+import { getServiceContext, findAffectedServices, getServiceMap } from './service-map-tools'
+import { searchKnowledge, getKnowledgeDocument } from './knowledge-base-tools'
+import { searchMcpTools, executeMcpTool } from './mcp-tools'
 
-export const tools = {
+// Re-export individual tools for sub-agents
+export {
   updateIncidentStatus,
   searchRunbooks,
   getRunbook,
   createRunbook,
-  searchSkills,
-  getSkill,
+  loadSkill,
   listConnections,
-  getServiceNeighbors,
+  getServiceContext,
+  findAffectedServices,
   getServiceMap,
+  searchKnowledge,
+  getKnowledgeDocument,
+  searchMcpTools,
+  executeMcpTool,
 }

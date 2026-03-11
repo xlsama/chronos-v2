@@ -9,9 +9,9 @@ export const Route = createFileRoute('/_app')({
 
 function RouteComponent() {
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh">
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="overflow-auto">
         <Outlet />
       </SidebarInset>
     </SidebarProvider>

@@ -1,17 +1,18 @@
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index'
 import { serviceMaps } from '../db/schema/index'
+import type { ServiceMapGraph } from '../db/schema/service-maps'
 
 export type CreateServiceMapInput = {
   name: string
   description?: string
-  graph: { nodes: unknown[]; edges: unknown[] }
+  graph: ServiceMapGraph
 }
 
 export type UpdateServiceMapInput = {
   name?: string
   description?: string
-  graph?: { nodes: unknown[]; edges: unknown[] }
+  graph?: ServiceMapGraph
 }
 
 export const serviceMapService = {

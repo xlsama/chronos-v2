@@ -7,6 +7,10 @@ export const connectionTypeEnum = pgEnum('connection_type', [
   'elasticsearch', 'kafka', 'rabbitmq',
   'kubernetes', 'docker', 'argocd',
   'grafana', 'prometheus', 'sentry', 'jenkins',
+  'datadog', 'pagerduty', 'opsgenie', 'apisix', 'kong', 'airflow', 'loki', 'ssh',
 ])
 export const connectionStatusEnum = pgEnum('connection_status', ['connected', 'disconnected', 'error'])
 export const mcpStatusEnum = pgEnum('mcp_status', ['idle', 'registering', 'registered', 'error'])
+
+export const documentTypeEnum = pgEnum('document_type', ['markdown', 'pdf', 'xlsx', 'csv', 'docx'])
+export const documentStatusEnum = pgEnum('document_status', ['pending', 'processing', 'ready', 'error'])
