@@ -87,6 +87,10 @@ redis-cli -p 16379 GET config:order-service:rate_limit
 bash trigger.sh
 ```
 
+```
+[P1 告警] order-service 健康检查失败\n\n告警来源: Prometheus Alertmanager\n告警级别: Critical\n触发时间: 2026-03-10T14:30:00+08:00\n\n告警详情:\n- 服务: order-service (10.0.1.52:3000)\n- 健康检查端点 /health 连续 3 次返回 unhealthy\n- 错误信息: Redis dependency check failed - WRONGTYPE Operation against a key holding the wrong kind of value\n- 影响范围: 订单创建接口 P99 延迟从 200ms 飙升至 12000ms+\n- 关联 Redis key: config:order-service:rate_limit\n\n最近相关错误日志 (最近 5 分钟, 共 47 条):\n  [ERROR] Failed to read rate_limit config from Redis: ReplyError: WRONGTYPE Operation against a key holding the wrong kind of value\n  [ERROR] Circuit breaker OPEN for redis-config-reader after 5 consecutive failures\n  [WARN]  Rate limiter fallback triggered - using default config\n  [WARN]  Order creation latency exceeded 5000ms threshold\n\n请立即排查。
+```
+
 脚本会通过 webhook 接口发送一条 P1 告警，内容包含：
 - order-service 健康检查失败
 - Redis WRONGTYPE 错误详情
