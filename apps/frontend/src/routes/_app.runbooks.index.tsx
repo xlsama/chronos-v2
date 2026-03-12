@@ -8,6 +8,16 @@ import { toast } from "sonner";
 import type { ProjectDocument } from "@chronos/shared";
 import { ProjectPicker } from "@/components/ops/project-picker";
 import { StatusBadge } from "@/components/ops/status-badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +53,7 @@ function RunbooksPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(projects[0]?.id);
   const [publicationFilter, setPublicationFilter] = useState<"draft" | "published">("draft");
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<ProjectDocument | null>(null);
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -97,10 +108,11 @@ function RunbooksPage() {
     navigate({ to: "/runbooks/$id", params: { id: runbook.id } });
   }
 
-  async function handleDeleteRunbook(runbook: ProjectDocument) {
-    if (!window.confirm(`删除「${runbook.title}」？此操作无法撤销。`)) return;
+  async function handleDeleteRunbook() {
+    if (!deleteTarget) return;
 
-    await deleteDocument.mutateAsync(runbook.id);
+    await deleteDocument.mutateAsync(deleteTarget.id);
+    setDeleteTarget(null);
     toast.success("runbook 已删除");
   }
 
@@ -273,8 +285,9 @@ function RunbooksPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          className="border-destructive/30 text-destructive hover:border-destructive hover:bg-destructive hover:text-white"
                           disabled={deleteDocument.isPending}
-                          onClick={() => void handleDeleteRunbook(runbook)}
+                          onClick={() => setDeleteTarget(runbook)}
                         >
                           <Trash2 data-icon="inline-start" className="size-4" />
                           删除
@@ -335,6 +348,37 @@ function RunbooksPage() {
               </PaginationContent>
             </Pagination>
           ) : null}
+
+          <AlertDialog
+            open={Boolean(deleteTarget)}
+            onOpenChange={(open) => {
+              if (!open) setDeleteTarget(null);
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>删除 runbook？</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {deleteTarget
+                    ? `删除「${deleteTarget.title}」后将无法恢复。`
+                    : "删除后将无法恢复。"}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteDocument.isPending}>取消</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  disabled={deleteDocument.isPending}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void handleDeleteRunbook();
+                  }}
+                >
+                  {deleteDocument.isPending ? "删除中..." : "确认删除"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </section>
       </motion.div>
     </div>

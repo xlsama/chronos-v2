@@ -7,6 +7,17 @@ import { motion } from "motion/react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/ops/status-badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
@@ -15,21 +26,12 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldContent, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { opsQueries, useDeleteDocument, useUpdateDocument } from "@/lib/queries/ops";
 
-const PUBLICATION_STATUS_OPTIONS = ["draft", "published", "active", "archived"] as const;
+const RUNBOOK_PUBLICATION_STATUSES = ["draft", "published", "active", "archived"] as const;
 
 export const Route = createFileRoute("/_app/runbooks/$id")({
   loader: ({ context, params }) => {
@@ -46,50 +48,44 @@ function RunbookDetailPage() {
   const { data: runbook } = useSuspenseQuery(opsQueries.document(id));
 
   const [title, setTitle] = useState(runbook.title);
-  const [description, setDescription] = useState(runbook.description ?? "");
-  const [tags, setTags] = useState(runbook.tags.join(", "));
   const [content, setContent] = useState(runbook.content ?? "");
-  const [publicationStatus, setPublicationStatus] = useState<
-    (typeof PUBLICATION_STATUS_OPTIONS)[number]
-  >(normalizePublicationStatus(runbook.publicationStatus));
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const updateDocument = useUpdateDocument();
   const deleteDocument = useDeleteDocument();
   const projectName = projects.find((project) => project.id === runbook.projectId)?.name ?? "项目";
   const documentTitle = title.trim() || "未命名 runbook";
+  const publicationStatus = normalizePublicationStatus(runbook.publicationStatus);
 
   async function handleSave() {
     await updateDocument.mutateAsync({
       id,
       data: {
         title: documentTitle,
-        description: description.trim() || undefined,
-        tags: tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
+        description: runbook.description ?? undefined,
+        tags: runbook.tags,
         content,
         publicationStatus,
       },
     });
+
     toast.success("runbook 已保存");
   }
 
   async function handleDelete() {
-    if (!window.confirm(`删除「${runbook.title}」？此操作无法撤销。`)) return;
-
     await deleteDocument.mutateAsync(id);
+    setDeleteDialogOpen(false);
     toast.success("runbook 已删除");
     navigate({ to: "/runbooks" });
   }
 
   return (
-    <div className="min-h-full bg-background px-4 py-4 md:px-8 md:py-6">
+    <div className="min-h-full bg-background px-4 py-4 pb-8 md:px-8 md:py-6 md:pb-10">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, ease: "easeOut" }}
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-5"
       >
         <Breadcrumb>
           <BreadcrumbList>
@@ -109,167 +105,94 @@ function RunbookDetailPage() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <section className="rounded-2xl border bg-card p-6 shadow-sm md:p-8">
+        <section className="rounded-2xl border bg-card p-5 shadow-sm md:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-0 flex-1 space-y-4">
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="runbook 标题"
+                className="h-auto border-0 bg-transparent px-0 text-3xl font-medium tracking-tight shadow-none focus-visible:ring-0"
+              />
+            </div>
+
+            <div className="flex flex-col items-start gap-3 lg:items-end">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground lg:justify-end">
                 <StatusBadge
                   value={publicationStatus}
                   label={getRunbookStatusLabel(publicationStatus)}
                 />
-                <StatusBadge value={runbook.status} label={getRunbookStatusLabel(runbook.status)} />
+                <Badge variant="outline" className="rounded-full bg-background/80 font-normal">
+                  创建于 {dayjs(runbook.createdAt).format("YYYY-MM-DD HH:mm")}
+                </Badge>
               </div>
-              <h1 className="mt-4 text-3xl font-medium tracking-tight">{documentTitle}</h1>
-              <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                编辑 Markdown 内容，维护这份 runbook 的步骤、约束和处理说明。
-              </p>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-              <Button
-                variant="outline"
-                onClick={() => void handleDelete()}
-                disabled={deleteDocument.isPending}
-              >
-                <Trash2 data-icon="inline-start" className="size-4" />
-                删除
-              </Button>
-              <Button
-                onClick={() => void handleSave()}
-                disabled={updateDocument.isPending || title.trim().length === 0}
-              >
-                <Save data-icon="inline-start" className="size-4" />
-                保存
-              </Button>
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <Button
+                  variant="outline"
+                  className="border-destructive/30 text-destructive hover:border-destructive hover:bg-destructive hover:text-white"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={deleteDocument.isPending}
+                >
+                  <Trash2 data-icon="inline-start" className="size-4" />
+                  删除
+                </Button>
+                <Button
+                  onClick={() => void handleSave()}
+                  disabled={updateDocument.isPending || documentTitle.length === 0}
+                >
+                  <Save data-icon="inline-start" className="size-4" />
+                  保存
+                </Button>
+              </div>
             </div>
           </div>
         </section>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_20rem]">
-          <Card className="rounded-2xl shadow-sm">
-            <CardHeader>
-              <CardTitle>元数据</CardTitle>
-              <CardDescription>定义这个 runbook 的命名、描述和索引信息。</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FieldGroup>
-                <Field>
-                  <FieldLabel>标题</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      value={title}
-                      onChange={(event) => setTitle(event.target.value)}
-                      placeholder="runbook 标题"
-                    />
-                  </FieldContent>
-                </Field>
-
-                <Field>
-                  <FieldLabel>描述</FieldLabel>
-                  <FieldContent>
-                    <Textarea
-                      value={description}
-                      onChange={(event) => setDescription(event.target.value)}
-                      rows={3}
-                      placeholder="用于列表展示和检索上下文的简短摘要"
-                    />
-                  </FieldContent>
-                </Field>
-
-                <Field>
-                  <FieldLabel>标签</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      value={tags}
-                      onChange={(event) => setTags(event.target.value)}
-                      placeholder="kubernetes, redis, failover"
-                    />
-                  </FieldContent>
-                </Field>
-              </FieldGroup>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl shadow-sm">
-            <CardHeader>
-              <CardTitle>发布</CardTitle>
-              <CardDescription>控制可见性，并保留当前处理状态信息。</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <Field>
-                <FieldLabel>发布状态</FieldLabel>
-                <FieldContent>
-                  <Select
-                    value={publicationStatus}
-                    onValueChange={(value) =>
-                      setPublicationStatus(value as (typeof PUBLICATION_STATUS_OPTIONS)[number])
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PUBLICATION_STATUS_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {getRunbookStatusLabel(option)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FieldContent>
-              </Field>
-
-              <div className="space-y-3 rounded-xl border bg-muted/20 p-4 text-sm">
-                <MetaRow label="项目" value={projectName} />
-                <MetaRow label="来源" value={runbook.source} />
-                <MetaRow
-                  label="创建时间"
-                  value={dayjs(runbook.createdAt).format("YYYY-MM-DD HH:mm")}
-                />
-                <MetaRow
-                  label="更新时间"
-                  value={dayjs(runbook.updatedAt).format("YYYY-MM-DD HH:mm")}
-                />
-                <MetaRow label="文件" value={runbook.fileName} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="rounded-2xl shadow-sm">
-          <CardHeader>
-            <CardTitle>编辑器</CardTitle>
-            <CardDescription>
-              使用统一的 Markdown 编辑器，保持 runbook 编写体验与产品其他区域一致。
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Card className="mb-4 overflow-hidden rounded-2xl shadow-sm md:mb-6">
+          <CardContent className="p-0">
             <MarkdownEditor
               value={content}
               onChange={setContent}
               resetKey={id}
-              minHeight={560}
+              minHeight={760}
+              className="rounded-none border-0"
               placeholder="编写 runbook 的步骤、约束、回滚说明和验证命令。"
             />
           </CardContent>
         </Card>
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>删除 runbook？</AlertDialogTitle>
+              <AlertDialogDescription>删除「{runbook.title}」后将无法恢复。</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteDocument.isPending}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={deleteDocument.isPending}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleDelete();
+                }}
+              >
+                {deleteDocument.isPending ? "删除中..." : "确认删除"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     </div>
   );
 }
 
-function MetaRow(props: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b pb-3 last:border-b-0 last:pb-0">
-      <span className="text-muted-foreground">{props.label}</span>
-      <span className="max-w-48 truncate text-right font-medium">{props.value}</span>
-    </div>
-  );
-}
-
 function normalizePublicationStatus(value: string) {
-  return PUBLICATION_STATUS_OPTIONS.includes(value as (typeof PUBLICATION_STATUS_OPTIONS)[number])
-    ? (value as (typeof PUBLICATION_STATUS_OPTIONS)[number])
+  return RUNBOOK_PUBLICATION_STATUSES.includes(
+    value as (typeof RUNBOOK_PUBLICATION_STATUSES)[number],
+  )
+    ? (value as (typeof RUNBOOK_PUBLICATION_STATUSES)[number])
     : "draft";
 }
 
