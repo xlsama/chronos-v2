@@ -1,57 +1,60 @@
-import { useForm } from '@tanstack/react-form'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft } from 'lucide-react'
-import type { ConnectionType } from '@chronos/shared'
-import { ServiceIcon } from '@/components/ops/service-icon'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useServicesLayout } from '@/contexts/services-layout-context'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { useCreateService } from '@/lib/queries/ops'
-import { SERVICE_TYPE_META } from '@/lib/constants/service-types'
+import { useForm } from "@tanstack/react-form";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
+import type { ConnectionType } from "@chronos/shared";
+import { ServiceCreateBreadcrumb } from "@/components/ops/service-create-breadcrumb";
+import { ServiceIcon } from "@/components/ops/service-icon";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useServicesLayout } from "@/contexts/services-layout-context";
+import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useCreateService } from "@/lib/queries/ops";
+import { SERVICE_TYPE_META } from "@/lib/constants/service-types";
 import {
   buildConnectionConfig,
   connectionConfigFields,
   createConnectionFormDefaultValues,
   createConnectionFormSchema,
   type ConnectionFormValues,
-} from '@/lib/schemas/connection'
+} from "@/lib/schemas/connection";
 
-export const Route = createFileRoute('/_app/services/create/$type')({
+export const Route = createFileRoute("/_app/services/create/$type")({
   component: CreateServiceFormPage,
-})
+});
 
 function CreateServiceFormPage() {
-  const { type } = Route.useParams()
-  const connectionType = type as ConnectionType
-  const { activeProjectId } = useServicesLayout()
-  const navigate = useNavigate()
-  const createService = useCreateService()
+  const { type } = Route.useParams();
+  const connectionType = type as ConnectionType;
+  const { activeProjectId } = useServicesLayout();
+  const navigate = useNavigate();
+  const createService = useCreateService();
 
-  const meta = SERVICE_TYPE_META[connectionType]
-  const fields = connectionConfigFields[connectionType] ?? []
+  const meta = SERVICE_TYPE_META[connectionType];
+  const fields = connectionConfigFields[connectionType] ?? [];
 
   const form = useForm<ConnectionFormValues>({
     defaultValues: createConnectionFormDefaultValues(connectionType),
     validators: { onSubmit: createConnectionFormSchema(connectionType) },
     onSubmit: async ({ value }) => {
-      if (!activeProjectId) return
+      if (!activeProjectId) return;
 
       await createService.mutateAsync({
         projectId: activeProjectId,
         name: `${meta?.label ?? connectionType}-${Date.now()}`,
         type: connectionType,
         config: buildConnectionConfig(value, connectionType),
-      })
+      });
 
-      void navigate({ to: '/services' })
+      void navigate({ to: "/services" });
     },
-  })
+  });
 
   return (
     <div className="flex flex-col gap-6 pb-14 md:pb-20">
+      <ServiceCreateBreadcrumb currentLabel={meta?.label ?? connectionType} type={connectionType} />
+
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link to="/services/create">
@@ -66,9 +69,9 @@ function CreateServiceFormPage() {
         <CardContent className="pt-6">
           <form
             onSubmit={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              form.handleSubmit()
+              event.preventDefault();
+              event.stopPropagation();
+              form.handleSubmit();
             }}
             className="flex flex-col gap-6"
           >
@@ -79,13 +82,13 @@ function CreateServiceFormPage() {
                     key={configField.key}
                     name={configField.key as keyof ConnectionFormValues}
                     children={(field) => {
-                      const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                      const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
 
                       return (
                         <Field data-invalid={isInvalid}>
                           <FieldLabel>{configField.label}</FieldLabel>
                           <FieldContent>
-                            {configField.type === 'textarea' ? (
+                            {configField.type === "textarea" ? (
                               <Textarea
                                 value={field.state.value}
                                 onBlur={field.handleBlur}
@@ -97,7 +100,9 @@ function CreateServiceFormPage() {
                               />
                             ) : (
                               <Input
-                                type={configField.type === 'password' ? 'password' : configField.type}
+                                type={
+                                  configField.type === "password" ? "password" : configField.type
+                                }
                                 value={field.state.value}
                                 onBlur={field.handleBlur}
                                 onChange={(event) => field.handleChange(event.target.value)}
@@ -108,7 +113,7 @@ function CreateServiceFormPage() {
                             {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                           </FieldContent>
                         </Field>
-                      )
+                      );
                     }}
                   />
                 ))}
@@ -127,5 +132,5 @@ function CreateServiceFormPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
