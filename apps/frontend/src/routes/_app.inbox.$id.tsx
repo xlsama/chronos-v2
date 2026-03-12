@@ -52,7 +52,7 @@ function IncidentDetailPage() {
         <div className="flex flex-col gap-4">
           {showChat ? (
             <OpsSection title="Agent 对话" description="与 Agent 实时对话，分析和解决事件">
-              <div className="h-[600px] rounded-[1.25rem] border border-border/70 bg-background/70 overflow-hidden">
+              <div className="h-[600px] rounded-lg border bg-background overflow-hidden">
                 <ChatPanel threadId={threadId} incidentId={incident.id} />
               </div>
             </OpsSection>
@@ -65,7 +65,7 @@ function IncidentDetailPage() {
               </div>
 
               <OpsSection title="Final Summary Draft" description="This Markdown is what can be persisted into incident history after you review it.">
-                <div className="rounded-[1.25rem] border border-border/70 bg-background/70 px-5 py-5">
+                <div className="rounded-lg border bg-background px-5 py-5">
                   <Markdown className="prose prose-sm max-w-none text-sm" id={incident.id}>
                     {incident.finalSummaryDraft ?? 'No summary draft yet.'}
                   </Markdown>
@@ -78,7 +78,7 @@ function IncidentDetailPage() {
                 ) : (
                   <div className="grid gap-4">
                     {incident.approvals.map((approval) => (
-                      <Card key={approval.id} className="rounded-[1.25rem] border-border/70 bg-background/70">
+                      <Card key={approval.id}>
                         <CardHeader className="flex flex-row items-start justify-between gap-4">
                           <div>
                             <CardTitle className="text-lg">{approval.toolName}</CardTitle>
@@ -131,7 +131,7 @@ function IncidentDetailPage() {
           <OpsSection title="Workflow Runs" description="Current MVP stores run metadata, selected skills and action plans on each incident run.">
             <div className="grid gap-4">
               {incident.runs.map((run) => (
-                <Card key={run.id} className="rounded-[1.25rem] border-border/70 bg-background/70">
+                <Card key={run.id}>
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
                     <div>
                       <CardTitle className="text-lg">{run.stage}</CardTitle>
@@ -158,7 +158,7 @@ function IncidentDetailPage() {
             ) : (
               <div className="grid gap-4">
                 {incident.relatedHistory.map((entry) => (
-                  <Card key={entry.id} className="rounded-[1.25rem] border-border/70 bg-background/70">
+                  <Card key={entry.id}>
                     <CardHeader className="flex flex-row items-start justify-between gap-4">
                       <div>
                         <CardTitle className="text-lg">{entry.title}</CardTitle>

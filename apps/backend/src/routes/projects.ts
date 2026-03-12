@@ -103,13 +103,22 @@ export const projectRoutes = new Hono()
   })
   .get('/:projectId/runbooks', zValidator('query', z.object({
     publicationStatus: z.enum(['active', 'draft', 'published', 'archived']).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(50).default(10),
   })), async (c) => {
     const query = c.req.valid('query')
-    const data = await projectDocumentService.list(c.req.param('projectId'), {
+    const result = await projectDocumentService.listPaginated(c.req.param('projectId'), {
       kind: 'runbook',
       publicationStatus: query.publicationStatus,
+      page: query.page,
+      pageSize: query.pageSize,
     })
-    return c.json({ data })
+    return c.json({
+      data: result.items,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+    })
   })
   .post('/:projectId/runbooks', zValidator('json', markdownDocumentSchema), async (c) => {
     const data = await projectDocumentService.createMarkdownDocument({
@@ -143,6 +152,11 @@ export const projectRoutes = new Hono()
       ...c.req.valid('json'),
     })
     return c.json({ data }, 201)
+  })
+  .get('/documents/:documentId', async (c) => {
+    const data = await projectDocumentService.getById(c.req.param('documentId'))
+    if (!data) throw new AppError(404, 'Document not found')
+    return c.json({ data })
   })
   .put('/documents/:documentId', zValidator('json', markdownDocumentSchema.partial()), async (c) => {
     const data = await projectDocumentService.updateDocument(c.req.param('documentId'), c.req.valid('json'))

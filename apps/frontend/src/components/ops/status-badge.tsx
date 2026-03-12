@@ -10,7 +10,11 @@ const statusMap: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-900',
   processing: 'bg-sky-100 text-sky-900',
   ready: 'bg-emerald-100 text-emerald-900',
+  indexed: 'bg-sky-100 text-sky-900',
+  not_indexed: 'bg-zinc-200 text-zinc-900',
   error: 'bg-rose-100 text-rose-900',
+  cancelling: 'bg-orange-100 text-orange-900',
+  cancelled: 'bg-zinc-200 text-zinc-900',
   active: 'bg-slate-100 text-slate-800',
   draft: 'bg-orange-100 text-orange-900',
   published: 'bg-emerald-100 text-emerald-900',
@@ -22,10 +26,10 @@ const statusMap: Record<string, string> = {
   disconnected: 'bg-zinc-200 text-zinc-900',
 }
 
-export function StatusBadge(props: { value: string }) {
+export function StatusBadge(props: { value: string; label?: string }) {
   return (
     <Badge className={`border-transparent capitalize ${statusMap[props.value] ?? 'bg-muted text-foreground'}`}>
-      {props.value.replaceAll('_', ' ')}
+      {props.label ?? props.value.replaceAll('_', ' ')}
     </Badge>
   )
 }

@@ -1,7 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import '@mdxeditor/editor/style.css';
+
+@source "../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -48,37 +50,37 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.988 0.013 82.4);
-  --foreground: oklch(0.22 0.014 44.7);
-  --card: oklch(0.998 0.006 75.4);
-  --card-foreground: oklch(0.22 0.014 44.7);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.014 44.7);
-  --primary: oklch(0.54 0.141 57.8);
-  --primary-foreground: oklch(0.985 0.003 89.8);
-  --secondary: oklch(0.955 0.012 74.6);
-  --secondary-foreground: oklch(0.27 0.019 46.5);
-  --muted: oklch(0.962 0.01 73.7);
-  --muted-foreground: oklch(0.52 0.025 54.6);
-  --accent: oklch(0.945 0.031 74.4);
-  --accent-foreground: oklch(0.27 0.019 46.5);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.89 0.018 74.4);
-  --input: oklch(0.91 0.014 75.1);
-  --ring: oklch(0.64 0.103 59.6);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.19 0.012 40.3);
-  --sidebar-foreground: oklch(0.95 0.008 84.2);
-  --sidebar-primary: oklch(0.62 0.152 58.2);
-  --sidebar-primary-foreground: oklch(0.98 0.004 89.5);
-  --sidebar-accent: oklch(0.27 0.013 38.4);
-  --sidebar-accent-foreground: oklch(0.95 0.008 84.2);
-  --sidebar-border: oklch(0.28 0.011 38.1);
-  --sidebar-ring: oklch(0.64 0.103 59.6);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
@@ -120,18 +122,137 @@
     @apply border-border outline-ring/50;
   }
   body {
-    font-family: 'IBM Plex Sans', sans-serif;
     @apply bg-background text-foreground;
-    background-image:
-      linear-gradient(rgba(176, 129, 56, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(176, 129, 56, 0.05) 1px, transparent 1px);
-    background-size: 32px 32px;
   }
-  h1, h2, h3, h4 {
-    font-family: 'Cormorant Garamond', serif;
+}
+
+@layer components {
+  [data-markdown-editor] .markdown-editor-root {
+    @apply border-0 bg-background text-foreground shadow-none;
   }
-  code, pre {
-    font-family: 'IBM Plex Mono', monospace;
+
+  [data-markdown-editor] .markdown-editor-toolbar {
+    @apply flex flex-wrap items-center gap-1 border-b bg-muted/40 px-2 py-2;
+  }
+
+  [data-markdown-editor] .markdown-editor-toolbar button,
+  [data-markdown-editor] .markdown-editor-toolbar [role='button'],
+  [data-markdown-editor] .markdown-editor-toolbar [role='combobox'] {
+    @apply rounded-md border border-transparent bg-transparent text-foreground shadow-none transition-colors;
+  }
+
+  [data-markdown-editor] .markdown-editor-toolbar button:hover,
+  [data-markdown-editor] .markdown-editor-toolbar [role='button']:hover,
+  [data-markdown-editor] .markdown-editor-toolbar [role='combobox']:hover {
+    @apply bg-accent text-accent-foreground;
+  }
+
+  [data-markdown-editor] .markdown-editor-toolbar button[data-state='on'],
+  [data-markdown-editor] .markdown-editor-toolbar [role='button'][data-state='on'] {
+    @apply border-border bg-accent text-accent-foreground;
+  }
+
+  [data-markdown-editor] .markdown-editor-toolbar div[role='separator'] {
+    @apply mx-1 h-6 w-px bg-border;
+  }
+
+  [data-markdown-editor] .markdown-editor-content {
+    min-height: var(--markdown-editor-min-height, 20rem);
+    @apply px-4 py-4 outline-none;
+  }
+
+  [data-markdown-editor] .markdown-editor-content ul,
+  [data-markdown-editor] .markdown-editor-content ol {
+    @apply my-3 pl-6;
+    list-style-position: outside;
+  }
+
+  [data-markdown-editor] .markdown-editor-content ul {
+    list-style-type: disc;
+  }
+
+  [data-markdown-editor] .markdown-editor-content ol {
+    list-style-type: decimal;
+  }
+
+  [data-markdown-editor] .markdown-editor-content ul ul {
+    list-style-type: circle;
+  }
+
+  [data-markdown-editor] .markdown-editor-content ul ul ul {
+    list-style-type: square;
+  }
+
+  [data-markdown-editor] .markdown-editor-content ol ol {
+    list-style-type: lower-alpha;
+  }
+
+  [data-markdown-editor] .markdown-editor-content ol ol ol {
+    list-style-type: lower-roman;
+  }
+
+  [data-markdown-editor] .markdown-editor-content li {
+    display: list-item;
+    margin: 0.25rem 0;
+  }
+
+  [data-markdown-editor] .markdown-editor-content li::marker {
+    color: var(--muted-foreground);
+  }
+
+  [data-markdown-editor] .markdown-editor-content li > p {
+    margin: 0;
+  }
+
+  [data-markdown-editor] .markdown-editor-content li > ul,
+  [data-markdown-editor] .markdown-editor-content li > ol {
+    margin-top: 0.35rem;
+    margin-bottom: 0.35rem;
+  }
+
+  [data-markdown-editor] .markdown-editor-content h1 {
+    @apply text-3xl font-semibold leading-tight tracking-tight;
+  }
+
+  [data-markdown-editor] .markdown-editor-content h2 {
+    @apply text-2xl font-semibold leading-tight tracking-tight;
+  }
+
+  [data-markdown-editor] .markdown-editor-content h3 {
+    @apply text-xl font-semibold leading-tight tracking-tight;
+  }
+
+  [data-markdown-editor] .markdown-editor-content h4 {
+    @apply text-lg font-semibold leading-tight;
+  }
+
+  [data-markdown-editor] .markdown-editor-content > :first-child {
+    @apply mt-0;
+  }
+
+  [data-markdown-editor] .markdown-editor-content > :last-child {
+    @apply mb-0;
+  }
+
+  [data-markdown-editor] .markdown-editor-content blockquote {
+    @apply border-l-2 border-border pl-4 text-muted-foreground;
+  }
+
+  [data-markdown-editor] .markdown-editor-content code {
+    @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-sm;
+  }
+
+  [data-markdown-editor] .markdown-editor-content pre code {
+    @apply bg-transparent px-0 py-0;
+  }
+
+  [data-markdown-editor] .markdown-editor-content table {
+    @apply w-full border-collapse;
+  }
+
+  [data-markdown-editor] .markdown-editor-content th,
+  [data-markdown-editor] .markdown-editor-content td {
+    @apply border border-border px-3 py-2 text-left align-top;
   }
 }
 

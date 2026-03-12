@@ -5,9 +5,13 @@ import { z } from 'zod/v4'
 import { db } from '../db'
 import { workflowApprovals } from '../db/schema'
 import { AppError } from '../lib/errors'
+import { publishChatEvent } from '../lib/redis'
+import { runAgentInBackground } from '../lib/agent-runner'
+import { env } from '../env'
 import { agentRunService } from '../services/agent-run.service'
 import { incidentService } from '../services/incident.service'
 import { incidentWorkflowService } from '../services/incident-workflow.service'
+import { messageService } from '../services/message.service'
 import { projectDocumentService } from '../services/project-document.service'
 import { projectService } from '../services/project.service'
 import { workflowApprovalService } from '../services/workflow-approval.service'
@@ -46,7 +50,19 @@ export const incidentRoutes = new Hono()
       processingMode: 'automatic',
     })
 
-    void incidentWorkflowService.start(incident)
+    if (env.AGENT_AUTO_TRIGGER) {
+      const threadId = `incident-${incident.id}`
+      await messageService.save({
+        threadId,
+        incidentId: incident.id,
+        role: 'user',
+        content: incident.content,
+      })
+      await publishChatEvent(threadId, 'stream-start', { threadId })
+      void runAgentInBackground(threadId, incident)
+    } else {
+      void incidentWorkflowService.start(incident)
+    }
     return c.json({ data: incident }, 201)
   })
   .get('/:id', async (c) => {

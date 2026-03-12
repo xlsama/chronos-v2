@@ -3,7 +3,11 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod/v4'
 import { incidentService } from '../services/incident.service'
 import { incidentWorkflowService } from '../services/incident-workflow.service'
+import { messageService } from '../services/message.service'
+import { publishChatEvent } from '../lib/redis'
+import { runAgentInBackground } from '../lib/agent-runner'
 import { sendFeishuMessage } from '../lib/feishu'
+import { env } from '../env'
 
 const attachmentSchema = z.object({
   type: z.enum(['image', 'file']),
@@ -19,6 +23,20 @@ const eventSchema = z.object({
   sourceMetadata: z.record(z.string(), z.unknown()).optional(),
 })
 
+async function triggerAgent(incident: Awaited<ReturnType<typeof incidentService.create>>) {
+  const threadId = `incident-${incident.id}`
+
+  await messageService.save({
+    threadId,
+    incidentId: incident.id,
+    role: 'user',
+    content: incident.content,
+  })
+
+  await publishChatEvent(threadId, 'stream-start', { threadId })
+  void runAgentInBackground(threadId, incident)
+}
+
 export const webhookRoutes = new Hono()
   .post('/events', zValidator('json', eventSchema), async (c) => {
     const input = c.req.valid('json')
@@ -32,7 +50,11 @@ export const webhookRoutes = new Hono()
       processingMode: 'automatic',
     })
 
-    void incidentWorkflowService.start(incident)
+    if (env.AGENT_AUTO_TRIGGER) {
+      void triggerAgent(incident)
+    } else {
+      void incidentWorkflowService.start(incident)
+    }
     return c.json({ data: incident }, 201)
   })
   .post('/alert', zValidator('json', eventSchema), async (c) => {
@@ -47,7 +69,11 @@ export const webhookRoutes = new Hono()
       processingMode: 'automatic',
     })
 
-    void incidentWorkflowService.start(incident)
+    if (env.AGENT_AUTO_TRIGGER) {
+      void triggerAgent(incident)
+    } else {
+      void incidentWorkflowService.start(incident)
+    }
     return c.json({ data: incident }, 201)
   })
   .post('/test', zValidator('json', z.object({

@@ -1,15 +1,24 @@
 import type { Project } from '@chronos/shared'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
+
+type ProjectPickerWidth = 'responsive' | 'full'
 
 export function ProjectPicker(props: {
   projects: Project[]
   value?: string
   onValueChange: (value: string) => void
   placeholder?: string
+  width?: ProjectPickerWidth
+  className?: string
 }) {
+  const triggerClassName = props.width === 'full'
+    ? 'w-full bg-background/70'
+    : 'w-full bg-background/70 md:w-64'
+
   return (
     <Select value={props.value} onValueChange={props.onValueChange}>
-      <SelectTrigger className="w-full min-w-64 bg-background/70">
+      <SelectTrigger className={cn(triggerClassName, props.className)}>
         <SelectValue placeholder={props.placeholder ?? 'Select project'} />
       </SelectTrigger>
       <SelectContent>

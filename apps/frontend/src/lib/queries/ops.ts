@@ -2,6 +2,13 @@ import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@ta
 import type { Incident, IncidentDetail, Project, ProjectDocument, ProjectService, SkillRecord } from '@chronos/shared'
 import { client, unwrap } from '@/lib/api'
 
+export type PaginatedProjectDocuments = {
+  data: ProjectDocument[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export const opsQueries = {
   projects: () => ['ops', 'projects'] as const,
   projectList: () =>
@@ -30,21 +37,42 @@ export const opsQueries = {
         client.api.projects[':projectId'].knowledge.$get({ param: { projectId } }),
       ),
     }),
-  projectRunbooks: (projectId: string, publicationStatus?: 'active' | 'draft' | 'published' | 'archived') =>
+  projectRunbooks: (
+    projectId: string,
+    params: {
+      publicationStatus?: 'active' | 'draft' | 'published' | 'archived'
+      page?: number
+      pageSize?: number
+    } = {},
+  ) =>
     queryOptions({
-      queryKey: ['ops', 'projects', projectId, 'runbooks', publicationStatus] as const,
-      queryFn: () => unwrap<{ data: ProjectDocument[] }>(
-        client.api.projects[':projectId'].runbooks.$get({
+      queryKey: ['ops', 'projects', projectId, 'runbooks', params] as const,
+      queryFn: async () => {
+        const res = await client.api.projects[':projectId'].runbooks.$get({
           param: { projectId },
-          query: publicationStatus ? { publicationStatus } : {},
-        }),
-      ),
+          query: {
+            ...(params.publicationStatus ? { publicationStatus: params.publicationStatus } : {}),
+            ...(params.page ? { page: params.page } : {}),
+            ...(params.pageSize ? { pageSize: params.pageSize } : {}),
+          },
+        })
+        if (!res.ok) throw new Error(`API error ${res.status}`)
+        return res.json() as Promise<PaginatedProjectDocuments>
+      },
+      placeholderData: keepPreviousData,
     }),
   projectHistory: (projectId: string) =>
     queryOptions({
       queryKey: ['ops', 'projects', projectId, 'incident-history'] as const,
       queryFn: () => unwrap<{ data: ProjectDocument[] }>(
         client.api.projects[':projectId']['incident-history'].$get({ param: { projectId } }),
+      ),
+    }),
+  document: (documentId: string) =>
+    queryOptions({
+      queryKey: ['ops', 'documents', documentId] as const,
+      queryFn: () => unwrap<{ data: ProjectDocument }>(
+        client.api.projects.documents[':documentId'].$get({ param: { documentId } }),
       ),
     }),
   allServices: () =>
@@ -293,7 +321,10 @@ export function useUpdateSkill() {
   return useMutation({
     mutationFn: ({ slug, data }: { slug: string; data: Partial<{ name: string; description: string; markdown: string; config: Partial<SkillRecord> }> }) =>
       unwrap<{ data: SkillRecord }>(client.api.skills[':slug'].$put({ param: { slug }, json: data })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'skills'] }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['ops', 'skills'] })
+      queryClient.invalidateQueries({ queryKey: ['ops', 'skills', variables.slug] })
+    },
   })
 }
 
@@ -302,7 +333,10 @@ export function useDeleteSkill() {
   return useMutation({
     mutationFn: (slug: string) =>
       unwrap<{ data: SkillRecord }>(client.api.skills[':slug'].$delete({ param: { slug } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'skills'] }),
+    onSuccess: (_, slug) => {
+      queryClient.invalidateQueries({ queryKey: ['ops', 'skills'] })
+      queryClient.invalidateQueries({ queryKey: ['ops', 'skills', slug] })
+    },
   })
 }
 

@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai'
+import { toAISdkStream } from '@mastra/ai-sdk'
 import { logger } from '../lib/logger'
 import { publishChatEvent, getSubscriber, chatChannel } from '../lib/redis'
 import { messageService } from '../services/message.service'
@@ -6,17 +8,28 @@ import { incidentService } from '../services/incident.service'
 import { createSupervisorAgent } from '../mastra/agents/supervisor-agent'
 
 export const chatRoutes = new Hono()
-  // Stream chat response
+  // Stream chat response (AI SDK UIMessage protocol)
   .post('/', async (c) => {
     const body = await c.req.json<{
+      messages: UIMessage[]
       threadId: string
       incidentId?: string
-      message: string
     }>()
 
-    const { threadId, incidentId, message } = body
-    if (!threadId || !message) {
-      return c.json({ error: 'threadId and message are required' }, 400)
+    const { messages: uiMessages, threadId, incidentId } = body
+    if (!threadId || !uiMessages?.length) {
+      return c.json({ error: 'threadId and messages are required' }, 400)
+    }
+
+    // Extract last user message text
+    const lastMessage = uiMessages[uiMessages.length - 1]
+    const messageText = lastMessage.parts
+      ?.filter((p: { type: string }) => p.type === 'text')
+      .map((p: { type: string; text?: string }) => p.text ?? '')
+      .join('') ?? ''
+
+    if (!messageText.trim()) {
+      return c.json({ error: 'Empty message' }, 400)
     }
 
     // Save user message
@@ -24,7 +37,7 @@ export const chatRoutes = new Hono()
       threadId,
       incidentId,
       role: 'user',
-      content: message,
+      content: messageText,
     })
 
     // Build context from incident if available
@@ -45,8 +58,7 @@ export const chatRoutes = new Hono()
     // Create supervisor agent with incident context
     const agent = createSupervisorAgent(context)
 
-    // Use Mastra agent stream with memory (threadId-based)
-    const response = await agent.stream(message, {
+    const response = await agent.stream(messageText, {
       memory: {
         thread: threadId,
         resource: incidentId ?? 'chat',
@@ -54,44 +66,50 @@ export const chatRoutes = new Hono()
       maxSteps: 10,
     })
 
-    // Save assistant message on completion in the background
-    response.text.then(async (text) => {
-      await messageService.save({
-        threadId,
-        incidentId,
-        role: 'assistant',
-        content: text,
-      })
-      await publishChatEvent(threadId, 'message', {
-        role: 'assistant',
-        content: text,
-      }).catch((err) => logger.warn({ err }, 'Failed to publish chat event'))
-    }).catch((err) => logger.error({ err }, 'Failed to save assistant message'))
+    // Convert Mastra stream to AI SDK UIMessage stream
+    const sdkStream = toAISdkStream(response, {
+      from: 'agent',
+      sendReasoning: true,
+      sendSources: true,
+    })
 
     // Broadcast stream start
     publishChatEvent(threadId, 'stream-start', { threadId }).catch(() => {})
 
-    // Pipe Mastra textStream into a web-compatible byte stream
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-      async start(controller) {
+    // Wrap in createUIMessageStream for onFinish callback
+    const uiStream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        // Cast needed: @mastra/ai-sdk uses node:stream/web ReadableStream
+        // while ai package expects Web API ReadableStream
+        writer.merge(sdkStream as unknown as ReadableStream)
+      },
+      onFinish: async ({ responseMessage }) => {
         try {
-          for await (const chunk of response.textStream) {
-            controller.enqueue(encoder.encode(chunk))
-          }
-          controller.close()
+          const textContent = responseMessage.parts
+            .filter((p) => p.type === 'text')
+            .map((p) => (p as { type: 'text'; text: string }).text)
+            .join('')
+
+          await messageService.save({
+            threadId,
+            incidentId,
+            role: 'assistant',
+            content: textContent,
+            metadata: { parts: responseMessage.parts },
+          })
+
+          await publishChatEvent(threadId, 'message', {
+            id: responseMessage.id,
+            role: 'assistant',
+            parts: responseMessage.parts,
+          })
         } catch (err) {
-          controller.error(err)
+          logger.error({ err }, 'Failed to save assistant message')
         }
       },
     })
 
-    return new Response(readable, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
-      },
-    })
+    return createUIMessageStreamResponse({ stream: uiStream })
   })
 
   // SSE subscription for real-time updates
@@ -144,9 +162,19 @@ export const chatRoutes = new Hono()
     })
   })
 
-  // Get message history
+  // Get message history (UIMessage-compatible format)
   .get('/:threadId/messages', async (c) => {
     const { threadId } = c.req.param()
-    const messages = await messageService.listByThread(threadId)
-    return c.json({ data: messages })
+    const dbMessages = await messageService.listByThread(threadId)
+
+    const uiMessages = dbMessages.map((msg) => ({
+      id: msg.id,
+      role: msg.role as 'user' | 'assistant',
+      parts: (msg.metadata as Record<string, unknown>)?.parts ?? [
+        { type: 'text', text: msg.content ?? '' },
+      ],
+      createdAt: new Date(msg.createdAt),
+    }))
+
+    return c.json(uiMessages)
   })
