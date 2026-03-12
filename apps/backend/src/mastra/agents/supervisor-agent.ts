@@ -7,7 +7,6 @@ import { runbookAgent } from './runbook-agent'
 import { infraAgent } from './infra-agent'
 import { postmortemAgent } from './postmortem-agent'
 import { updateIncidentStatus } from '../tools/incident-tools'
-import { loadSkill } from '../tools/skill-tools'
 import { SUPERVISOR_PROMPT } from './prompts/supervisor-prompt'
 
 export const supervisorAgent = new Agent({
@@ -20,7 +19,7 @@ export const supervisorAgent = new Agent({
     apiKey: env.OPENAI_API_KEY,
   },
   agents: { kbAgent, runbookAgent, infraAgent, postmortemAgent },
-  tools: { updateIncidentStatus, loadSkill },
+  tools: { updateIncidentStatus },
   memory: new Memory({
     storage: new LibSQLStore({
       id: 'chronos-memory',

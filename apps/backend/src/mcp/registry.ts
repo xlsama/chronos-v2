@@ -124,6 +124,42 @@ class MCPRegistry {
     }
   }
 
+  getToolInfo(toolKey: string): {
+    connectionId: string
+    connectionName: string
+    connectionType: string
+    toolName: string
+    execute: (input: Record<string, unknown>) => Promise<unknown>
+  } | null {
+    for (const conn of this.clients.values()) {
+      const slug = slugify(conn.connectionName)
+      const prefix = slug || conn.connectionId.slice(0, 6)
+
+      for (const mcpTool of conn.tools) {
+        let key = `${prefix}_${mcpTool.name}`
+        // Also check collision variant
+        const altKey = `${prefix}_${conn.connectionId.slice(0, 6)}_${mcpTool.name}`
+
+        if (key === toolKey || altKey === toolKey) {
+          return {
+            connectionId: conn.connectionId,
+            connectionName: conn.connectionName,
+            connectionType: conn.connectionType,
+            toolName: mcpTool.name,
+            execute: async (input: Record<string, unknown>) => {
+              const result = await conn.client.callTool({
+                name: mcpTool.name,
+                arguments: input,
+              })
+              return result.content
+            },
+          }
+        }
+      }
+    }
+    return null
+  }
+
   getClientCount() {
     return this.clients.size
   }

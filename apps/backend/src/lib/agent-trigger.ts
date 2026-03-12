@@ -1,4 +1,5 @@
 import type { MessageListInput } from '@mastra/core/agent/message-list'
+import { toAISdkStream } from '@mastra/ai-sdk'
 import { incidentService } from '../services/incident.service'
 import { messageService } from '../services/message.service'
 import { kbService } from '../services/knowledge-base.service'
@@ -8,7 +9,6 @@ import { logger } from './logger'
 import { buildMultimodalParts } from './attachment-parts'
 import { notifyIncidentStatusChanged } from './notify'
 import { formatKbContext } from './kb-context'
-import { buildSkillsManifest } from './skills-manifest'
 
 type IncidentRow = NonNullable<Awaited<ReturnType<typeof incidentService.getById>>>
 
@@ -62,12 +62,6 @@ export async function triggerAgentForIncident(incident: IncidentRow, options?: T
     }
   }
 
-  // Skills manifest for supervisor agent
-  const skillsManifest = await buildSkillsManifest()
-  if (skillsManifest) {
-    context.push({ role: 'system' as const, content: skillsManifest })
-  }
-
   const messages = [{ role: 'user' as const, content: messageContent }]
 
   logger.info({ incidentId: incident.id, content: incident.content.slice(0, 200) }, 'Agent request (auto-trigger)')
@@ -99,24 +93,23 @@ export async function triggerAgentForIncident(incident: IncidentRow, options?: T
       // Mark stream as active
       await redis.set(`stream:active:${threadId}`, '1', 'EX', 300)
 
-      // Consume stream + broadcast via Redis Pub/Sub
-      const encoder = new TextEncoder()
-      const transform = new TransformStream<string, Uint8Array>({
-        transform(chunk, controller) {
-          controller.enqueue(encoder.encode(chunk))
-          publisher.publish(`chat:${threadId}`, chunk)
-        },
-        flush() {
-          publisher.publish(`chat:${threadId}`, '[DONE]')
-        },
+      // Consume fullStream via toAISdkStream and broadcast structured events
+      const aiSdkStream = toAISdkStream(result, {
+        from: 'agent',
+        sendReasoning: true,
       })
-
-      const reader = (result.textStream as unknown as ReadableStream<string>).pipeThrough(transform).getReader()
-      // Drain the stream
-      while (true) {
-        const { done } = await reader.read()
-        if (done) break
+      const reader = aiSdkStream.getReader()
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          publisher.publish(`chat:${threadId}`, JSON.stringify(value))
+        }
+      } finally {
+        reader.releaseLock()
       }
+
+      publisher.publish(`chat:${threadId}`, '[DONE]')
 
       // Save assistant message
       const [text, steps] = await Promise.all([result.text, result.steps])

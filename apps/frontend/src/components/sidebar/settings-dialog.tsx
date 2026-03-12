@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, CircleHelp, Loader2 } from "lucide-react";
+import { Bell, CircleHelp, Loader2, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -25,13 +25,17 @@ import {
   notificationSettingsQueries,
   useUpdateNotificationSettings,
 } from "@/lib/queries/notification-settings";
+import { ToolPermissionsSettings } from "@/components/settings/tool-permissions-settings";
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const tabs = [{ id: "notifications", label: "通知", icon: Bell }] as const;
+const tabs = [
+  { id: "notifications", label: "通知", icon: Bell },
+  { id: "tool-permissions", label: "工具权限", icon: Shield },
+] as const;
 
 type TabId = (typeof tabs)[number]["id"];
 
@@ -64,6 +68,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           </nav>
           <ScrollArea className="flex-1 p-5 pt-2">
             {activeTab === "notifications" && <NotificationSettings />}
+            {activeTab === "tool-permissions" && <ToolPermissionsSettings />}
           </ScrollArea>
         </div>
       </DialogContent>

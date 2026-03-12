@@ -14,3 +14,6 @@ export const mcpStatusEnum = pgEnum('mcp_status', ['idle', 'registering', 'regis
 
 export const documentTypeEnum = pgEnum('document_type', ['markdown', 'pdf', 'xlsx', 'csv', 'docx'])
 export const documentStatusEnum = pgEnum('document_status', ['pending', 'processing', 'ready', 'error'])
+
+export const riskLevelEnum = pgEnum('risk_level', ['none', 'low', 'medium', 'high'])
+export const approvalStatusEnum = pgEnum('approval_status', ['pending', 'approved', 'declined', 'expired'])

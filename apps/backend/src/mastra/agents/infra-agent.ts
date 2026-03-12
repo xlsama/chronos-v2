@@ -12,7 +12,7 @@ export const infraAgent = new Agent({
 委派此 Agent 时，必须在提示中包含：
 1. 诊断计划（具体步骤）
 2. 受影响服务的 MCP 工具前缀列表（如 order_mysql, prod_redis）
-3. 参考的 Runbook 步骤和 Skill 方法论（如有）
+3. 参考的 Runbook 步骤（如有）
 返回：执行的操作列表、诊断结果、根因分析、修复方案。`,
   instructions: INFRA_AGENT_PROMPT,
   model: {

@@ -9,9 +9,10 @@ import { useVoiceInput, VoiceInputButton, RecordingOverlay, RecordingActions } f
 
 interface ChatInputProps {
   disabled?: boolean
+  onSubmit?: (text: string, knowledgeBaseIds?: string[]) => void
 }
 
-export function ChatInput({ disabled = false }: ChatInputProps) {
+export function ChatInput({ disabled = false, onSubmit }: ChatInputProps) {
   const [value, setValue] = useState('')
   const [selectedKbIds, setSelectedKbIds] = useState<string[]>([])
   const fileUpload = useFileUpload()
@@ -22,15 +23,17 @@ export function ChatInput({ disabled = false }: ChatInputProps) {
   valueRef.current = value
   const fileUploadRef = useRef(fileUpload)
   fileUploadRef.current = fileUpload
+  const selectedKbIdsRef = useRef(selectedKbIds)
+  selectedKbIdsRef.current = selectedKbIds
 
   const handleSubmit = useCallback(() => {
     const currentValue = valueRef.current
     const fu = fileUploadRef.current
     if ((!currentValue.trim() && fu.doneAttachments.length === 0) || fu.hasUploading) return
-    // TODO: send message to backend with fu.doneAttachments + selectedKbIds
+    onSubmit?.(currentValue, selectedKbIdsRef.current.length > 0 ? selectedKbIdsRef.current : undefined)
     setValue('')
     fu.cleanupAll()
-  }, [])
+  }, [onSubmit])
 
   return (
     <PromptInputWithUpload

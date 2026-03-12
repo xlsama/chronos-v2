@@ -50,18 +50,7 @@ redis-cli -p "$REDIS_PORT" SET "config:user-service:rate_limit" '{"max_requests"
 
 echo "    -> 已写入损坏的 rate_limit key (hash 类型，应为 string)"
 
-echo "==> [3/3] 向 Chronos 写入种子数据 (Skill + Service Map)..."
-
-# 创建 Skill: Redis 配置诊断方法论
-curl -s -X POST "$CHRONOS_API/skills" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Redis 配置键值诊断",
-    "summary": "诊断 Redis 中配置键值类型错误（WRONGTYPE）的标准流程",
-    "content": "## 问题模式\n应用读取 Redis 配置时报 WRONGTYPE 错误，通常是因为某个 key 的数据类型被意外修改。\n\n## 诊断步骤\n1. 使用 TYPE 命令检查出错 key 的实际类型\n2. 如果期望是 string 但实际是 hash/list/set，说明数据类型被污染\n3. 查看该 key 的当前内容（根据类型使用 HGETALL/LRANGE/SMEMBERS）\n4. 对比期望的数据格式\n\n## 修复方法\n1. 先备份当前错误数据：用对应类型的读命令导出\n2. DEL 删除错误 key\n3. 用正确的类型和格式重写该 key\n4. 验证应用恢复正常\n\n## 常见根因\n- 部署脚本 bug：初始化脚本用了 HSET 而非 SET\n- 手动运维失误：运维人员误操作\n- 多应用共享 Redis 时 key 命名冲突",
-    "category": "Redis",
-    "tags": ["redis", "wrongtype", "配置", "诊断"]
-  }' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"    -> Skill 创建成功: {d['data']['id']}\")" 2>/dev/null || echo "    -> Skill 创建失败（Chronos 后端是否已启动？）"
+echo "==> [3/3] 向 Chronos 写入种子数据 (Service Map)..."
 
 # 创建 Service Map: 订单服务拓扑
 curl -s -X POST "$CHRONOS_API/service-maps" \

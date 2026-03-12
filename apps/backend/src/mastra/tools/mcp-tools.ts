@@ -1,6 +1,9 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { mcpRegistry } from '../../mcp/registry'
+import { toolPolicyService } from '../../services/tool-policy.service'
+import { toolApprovalService } from '../../services/tool-approval.service'
+import { classifyToolExecution, isBlockedByPolicy, needsApproval } from '../../lib/tool-classifier'
 
 type DynamicMCPTool = {
   type: 'dynamic'
@@ -51,33 +54,89 @@ export const searchMcpTools = createTool({
 export const executeMcpTool = createTool({
   id: 'execute-mcp-tool',
   description:
-    '执行指定的 MCP 工具。先用 searchMcpTools 获取可用工具列表和参数说明，再用此工具执行。先只读诊断（SELECT/GET/查日志），再考虑写操作。写操作前说明影响。',
+    '执行指定的 MCP 工具。先用 searchMcpTools 获取可用工具列表和参数说明，再用此工具执行。高风险操作会自动暂停等待人工审批。',
   inputSchema: z.object({
     toolKey: z.string().describe('searchMcpTools 返回的 toolKey'),
     input: z
       .record(z.string(), z.unknown())
       .describe('工具参数，参见 searchMcpTools 返回的参数说明'),
   }),
-  execute: async ({ toolKey, input }) => {
-    const allTools = mcpRegistry.getAllToolsAsAISDK()
-    const tool = allTools[toolKey]
+  suspendSchema: z.object({
+    approvalId: z.string(),
+    toolKey: z.string(),
+    toolName: z.string(),
+    connectionName: z.string(),
+    connectionType: z.string(),
+    riskLevel: z.enum(['none', 'low', 'medium', 'high']),
+    input: z.record(z.string(), z.unknown()),
+    description: z.string(),
+  }),
+  resumeSchema: z.object({
+    approved: z.boolean(),
+    reason: z.string().optional(),
+  }),
+  execute: async ({ toolKey, input }, context) => {
+    const { resumeData, suspend } = context?.agent ?? {}
 
-    if (!tool) {
-      return {
-        error: `工具 ${toolKey} 不存在，请用 searchMcpTools 确认可用工具`,
+    // ── Look up tool info from registry ──
+    const toolInfo = mcpRegistry.getToolInfo(toolKey)
+    if (!toolInfo) {
+      return { error: `工具 ${toolKey} 不存在，请用 searchMcpTools 确认可用工具` }
+    }
+
+    // ── Resume path: approval decision arrived ──
+    if (resumeData) {
+      if (!resumeData.approved) {
+        return { declined: true, reason: resumeData.reason ?? '用户拒绝了此操作' }
+      }
+      try {
+        return await toolInfo.execute(input)
+      } catch (err) {
+        return { error: `执行失败: ${err instanceof Error ? err.message : String(err)}` }
       }
     }
 
+    // ── First call path: risk assessment ──
+    const riskLevel = classifyToolExecution(toolInfo.connectionType, toolInfo.toolName, input)
+    const policy = await toolPolicyService.getGlobal()
+
+    // Kill switch checks
+    const blockResult = isBlockedByPolicy(toolInfo.connectionType, toolInfo.toolName, input, policy)
+    if (blockResult.blocked) {
+      return { blocked: true, reason: blockResult.reason }
+    }
+
+    // Approval check
+    if (needsApproval(riskLevel, policy.approvalThreshold)) {
+      const approval = await toolApprovalService.create({
+        threadId: 'pending',
+        toolKey,
+        toolName: toolInfo.toolName,
+        connectionName: toolInfo.connectionName,
+        connectionType: toolInfo.connectionType,
+        riskLevel,
+        input,
+        description: `执行 ${toolInfo.connectionName} 的 ${toolInfo.toolName} 操作`,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      })
+
+      return suspend?.({
+        approvalId: approval.id,
+        toolKey,
+        toolName: toolInfo.toolName,
+        connectionName: toolInfo.connectionName,
+        connectionType: toolInfo.connectionType,
+        riskLevel,
+        input,
+        description: `执行 ${toolInfo.connectionName} 的 ${toolInfo.toolName} 操作`,
+      })
+    }
+
+    // Low risk → execute directly
     try {
-      const typedTool = tool as DynamicMCPTool
-      if (!typedTool.execute) {
-        return { error: `工具 ${toolKey} 不支持执行` }
-      }
-      return await typedTool.execute(input)
+      return await toolInfo.execute(input)
     } catch (err) {
-      return {
-        error: `执行失败: ${err instanceof Error ? err.message : String(err)}`,
-      }
+      return { error: `执行失败: ${err instanceof Error ? err.message : String(err)}` }
     }
   },
 })

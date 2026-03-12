@@ -46,3 +46,7 @@ export type McpStatus = "idle" | "registering" | "registered" | "error";
 // ── Knowledge Base ──────────────────────────────────────────
 export type DocumentType = "markdown" | "pdf" | "xlsx" | "csv" | "docx";
 export type DocumentStatus = "pending" | "processing" | "ready" | "error";
+
+// ── Tool Policy ────────────────────────────────────────────
+export type RiskLevel = "none" | "low" | "medium" | "high";
+export type ApprovalStatus = "pending" | "approved" | "declined" | "expired";
