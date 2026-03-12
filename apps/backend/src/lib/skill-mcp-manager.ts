@@ -21,21 +21,33 @@ export const skillMcpManager = {
 
     const skill = await skillCatalogService.getBySlug(skillSlug)
     if (!skill) throw new Error(`Skill not found: ${skillSlug}`)
-    if (skill.mcpServers.length === 0) throw new Error(`Skill ${skillSlug} has no MCP servers configured`)
+
+    // Read raw config to get MCP-related fields (not part of simplified SkillRecord)
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const { getSkillsRoot } = await import('./file-storage')
+    let rawConfig: { mcpServers?: string[]; applicableServiceTypes?: string[] } = {}
+    try {
+      rawConfig = JSON.parse(readFileSync(join(getSkillsRoot(), skillSlug, 'skill.config.json'), 'utf-8'))
+    } catch { /* ignore */ }
+
+    const mcpServers = rawConfig.mcpServers ?? []
+    const applicableServiceTypes = rawConfig.applicableServiceTypes ?? []
+
+    if (mcpServers.length === 0) throw new Error(`Skill ${skillSlug} has no MCP servers configured`)
 
     // Get project services and match with skill requirements
     const services = await projectServiceCatalog.list(projectId)
     const matchedServices = services.filter((s) =>
-      skill.applicableServiceTypes.length === 0 || skill.applicableServiceTypes.includes(s.type),
+      applicableServiceTypes.length === 0 || applicableServiceTypes.includes(s.type),
     )
 
     // For now, use the first MCP server definition
-    // MCP server config is stored in skill.mcpServers as server type identifiers
-    const serverType = skill.mcpServers[0]
+    const serverType = mcpServers[0]
     const matchedService = matchedServices[0]
 
     if (!matchedService) {
-      throw new Error(`No matching service found for skill ${skillSlug} (needs: ${skill.applicableServiceTypes.join(', ')})`)
+      throw new Error(`No matching service found for skill ${skillSlug} (needs: ${applicableServiceTypes.join(', ')})`)
     }
 
     // Build MCP server spawn config based on service type and config

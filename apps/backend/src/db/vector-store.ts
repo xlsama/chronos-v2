@@ -14,7 +14,7 @@ type VectorDeleteParams = {
 
 export async function deleteVectorsIfIndexExists(params: VectorDeleteParams) {
   try {
-    await pgVector.deleteVectors(params);
+    await pgVector.deleteVectors(params as Parameters<typeof pgVector.deleteVectors>[0]);
   } catch (error) {
     if (isMissingRelationError(error, params.indexName)) {
       logger.warn(

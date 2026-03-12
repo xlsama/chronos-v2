@@ -5,6 +5,7 @@ import { logger } from '../lib/logger'
 import { publishChatEvent, getSubscriber, chatChannel } from '../lib/redis'
 import { messageService } from '../services/message.service'
 import { incidentService } from '../services/incident.service'
+import { projectService } from '../services/project.service'
 import { createSupervisorAgent } from '../mastra/agents/supervisor-agent'
 
 export const chatRoutes = new Hono()
@@ -45,12 +46,18 @@ export const chatRoutes = new Hono()
     if (incidentId) {
       const incident = await incidentService.getById(incidentId)
       if (incident) {
+        let projectName: string | undefined
+        if (incident.projectId) {
+          const project = await projectService.getById(incident.projectId)
+          projectName = project?.name
+        }
         context = {
           incidentContent: incident.content,
           incidentSummary: incident.summary ?? undefined,
           analysis: incident.analysis as Record<string, unknown> | undefined,
           selectedSkills: incident.selectedSkills,
           projectId: incident.projectId ?? undefined,
+          projectName,
         }
       }
     }

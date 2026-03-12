@@ -9,7 +9,7 @@ export const listProjectServices = createTool({
   id: 'listProjectServices',
   description: '列出项目下所有已注册的基础设施服务（数据库、缓存、监控等）。返回服务名称、类型、连接状态。',
   inputSchema: z.object({
-    projectId: z.string().describe('项目 ID'),
+    projectId: z.string().uuid().describe('项目 UUID'),
   }),
   outputSchema: z.object({
     services: z.array(z.object({
@@ -75,7 +75,7 @@ export const getServiceMap = createTool({
   id: 'getServiceMap',
   description: '获取项目的服务拓扑图（依赖关系图），展示服务之间的连接和依赖关系。',
   inputSchema: z.object({
-    projectId: z.string().describe('项目 ID'),
+    projectId: z.string().uuid().describe('项目 UUID'),
   }),
   outputSchema: z.object({
     found: z.boolean(),

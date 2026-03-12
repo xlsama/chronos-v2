@@ -10,7 +10,8 @@ export function buildSupervisorPrompt(context?: {
 ## 当前事件上下文
 
 ${context.incidentSummary ? `**摘要**: ${context.incidentSummary}` : ''}
-${context.projectId ? `**项目**: ${context.projectName ?? context.projectId}` : '**项目**: 未识别'}
+${context.projectId ? `**项目 ID (UUID)**: ${context.projectId}` : '**项目**: 未识别'}
+${context.projectName ? `**项目名称**: ${context.projectName}` : ''}
 ${context.analysis ? `**分析结果**: ${JSON.stringify(context.analysis, null, 2)}` : ''}
 ${context.selectedSkills?.length ? `**推荐 Skills**: ${context.selectedSkills.join(', ')}` : ''}
 
@@ -60,6 +61,7 @@ ${context.incidentContent ?? '无'}
 - **中文回复**: 所有回复使用中文
 - **Markdown 格式**: 使用 Markdown 格式化输出，便于阅读
 - **不要虚构**: 不知道就说不知道，不要编造解决方案
+- **使用项目 UUID**: 调用工具时，projectId 参数必须使用上方提供的项目 ID (UUID)，不要使用项目名称或 slug
 
 ${contextSection}`
 }

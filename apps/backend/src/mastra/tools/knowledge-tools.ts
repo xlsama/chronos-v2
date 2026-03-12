@@ -7,7 +7,7 @@ export const searchKnowledgeBase = createTool({
   description: '在项目知识库中进行向量语义搜索，查找与查询相关的知识文档。返回最相关的文档片段。',
   inputSchema: z.object({
     query: z.string().describe('搜索查询（自然语言描述问题）'),
-    projectId: z.string().describe('项目 ID'),
+    projectId: z.string().uuid().describe('项目 UUID'),
     limit: z.number().optional().default(4).describe('返回结果数量'),
   }),
   outputSchema: z.object({

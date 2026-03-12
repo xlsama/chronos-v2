@@ -7,7 +7,7 @@ export const searchIncidentHistory = createTool({
   description: '搜索历史事件记录，查找与当前问题相似的过往事件及其解决方案。',
   inputSchema: z.object({
     query: z.string().describe('搜索查询（描述当前问题）'),
-    projectId: z.string().optional().describe('项目 ID（可选）'),
+    projectId: z.string().uuid().optional().describe('项目 UUID（可选）'),
     limit: z.number().optional().default(3).describe('返回结果数量'),
   }),
   outputSchema: z.object({

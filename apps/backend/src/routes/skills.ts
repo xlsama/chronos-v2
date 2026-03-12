@@ -8,21 +8,6 @@ const skillSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   markdown: z.string().default(''),
-  config: z.object({
-    prompt: z.string().optional(),
-    applicableServiceTypes: z.array(z.string()).optional(),
-    mcpServers: z.array(z.string()).optional(),
-    tools: z.array(z.object({
-      key: z.string(),
-      label: z.string().optional(),
-      toolName: z.string(),
-      approvalMode: z.enum(['auto', 'manual']),
-      riskLevel: z.enum(['none', 'low', 'medium', 'high']),
-      allowedServiceTypes: z.array(z.string()).default([]),
-      notes: z.string().optional(),
-      input: z.record(z.string(), z.unknown()).optional(),
-    })).optional(),
-  }).optional(),
 })
 
 export const skillRoutes = new Hono()

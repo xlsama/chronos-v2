@@ -131,17 +131,6 @@ if [ -z "$SKILL_SLUG" ]; then
 fi
 echo "    -> Skill 创建成功: $SKILL_SLUG"
 
-# 5. 保存 IDs 到 .case1-state 文件
-STATE_FILE="$SCRIPT_DIR/.case1-state"
-cat > "$STATE_FILE" <<EOF
-PROJECT_ID=$PROJECT_ID
-PG_SERVICE_ID=$PG_SERVICE_ID
-REDIS_SERVICE_ID=$REDIS_SERVICE_ID
-SKILL_SLUG=$SKILL_SLUG
-EOF
-
-echo "    -> 状态已保存到 .case1-state"
-
 echo ""
 echo "=== 种子数据初始化完成 ==="
 echo ""

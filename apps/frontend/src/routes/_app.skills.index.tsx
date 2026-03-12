@@ -2,9 +2,8 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Plus, Sparkles } from 'lucide-react'
 import { motion } from 'motion/react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Empty,
   EmptyContent,
@@ -52,7 +51,7 @@ function SkillsIndexPage() {
                 <Sparkles className="size-5" />
               </EmptyMedia>
               <EmptyTitle>还没有 Skill</EmptyTitle>
-              <EmptyDescription>创建一个 Skill，定义它可用的工具、MCP 服务和 Markdown 指南。</EmptyDescription>
+              <EmptyDescription>创建一个 Skill，编写 Markdown 指南。</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button asChild>
@@ -69,39 +68,13 @@ function SkillsIndexPage() {
                 params={{ slug: skill.slug }}
                 className="group"
               >
-                <Card className="h-full justify-between transition-colors group-hover:border-primary/40">
-                  <CardHeader className="space-y-3">
-                    <div className="space-y-2">
-                      <CardTitle className="text-lg">{skill.name}</CardTitle>
-                      <CardDescription className="line-clamp-2 min-h-10">
-                        {skill.description || '暂无描述'}
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {skill.applicableServiceTypes.length > 0 ? (
-                        <>
-                          {skill.applicableServiceTypes.slice(0, 3).map((type) => (
-                            <Badge key={type} variant="outline" className="rounded-full">
-                              {type}
-                            </Badge>
-                          ))}
-                          {skill.applicableServiceTypes.length > 3 ? (
-                            <Badge variant="outline" className="rounded-full">
-                              +{skill.applicableServiceTypes.length - 3}
-                            </Badge>
-                          ) : null}
-                        </>
-                      ) : (
-                        <Badge variant="outline" className="rounded-full">
-                          全局
-                        </Badge>
-                      )}
-                    </div>
+                <Card className="h-full transition-colors group-hover:border-primary/40">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{skill.name}</CardTitle>
+                    <CardDescription className="line-clamp-2 min-h-10">
+                      {skill.description || '暂无描述'}
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                    <span>{skill.tools.length} 个工具</span>
-                    <span>{skill.mcpServers.length} 个 MCP</span>
-                  </CardContent>
                 </Card>
               </Link>
             ))}

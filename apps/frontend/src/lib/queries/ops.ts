@@ -310,7 +310,7 @@ export function useTestService() {
 export function useCreateSkill() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: { name: string; description?: string; markdown: string; config?: Partial<SkillRecord> }) =>
+    mutationFn: (data: { name: string; description?: string; markdown: string }) =>
       unwrap<{ data: SkillRecord }>(client.api.skills.$post({ json: data })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'skills'] }),
   })
@@ -319,7 +319,7 @@ export function useCreateSkill() {
 export function useUpdateSkill() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ slug, data }: { slug: string; data: Partial<{ name: string; description: string; markdown: string; config: Partial<SkillRecord> }> }) =>
+    mutationFn: ({ slug, data }: { slug: string; data: Partial<{ name: string; description: string; markdown: string }> }) =>
       unwrap<{ data: SkillRecord }>(client.api.skills[':slug'].$put({ param: { slug }, json: data })),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'skills'] })

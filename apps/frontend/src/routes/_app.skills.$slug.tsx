@@ -44,12 +44,6 @@ function SkillEditPage() {
         name: payload.name,
         description: payload.description,
         markdown: payload.markdown,
-        config: {
-          prompt: payload.prompt,
-          applicableServiceTypes: payload.applicableServiceTypes,
-          mcpServers: payload.mcpServers,
-          tools: payload.tools,
-        },
       },
     })
 
@@ -102,7 +96,7 @@ function SkillEditPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>删除 Skill？</AlertDialogTitle>
             <AlertDialogDescription>
-              {`将永久删除“${skill.name}”。此操作不可撤销。`}
+              {`将永久删除"${skill.name}"。此操作不可撤销。`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

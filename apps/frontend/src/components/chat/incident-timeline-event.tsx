@@ -36,20 +36,28 @@ export function IncidentTimelineEvent(props: {
   const meta = getEventMeta(item);
 
   return (
-    <Message>
+    <Message className="items-start">
       <MessageAvatar
         src=""
         alt={meta.label}
         fallback={meta.fallback}
-        className={cn("border bg-background text-foreground", meta.avatarClassName)}
+        className={cn(
+          "relative z-10 border bg-background text-foreground shadow-sm",
+          meta.avatarClassName,
+        )}
       />
-      <div className="flex max-w-[88%] flex-col gap-2">
-        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          <span>{meta.label}</span>
+      <div className="flex min-w-0 max-w-[88%] flex-1 flex-col gap-2 pb-2">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <span className={cn("rounded-full px-2 py-1", meta.badgeClassName)}>{meta.label}</span>
           <span className="h-1 w-1 rounded-full bg-border" />
           <span>{dayjs(item.createdAt).format("YYYY-MM-DD HH:mm")}</span>
         </div>
-        <div className="rounded-3xl border border-border/80 bg-card/90 px-4 py-4 shadow-sm backdrop-blur-sm md:px-5">
+        <div
+          className={cn(
+            "rounded-[26px] border px-4 py-4 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.55)] backdrop-blur-sm md:px-5",
+            meta.cardClassName,
+          )}
+        >
           {renderContent({
             item,
             onApprovalDecision,
@@ -74,17 +82,28 @@ function renderContent(props: {
 
   switch (item.kind) {
     case "incident":
+      const sourceLabel = item.incident.source === "manual" ? "Manual trigger" : "Inbound incident";
+
       return (
         <div className="space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-foreground">
-                {item.incident.summary || "Incident investigation"}
+                {item.incident.source === "manual"
+                  ? "Operator started this investigation"
+                  : item.incident.summary || "Incident investigation"}
               </h3>
-              <p className="text-sm leading-7 text-muted-foreground">{item.incident.content}</p>
+              <p className="text-sm leading-7 text-muted-foreground">
+                {item.incident.source === "manual"
+                  ? "这条记录代表人工发起调查，本身就是时间线起点，不再额外重复生成一条聊天消息。"
+                  : "告警或外部事件进入系统后，调查时间线从这里开始。"}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge value={item.incident.status} />
+              <Badge variant="outline" className="rounded-full">
+                {sourceLabel}
+              </Badge>
               {item.incident.project ? (
                 <Badge variant="outline" className="rounded-full">
                   {item.incident.project.name}
@@ -92,8 +111,11 @@ function renderContent(props: {
               ) : null}
             </div>
           </div>
+          <div className="rounded-[22px] border border-border/70 bg-background/80 px-4 py-4 text-sm leading-7 text-foreground shadow-inner">
+            {item.incident.content}
+          </div>
           {item.incident.attachments?.length ? (
-            <div className="flex items-center gap-3 rounded-2xl border border-dashed px-3 py-2">
+            <div className="flex items-center gap-3 rounded-[22px] border border-dashed border-border/80 bg-background/50 px-3 py-2">
               <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                 Attachments
               </span>
@@ -242,39 +264,63 @@ function getEventMeta(item: IncidentTimelineEventItem) {
   switch (item.kind) {
     case "incident":
       return {
-        label: "Incident",
-        fallback: "I",
-        avatarClassName: "bg-primary/10 text-primary",
+        label: item.incident.source === "manual" ? "Manual trigger" : "Incident",
+        fallback: item.incident.source === "manual" ? "M" : "I",
+        avatarClassName:
+          "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-200",
+        badgeClassName: "bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200",
+        cardClassName:
+          "border-amber-200/80 bg-amber-50/70 dark:border-amber-400/20 dark:bg-amber-500/8",
       };
     case "analysis":
       return {
         label: "Analysis",
         fallback: "A",
-        avatarClassName: "bg-sky-500/10 text-sky-700",
+        avatarClassName:
+          "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200",
+        badgeClassName: "bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-200",
+        cardClassName: "border-sky-200/80 bg-sky-50/60 dark:border-sky-400/20 dark:bg-sky-500/8",
       };
     case "summary":
       return {
         label: "Summary",
         fallback: "S",
-        avatarClassName: "bg-emerald-500/10 text-emerald-700",
+        avatarClassName:
+          "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200",
+        badgeClassName:
+          "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200",
+        cardClassName:
+          "border-emerald-200/80 bg-emerald-50/60 dark:border-emerald-400/20 dark:bg-emerald-500/8",
       };
     case "run":
       return {
         label: "Workflow run",
         fallback: "R",
-        avatarClassName: "bg-amber-500/10 text-amber-700",
+        avatarClassName:
+          "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-400/20 dark:bg-violet-500/10 dark:text-violet-200",
+        badgeClassName: "bg-violet-100 text-violet-900 dark:bg-violet-500/15 dark:text-violet-200",
+        cardClassName:
+          "border-violet-200/80 bg-violet-50/55 dark:border-violet-400/20 dark:bg-violet-500/8",
       };
     case "approval":
       return {
         label: "Approval",
         fallback: "P",
-        avatarClassName: "bg-rose-500/10 text-rose-700",
+        avatarClassName:
+          "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200",
+        badgeClassName: "bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200",
+        cardClassName:
+          "border-rose-200/80 bg-rose-50/60 dark:border-rose-400/20 dark:bg-rose-500/8",
       };
     case "history":
       return {
         label: "History",
         fallback: "H",
-        avatarClassName: "bg-zinc-500/10 text-zinc-700",
+        avatarClassName:
+          "border-zinc-200 bg-zinc-50 text-zinc-800 dark:border-zinc-400/20 dark:bg-zinc-500/10 dark:text-zinc-200",
+        badgeClassName: "bg-zinc-100 text-zinc-900 dark:bg-zinc-500/15 dark:text-zinc-200",
+        cardClassName:
+          "border-zinc-200/80 bg-zinc-50/70 dark:border-zinc-400/20 dark:bg-zinc-500/8",
       };
   }
 }

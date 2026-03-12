@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import type { IncidentDetail } from "@chronos/shared";
 import { DefaultChatTransport } from "ai";
-import { Paperclip, Send, Square } from "lucide-react";
+import dayjs from "dayjs";
+import { Bot, Paperclip, Send, Sparkles, Square } from "lucide-react";
 import { AttachmentPreview } from "@/components/ui/attachment-preview";
 import {
   ChatContainerRoot,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/prompt-input";
 import { Button } from "@/components/ui/button";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { cn } from "@/lib/utils";
 import { ChatMessage } from "./chat-message";
 import { IncidentTimelineEvent, type IncidentTimelineEventItem } from "./incident-timeline-event";
 
@@ -32,6 +34,20 @@ interface ChatPanelProps {
   summaryPending?: boolean;
   className?: string;
   style?: React.CSSProperties;
+}
+
+function getMessageTimestamp(message: UIMessage, fallback: number) {
+  if (message.createdAt instanceof Date) return message.createdAt.getTime();
+  if (message.createdAt) return new Date(message.createdAt).getTime();
+  return fallback;
+}
+
+function getMessageText(message: UIMessage) {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text ?? "")
+    .join("")
+    .trim();
 }
 
 export function ChatPanel({
@@ -82,6 +98,36 @@ export function ChatPanel({
 
   const isStreaming = status === "streaming";
   const isLoading = status === "submitted" || isStreaming;
+
+  const visibleMessages = useMemo(() => {
+    if (!incident || incident.source !== "manual") {
+      return messages;
+    }
+
+    const incidentText = incident.content.trim();
+    const incidentTimestamp = new Date(incident.createdAt).getTime();
+    let bootstrapHidden = false;
+
+    return messages.filter((message, index) => {
+      if (bootstrapHidden || message.role !== "user") {
+        return true;
+      }
+
+      const text = getMessageText(message);
+      const messageTimestamp = getMessageTimestamp(message, incidentTimestamp + index);
+      const isBootstrapMessage =
+        text.length > 0 &&
+        text === incidentText &&
+        Math.abs(messageTimestamp - incidentTimestamp) < 60_000;
+
+      if (isBootstrapMessage) {
+        bootstrapHidden = true;
+        return false;
+      }
+
+      return true;
+    });
+  }, [incident, messages]);
 
   const timelineItems = useMemo(() => {
     const systemItems: IncidentTimelineEventItem[] = [];
@@ -141,15 +187,12 @@ export function ChatPanel({
     }
 
     const baseTimestamp = Date.now();
-    const messageItems = messages.map((message, index) => ({
+    const messageItems = visibleMessages.map((message, index) => ({
       id: `message-${message.id}`,
       kind: "message" as const,
-      timestamp:
-        message.createdAt instanceof Date
-          ? message.createdAt.getTime()
-          : message.createdAt
-            ? new Date(message.createdAt).getTime()
-            : baseTimestamp + index,
+      timestamp: getMessageTimestamp(message, baseTimestamp + index),
+      order: 10,
+      index,
       message,
     }));
 
@@ -158,11 +201,34 @@ export function ChatPanel({
         id: item.id,
         kind: "system" as const,
         timestamp: new Date(item.createdAt).getTime() || baseTimestamp + index,
+        order:
+          item.kind === "incident"
+            ? 0
+            : item.kind === "analysis"
+              ? 1
+              : item.kind === "run"
+                ? 2
+                : item.kind === "approval"
+                  ? 3
+                  : item.kind === "summary"
+                    ? 4
+                    : 5,
+        index,
         item,
       })),
       ...messageItems,
-    ].sort((left, right) => left.timestamp - right.timestamp);
-  }, [incident, messages]);
+    ].sort((left, right) => {
+      if (left.timestamp !== right.timestamp) {
+        return left.timestamp - right.timestamp;
+      }
+
+      if (left.order !== right.order) {
+        return left.order - right.order;
+      }
+
+      return left.index - right.index;
+    });
+  }, [incident, visibleMessages]);
 
   const handleSubmit = useCallback(() => {
     const text = input.trim();
@@ -192,58 +258,96 @@ export function ChatPanel({
 
   return (
     <div className={`flex h-full flex-col ${className ?? ""}`} style={style}>
+      <div className="border-b border-border/80 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),transparent)] px-4 py-4 md:px-6">
+        <div className="mx-auto flex w-full max-w-5xl items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Investigation log
+            </div>
+            <p className="text-sm leading-6 text-foreground">
+              时间线整合了告警起点、Agent 分析、审批动作和人工跟进，不再把详情页当成普通 IM 对话。
+            </p>
+          </div>
+          <div className="hidden rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs text-muted-foreground md:inline-flex md:items-center md:gap-2">
+            <Sparkles className="size-3.5" />
+            {incident ? dayjs(incident.createdAt).format("MMM D, HH:mm") : "Live thread"}
+          </div>
+        </div>
+      </div>
+
       <ChatContainerRoot className="flex-1 min-h-0">
-        <ChatContainerContent className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:px-6">
-          {timelineItems.length === 0 && !isLoading && (
-            <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-              开始与 Agent 对话，分析和解决此事件...
-            </div>
-          )}
-
-          {timelineItems.map((entry) =>
-            entry.kind === "message" ? (
-              <ChatMessage
-                key={entry.id}
-                message={entry.message}
-                isStreaming={
-                  isStreaming &&
-                  entry.message === messages[messages.length - 1] &&
-                  entry.message.role === "assistant"
-                }
-              />
-            ) : (
-              <IncidentTimelineEvent
-                key={entry.id}
-                item={entry.item}
-                onApprovalDecision={onApprovalDecision}
-                onSaveSummary={onSaveSummary}
-                approvalPending={approvalPending}
-                summaryPending={summaryPending}
-              />
-            ),
-          )}
-
-          {status === "submitted" && (
-            <div className="flex gap-3">
-              <div className="h-8 w-8 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                A
-              </div>
-              <div className="rounded-lg p-2 bg-secondary">
-                <div className="flex items-center gap-1.5">
-                  <div className="size-1.5 rounded-full bg-foreground/40 animate-pulse" />
-                  <div className="size-1.5 rounded-full bg-foreground/40 animate-pulse [animation-delay:150ms]" />
-                  <div className="size-1.5 rounded-full bg-foreground/40 animate-pulse [animation-delay:300ms]" />
+        <ChatContainerContent className="mx-auto flex w-full max-w-5xl flex-col px-4 py-5 md:px-8 md:py-7">
+          <div className="relative pl-2 md:pl-4">
+            <div className="pointer-events-none absolute bottom-0 left-4 top-0 w-px bg-linear-to-b from-border via-border/80 to-transparent md:left-5" />
+            <div className="flex flex-col gap-4">
+              {timelineItems.length === 0 && !isLoading && (
+                <div className="relative ml-10 rounded-[24px] border border-dashed border-border/80 bg-muted/20 px-5 py-5 text-sm text-muted-foreground md:ml-12">
+                  这里会持续累积调查记录。你可以补充上下文、上传证据，或要求 Agent 继续推进处理。
                 </div>
-              </div>
+              )}
+
+              {timelineItems.map((entry) => (
+                <div key={entry.id} className="relative">
+                  {entry.kind === "message" ? (
+                    <ChatMessage
+                      message={entry.message}
+                      isStreaming={
+                        isStreaming &&
+                        entry.message === visibleMessages[visibleMessages.length - 1] &&
+                        entry.message.role === "assistant"
+                      }
+                    />
+                  ) : (
+                    <IncidentTimelineEvent
+                      item={entry.item}
+                      onApprovalDecision={onApprovalDecision}
+                      onSaveSummary={onSaveSummary}
+                      approvalPending={approvalPending}
+                      summaryPending={summaryPending}
+                    />
+                  )}
+                </div>
+              ))}
+
+              {status === "submitted" && (
+                <div className="flex gap-3">
+                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200">
+                    <Bot className="size-4" />
+                  </div>
+                  <div className="min-w-0 max-w-[88%] rounded-[24px] border border-sky-200/80 bg-sky-50/70 px-4 py-3 shadow-[0_16px_40px_-28px_rgba(14,116,144,0.5)] dark:border-sky-400/20 dark:bg-sky-500/10">
+                    <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-sky-700/80 dark:text-sky-200/80">
+                      Agent is working
+                    </div>
+                    <div className="flex items-center gap-1.5 text-sky-800 dark:text-sky-100">
+                      <div className="size-2 rounded-full bg-current animate-pulse" />
+                      <div className="size-2 rounded-full bg-current animate-pulse [animation-delay:150ms]" />
+                      <div className="size-2 rounded-full bg-current animate-pulse [animation-delay:300ms]" />
+                      <span className="ml-1 text-sm text-sky-900/70 dark:text-sky-100/70">
+                        正在整理分析、工具调用和下一步建议...
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           <ChatContainerScrollAnchor />
         </ChatContainerContent>
       </ChatContainerRoot>
 
-      <div className="border-t p-4">
-        <div className="mx-auto w-full max-w-4xl">
+      <div className="border-t border-border/80 bg-muted/20 p-4 md:p-5">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                Continue investigation
+              </div>
+              <p className="text-sm text-muted-foreground">
+                补充线索、上传证据，或要求 Agent 执行下一轮调查。
+              </p>
+            </div>
+          </div>
           <FileUpload onFilesAdded={addFiles} disabled={isLoading}>
             <PromptInput
               value={input}
@@ -258,7 +362,14 @@ export function ChatPanel({
                   ))}
                 </div>
               ) : null}
-              <PromptInputTextarea placeholder="输入消息与 Agent 对话..." onPaste={handlePaste} />
+              <PromptInputTextarea
+                placeholder={
+                  incident?.source === "manual"
+                    ? "补充调查指令，或告诉 Agent 下一步该看什么..."
+                    : "追加调查上下文，推动 Agent 继续处理..."
+                }
+                onPaste={handlePaste}
+              />
               <PromptInputActions className="justify-between px-2 pb-2">
                 <PromptInputAction tooltip="上传文件">
                   <FileUploadTrigger asChild>
@@ -283,7 +394,7 @@ export function ChatPanel({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8 rounded-full"
+                      className={cn("size-8 rounded-full", isUploading && "opacity-60")}
                       onClick={handleSubmit}
                       disabled={!input.trim() || isUploading}
                     >

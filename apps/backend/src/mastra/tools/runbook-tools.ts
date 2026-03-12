@@ -8,7 +8,7 @@ export const searchRunbooks = createTool({
   description: '搜索已发布的 Runbook（操作手册），包括项目 Runbook 和全局 Runbook。返回最相关的 Runbook 片段。',
   inputSchema: z.object({
     query: z.string().describe('搜索查询'),
-    projectId: z.string().optional().describe('项目 ID（可选，不传则搜索全局）'),
+    projectId: z.string().uuid().optional().describe('项目 UUID（可选，不传则搜索全局）'),
     limit: z.number().optional().default(3).describe('返回结果数量'),
   }),
   outputSchema: z.object({
@@ -61,7 +61,7 @@ export const createRunbook = createTool({
   id: 'createRunbook',
   description: '基于事件解决经验创建新的草稿 Runbook。Agent 在成功解决事件后应调用此工具沉淀经验。',
   inputSchema: z.object({
-    projectId: z.string().describe('项目 ID'),
+    projectId: z.string().uuid().describe('项目 UUID'),
     title: z.string().describe('Runbook 标题'),
     content: z.string().describe('Runbook 内容（Markdown）'),
     tags: z.array(z.string()).optional().describe('标签'),

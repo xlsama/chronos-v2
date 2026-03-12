@@ -7,7 +7,7 @@ export const activateSkillMcp = createTool({
   description: '激活 Skill 所需的 MCP 服务器。根据 Skill 的 mcpServers 配置和项目服务信息，动态注册 MCP 服务器并返回可用的工具列表。必须在 executeMcpTool 之前调用。',
   inputSchema: z.object({
     skillSlug: z.string().describe('Skill 的 slug'),
-    projectId: z.string().describe('项目 ID'),
+    projectId: z.string().uuid().describe('项目 UUID'),
   }),
   outputSchema: z.object({
     success: z.boolean(),

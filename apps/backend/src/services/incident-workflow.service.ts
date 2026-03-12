@@ -10,7 +10,6 @@ import { skillCatalogService, type SkillRecord } from './skill-catalog.service'
 import { projectServiceCatalog } from './project-service-catalog.service'
 import { agentRunService } from './agent-run.service'
 import { incidentService } from './incident.service'
-import { workflowApprovalService } from './workflow-approval.service'
 
 const openai = createOpenAI({
   apiKey: env.OPENAI_API_KEY,
@@ -73,16 +72,7 @@ export const incidentWorkflowService = {
       const selectedSkills = selectSkills({
         incidentText: incident.content,
         analysis,
-        services,
         skills,
-      })
-
-      const plannedActions = buildPlannedActions(selectedSkills, services)
-      const approvals = await createWorkflowApprovals({
-        runId: run.id,
-        incidentId: incident.id,
-        projectId: resolvedProjectId,
-        plannedActions,
       })
 
       const finalSummaryDraft = await generateFinalSummary({
@@ -94,13 +84,12 @@ export const incidentWorkflowService = {
         history,
         services,
         selectedSkills: selectedSkills.map((skill) => skill.slug),
-        plannedActions,
       })
 
-      const status = approvals.length > 0 || analysis.requiresHumanApproval
+      const status = analysis.requiresHumanApproval
         ? 'waiting_human'
         : 'in_progress'
-      const runStatus = approvals.length > 0 || analysis.requiresHumanApproval
+      const runStatus = analysis.requiresHumanApproval
         ? 'waiting_approval'
         : 'completed'
 
@@ -115,7 +104,7 @@ export const incidentWorkflowService = {
         }),
         agentRunService.update(run.id, {
           projectId: resolvedProjectId,
-          stage: approvals.length > 0 ? 'approval' : 'summary',
+          stage: 'summary',
           status: runStatus,
           selectedSkills: selectedSkills.map((skill) => skill.slug),
           analysis,
@@ -125,7 +114,7 @@ export const incidentWorkflowService = {
             history,
             services,
           },
-          plannedActions,
+          plannedActions: [],
           result: finalSummaryDraft,
         }),
       ])
@@ -188,13 +177,8 @@ async function analyzeIncident(incident: IncidentRow, projects: Awaited<ReturnTy
 function selectSkills(input: {
   incidentText: string
   analysis: z.infer<typeof incidentAnalysisSchema>
-  services: Awaited<ReturnType<typeof projectServiceCatalog.list>>
   skills: SkillRecord[]
 }) {
-  const serviceTypes = new Set([
-    ...input.analysis.serviceTypes,
-    ...input.services.map((service) => service.type),
-  ])
   const keywords = new Set(
     extractKeywords(`${input.incidentText}\n${input.analysis.keywords.join(' ')}`).map((keyword) => keyword.toLowerCase()),
   )
@@ -202,70 +186,10 @@ function selectSkills(input: {
   return input.skills
     .filter(Boolean)
     .filter((skill) => {
-      const serviceTypeMatch =
-        skill.applicableServiceTypes.length === 0 ||
-        skill.applicableServiceTypes.some((serviceType) => serviceTypes.has(serviceType))
-
       const textualSignal = `${skill.name} ${skill.description ?? ''} ${skill.markdown}`.toLowerCase()
-      const keywordMatch = [...keywords].some((keyword) => textualSignal.includes(keyword))
-      return serviceTypeMatch || keywordMatch
+      return [...keywords].some((keyword) => textualSignal.includes(keyword))
     })
     .slice(0, 5)
-}
-
-function buildPlannedActions(
-  skills: SkillRecord[],
-  services: Awaited<ReturnType<typeof projectServiceCatalog.list>>,
-) {
-  return skills.flatMap((skill) => skill.tools.map((tool) => {
-    const matchedServices = services.filter((service) => {
-      if (tool.allowedServiceTypes.length === 0) return true
-      return tool.allowedServiceTypes.includes(service.type)
-    })
-
-    return {
-      skillSlug: skill.slug,
-      skillName: skill.name,
-      toolKey: tool.key,
-      toolName: tool.toolName,
-      approvalMode: tool.approvalMode,
-      riskLevel: tool.riskLevel,
-      notes: tool.notes,
-      input: tool.input ?? {},
-      services: matchedServices.map((service) => ({
-        id: service.id,
-        name: service.name,
-        type: service.type,
-      })),
-    }
-  }))
-}
-
-async function createWorkflowApprovals(input: {
-  runId: string
-  incidentId: string
-  projectId: string | null
-  plannedActions: ReturnType<typeof buildPlannedActions>
-}) {
-  const manualActions = input.plannedActions.filter((action) => action.approvalMode === 'manual')
-  return Promise.all(manualActions.flatMap((action) => {
-    const targets = action.services.length > 0 ? action.services : [{ id: null, name: 'generic', type: null }]
-    return targets.map((target) => workflowApprovalService.create({
-      agentRunId: input.runId,
-      incidentId: input.incidentId,
-      projectId: input.projectId,
-      skillSlug: action.skillSlug,
-      toolKey: action.toolKey,
-      toolName: action.toolName,
-      serviceId: target.id ?? undefined,
-      serviceName: target.name,
-      riskLevel: action.riskLevel,
-      approvalMode: 'manual',
-      input: action.input,
-      description: action.notes ?? `${action.skillName} 计划调用 ${action.toolName}`,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
-    }))
-  }))
 }
 
 async function generateFinalSummary(input: {
@@ -277,14 +201,12 @@ async function generateFinalSummary(input: {
   history: SearchDocumentResult[]
   services: Awaited<ReturnType<typeof projectServiceCatalog.list>>
   selectedSkills: string[]
-  plannedActions: ReturnType<typeof buildPlannedActions>
 }) {
   const contextText = [
     `摘要: ${input.summary ?? '无'}`,
     `分析: ${JSON.stringify(input.analysis, null, 2)}`,
     `服务: ${input.services.map((service) => `${service.name}(${service.type})`).join(', ') || '无'}`,
     `命中 Skills: ${input.selectedSkills.join(', ') || '无'}`,
-    `计划动作: ${JSON.stringify(input.plannedActions, null, 2)}`,
     `知识库:\n${formatSearchResults(input.knowledge)}`,
     `Runbook:\n${formatSearchResults(input.runbooks)}`,
     `Incident History:\n${formatSearchResults(input.history)}`,
@@ -296,7 +218,7 @@ async function generateFinalSummary(input: {
       system: [
         '你是 OPS 事件总结 Agent。',
         '输出中文 Markdown，总结当前调查结果、根因假设、涉及项目/服务、建议动作、是否需要人工批准。',
-        '如果系统尚未真正执行修复，必须明确写出“当前仍待人工执行/确认”，不能宣称已解决。',
+        '如果系统尚未真正执行修复，必须明确写出"当前仍待人工执行/确认"，不能宣称已解决。',
       ].join('\n'),
       prompt: `事件原文:\n${input.incident.content}\n\n上下文:\n${contextText}`,
       maxOutputTokens: 1800,
@@ -312,11 +234,8 @@ async function generateFinalSummary(input: {
       `- 严重度: ${input.analysis.severity}`,
       `- 关键词: ${input.analysis.keywords.join(', ') || '无'}`,
       '',
-      '## 建议动作',
-      ...input.plannedActions.map((action) => `- ${action.skillName}: ${action.toolName} (${action.approvalMode})`),
-      '',
       '## 当前状态',
-      '- 当前只完成了分析、检索和动作规划，仍待人工执行/确认。',
+      '- 当前只完成了分析和检索，仍待人工执行/确认。',
     ].join('\n')
   }
 }

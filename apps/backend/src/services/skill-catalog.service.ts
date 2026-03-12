@@ -2,28 +2,10 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getSkillsRoot, slugifySegment } from '../lib/file-storage'
 
-export interface SkillToolDefinition {
-  key: string
-  label?: string
-  toolName: string
-  approvalMode: 'auto' | 'manual'
-  riskLevel: 'none' | 'low' | 'medium' | 'high'
-  allowedServiceTypes: string[]
-  notes?: string
-  input?: Record<string, unknown>
-}
-
-export interface SkillDefinition {
+export interface SkillRecord {
   name: string
   slug: string
   description?: string
-  applicableServiceTypes: string[]
-  prompt?: string
-  mcpServers: string[]
-  tools: SkillToolDefinition[]
-}
-
-export interface SkillRecord extends SkillDefinition {
   markdown: string
 }
 
@@ -38,16 +20,11 @@ async function readSkill(slug: string): Promise<SkillRecord | null> {
       fs.readFile(markdownPath, 'utf-8'),
     ])
 
-    const config = JSON.parse(configText) as SkillDefinition
+    const config = JSON.parse(configText)
     return {
-      ...config,
+      name: config.name,
       slug,
-      applicableServiceTypes: config.applicableServiceTypes ?? [],
-      mcpServers: config.mcpServers ?? [],
-      tools: (config.tools ?? []).map((tool) => ({
-        ...tool,
-        allowedServiceTypes: tool.allowedServiceTypes ?? [],
-      })),
+      description: config.description,
       markdown,
     }
   } catch {
@@ -58,17 +35,11 @@ async function readSkill(slug: string): Promise<SkillRecord | null> {
 async function writeSkill(record: SkillRecord) {
   const skillDir = path.join(getSkillsRoot(), record.slug)
   await fs.mkdir(skillDir, { recursive: true })
-  const config: SkillDefinition = {
+
+  const config = {
     name: record.name,
     slug: record.slug,
     description: record.description,
-    applicableServiceTypes: record.applicableServiceTypes,
-    prompt: record.prompt,
-    mcpServers: record.mcpServers,
-    tools: record.tools.map((tool) => ({
-      ...tool,
-      allowedServiceTypes: tool.allowedServiceTypes ?? [],
-    })),
   }
 
   await Promise.all([
@@ -96,20 +67,12 @@ export const skillCatalogService = {
     name: string
     description?: string
     markdown: string
-    config?: Partial<SkillDefinition>
   }) {
-    const slug = slugifySegment(input.config?.slug || input.name)
+    const slug = slugifySegment(input.name)
     return writeSkill({
       name: input.name,
       slug,
-      description: input.description ?? input.config?.description,
-      prompt: input.config?.prompt,
-      applicableServiceTypes: input.config?.applicableServiceTypes ?? [],
-      mcpServers: input.config?.mcpServers ?? [],
-      tools: (input.config?.tools ?? []).map((tool) => ({
-        ...tool,
-        allowedServiceTypes: tool.allowedServiceTypes ?? [],
-      })),
+      description: input.description,
       markdown: input.markdown,
     })
   },
@@ -118,7 +81,6 @@ export const skillCatalogService = {
     name?: string
     description?: string
     markdown?: string
-    config?: Partial<SkillDefinition>
   }) {
     const existing = await readSkill(slug)
     if (!existing) return null
@@ -126,14 +88,7 @@ export const skillCatalogService = {
     return writeSkill({
       name: input.name ?? existing.name,
       slug,
-      description: input.description ?? input.config?.description ?? existing.description,
-      prompt: input.config?.prompt ?? existing.prompt,
-      applicableServiceTypes: input.config?.applicableServiceTypes ?? existing.applicableServiceTypes,
-      mcpServers: input.config?.mcpServers ?? existing.mcpServers,
-      tools: (input.config?.tools ?? existing.tools).map((tool) => ({
-        ...tool,
-        allowedServiceTypes: tool.allowedServiceTypes ?? [],
-      })),
+      description: input.description ?? existing.description,
       markdown: input.markdown ?? existing.markdown,
     })
   },

@@ -25,12 +25,6 @@ function SkillCreatePage() {
       name: payload.name,
       description: payload.description,
       markdown: payload.markdown,
-      config: {
-        prompt: payload.prompt,
-        applicableServiceTypes: payload.applicableServiceTypes,
-        mcpServers: payload.mcpServers,
-        tools: payload.tools,
-      },
     })
 
     toast.success('Skill 已创建')
