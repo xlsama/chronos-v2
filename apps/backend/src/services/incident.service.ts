@@ -7,16 +7,29 @@ type IncidentStatusValue = (typeof incidentStatusEnum.enumValues)[number]
 
 export type CreateIncidentInput = {
   content: string
+  projectId?: string | null
   attachments?: { type: 'image' | 'file'; url: string; name: string; mimeType: string }[] | null
-  source?: string
+  source?: 'manual' | 'webhook'
   summary?: string | null
+  status?: IncidentStatusValue
+  processingMode?: 'automatic' | 'semi_automatic' | null
+  analysis?: Record<string, unknown> | null
+  selectedSkills?: string[]
+  finalSummaryDraft?: string | null
+  metadata?: Record<string, unknown>
 }
 
 export type UpdateIncidentInput = {
+  projectId?: string | null
   status?: IncidentStatusValue
   processingMode?: 'automatic' | 'semi_automatic' | null
   threadId?: string
   summary?: string | null
+  analysis?: Record<string, unknown> | null
+  selectedSkills?: string[]
+  finalSummaryDraft?: string | null
+  resolutionNotes?: string | null
+  metadata?: Record<string, unknown>
 }
 
 export type ListIncidentsQuery = {

@@ -1,4 +1,4 @@
-import { Cable, Inbox, Library, ScrollText } from "lucide-react";
+import { Archive, FolderKanban, Inbox, LibraryBig, ScrollText, Sparkles, Waypoints } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 
 import {
@@ -18,12 +18,17 @@ import {
 import { NavUser } from "@/components/sidebar/nav-user";
 import { LogoFull, LogoIcon } from "@/components/logo";
 
-const mainNav = [{ title: "收件箱", icon: Inbox, to: "/inbox" as const }];
+const mainNav = [
+  { title: "收件箱", icon: Inbox, to: "/inbox" as const },
+  { title: "项目", icon: FolderKanban, to: "/projects" as const },
+];
 
 const platformNav = [
-  { title: "连接", icon: Cable, to: "/connections" as const },
-  { title: "知识库", icon: Library, to: "/knowledge-base" as const },
+  { title: "知识库", icon: LibraryBig, to: "/knowledge-base" as const },
   { title: "Runbook", icon: ScrollText, to: "/runbooks" as const },
+  { title: "Incident History", icon: Archive, to: "/incident-history" as const },
+  { title: "Services", icon: Waypoints, to: "/services" as const },
+  { title: "Skills", icon: Sparkles, to: "/skills" as const },
 ];
 
 export function AppSidebar() {
@@ -91,7 +96,7 @@ function SidebarHeaderContent() {
     <div className="flex items-center justify-between px-1 py-1">
       {state === "expanded" ? (
         <>
-          <Link to="/inbox">
+          <Link to="/projects">
             <LogoFull className="h-7 w-auto text-foreground" />
           </Link>
           <SidebarTrigger />

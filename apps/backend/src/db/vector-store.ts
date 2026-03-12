@@ -16,4 +16,14 @@ export async function initVectorStore() {
       hnsw: { m: 16, efConstruction: 64 },
     },
   })
+
+  await pgVector.createIndex({
+    indexName: 'document_embeddings',
+    dimension: env.EMBEDDING_DIMENSIONS,
+    metric: 'cosine',
+    indexConfig: {
+      type: 'hnsw',
+      hnsw: { m: 16, efConstruction: 64 },
+    },
+  })
 }

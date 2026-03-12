@@ -3,17 +3,21 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { pinoLogger } from "hono-pino";
+import fs from "node:fs";
 import path from "node:path";
 import { env } from "./env";
 import { logger } from "./lib/logger";
 import { handleError } from "./lib/errors";
 import { apiRoutes } from "./routes/index";
-import { registerAllBuilders } from "./mcp";
-import { mcpRegistry } from "./mcp/registry";
-import { connectionService } from "./services/connection.service";
 import { initVectorStore } from "./db/vector-store";
+import { ensureDataRootsSync } from "./lib/file-storage";
 
 const uploadDir = path.resolve(env.UPLOAD_DIR);
+const dataDir = path.resolve(env.DATA_DIR);
+
+// Create runtime storage roots before registering static handlers.
+fs.mkdirSync(uploadDir, { recursive: true });
+ensureDataRootsSync();
 
 const reqStartTimes = new WeakMap<object, number>();
 
@@ -56,6 +60,10 @@ app.use(
   "/uploads/*",
   serveStatic({ root: uploadDir, rewriteRequestPath: (p) => p.replace("/uploads", "") }),
 );
+app.use(
+  "/files/*",
+  serveStatic({ root: dataDir, rewriteRequestPath: (p) => p.replace("/files", "") }),
+);
 
 // API routes
 app.route("/", apiRoutes);
@@ -69,16 +77,6 @@ app.onError(handleError);
 // Initialize PgVector index
 initVectorStore().catch((err) => {
   logger.error(err, "Failed to initialize vector store");
-});
-
-// Initialize MCP
-registerAllBuilders();
-mcpRegistry.initialize((id, status, error) => {
-  connectionService.updateMcpStatus(id, status, error).catch((err) => {
-    logger.error({ err, connectionId: id }, "Failed to update MCP status");
-  });
-}).catch((err) => {
-  logger.error(err, "Failed to initialize MCP registry");
 });
 
 // Start server
