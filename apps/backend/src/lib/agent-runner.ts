@@ -13,12 +13,31 @@ export async function runAgentStream(options: {
   const { threadId, incidentId, message, context } = options
   const agent = createSupervisorAgent(context)
 
+  logger.info({ threadId, incidentId }, '[Agent] supervisor started (stream)')
+
   const response = await agent.stream(message, {
     memory: {
       thread: threadId,
       resource: incidentId,
     },
     maxSteps: 10,
+    onStepFinish: (event) => {
+      const toolNames = event.toolCalls?.map((tc) => tc.payload.toolName) ?? []
+      if (toolNames.length > 0) {
+        logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
+      }
+    },
+    delegation: {
+      onDelegationStart: ({ primitiveId, primitiveType }) => {
+        logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
+      },
+      onDelegationComplete: ({ primitiveId, duration, success, error }) => {
+        logger.info(
+          { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
+          '[Agent] sub-agent completed',
+        )
+      },
+    },
   })
 
   const sdkStream = toAISdkStream(response, {
@@ -41,11 +60,31 @@ export async function runAgentInBackground(
     }
 
     const agent = createSupervisorAgent(context)
+
+    logger.info({ threadId, incidentId: incident.id }, '[Agent] supervisor started (background)')
+
     const response = await agent.stream(
       `请分析以下事件并提出解决方案：\n\n${incident.content}`,
       {
         memory: { thread: threadId, resource: incident.id },
         maxSteps: 10,
+        onStepFinish: (event) => {
+          const toolNames = event.toolCalls?.map((tc) => tc.payload.toolName) ?? []
+          if (toolNames.length > 0) {
+            logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
+          }
+        },
+        delegation: {
+          onDelegationStart: ({ primitiveId, primitiveType }) => {
+            logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
+          },
+          onDelegationComplete: ({ primitiveId, duration, success, error }) => {
+            logger.info(
+              { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
+              '[Agent] sub-agent completed',
+            )
+          },
+        },
       },
     )
 

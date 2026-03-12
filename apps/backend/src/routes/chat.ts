@@ -65,13 +65,34 @@ export const chatRoutes = new Hono()
     // Create supervisor agent with incident context
     const agent = createSupervisorAgent(context)
 
+    logger.info({ threadId, incidentId }, '[Agent] supervisor started')
+
     const response = await agent.stream(messageText, {
       memory: {
         thread: threadId,
         resource: incidentId ?? 'chat',
       },
       maxSteps: 10,
+      onStepFinish: (event) => {
+        const toolNames = event.toolCalls?.map((tc) => tc.payload.toolName) ?? []
+        if (toolNames.length > 0) {
+          logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
+        }
+      },
+      delegation: {
+        onDelegationStart: ({ primitiveId, primitiveType }) => {
+          logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
+        },
+        onDelegationComplete: ({ primitiveId, duration, success, error }) => {
+          logger.info(
+            { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
+            '[Agent] sub-agent completed',
+          )
+        },
+      },
     })
+
+    logger.info({ threadId }, '[Agent] supervisor stream created')
 
     // Convert Mastra stream to AI SDK UIMessage stream
     const sdkStream = toAISdkStream(response, {
