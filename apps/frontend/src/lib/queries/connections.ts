@@ -1,12 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { client, unwrap } from '@/lib/api'
 import type { ConnectionFormValues } from '@/lib/schemas/connection'
-import type {
-  ConnectionImportCandidate,
-  ConnectionImportCommitResponse,
-  ConnectionImportPreviewResponse,
-  ConnectionType,
-} from '@chronos/shared'
+import type { ConnectionType } from '@chronos/shared'
 
 export const connectionQueries = {
   all: () => ['connections'] as const,
@@ -66,28 +61,3 @@ export function useTestConnectionDirect() {
   })
 }
 
-export function usePreviewConnectionsFromKb() {
-  return useMutation({
-    meta: { skipGlobalErrorToast: true },
-    mutationFn: (data: { kbProjectId: string }) =>
-      unwrap<{ data: ConnectionImportPreviewResponse }>(
-        client.api.connections['import-from-kb'].preview.$post({ json: data }),
-      ),
-  })
-}
-
-export function useCommitConnectionsFromKb() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    meta: { skipGlobalErrorToast: true },
-    mutationFn: (data: {
-      kbProjectId: string
-      imports: ConnectionImportCandidate[]
-      selectedIds: string[]
-    }) =>
-      unwrap<{ data: ConnectionImportCommitResponse }>(
-        client.api.connections['import-from-kb'].commit.$post({ json: data }),
-      ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: connectionQueries.all() }),
-  })
-}

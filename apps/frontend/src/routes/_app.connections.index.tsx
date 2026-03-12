@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { Connection } from "@chronos/shared";
-import { Library, Plus, Search, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ConnectionImportDialog } from "@/components/connections/connection-import-dialog";
 import { ServiceGrid } from "@/components/connections/service-grid";
 import { ServiceMapEditor, ServiceMapEmpty } from "@/components/connections/service-map";
 import { connectionQueries } from "@/lib/queries/connections";
@@ -121,14 +120,6 @@ function ConnectionsPage() {
               className="pl-9"
             />
           </div>
-          <ConnectionImportDialog
-            trigger={(
-              <Button variant="outline">
-                <Library className="size-4" />
-                从知识库导入
-              </Button>
-            )}
-          />
           <Button asChild>
             <Link to="/connections/create">
               <Plus className="size-4" />

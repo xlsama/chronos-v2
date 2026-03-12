@@ -42,11 +42,6 @@ export function ServiceCard({ connection, onTest, isTesting, onDelete, isDeletin
             <Badge variant="secondary" className="text-xs">
               {meta.label}
             </Badge>
-            {connection.importSource === 'kb' && (
-              <Badge variant="outline" className="text-xs">
-                来自知识库
-              </Badge>
-            )}
             {connection.mcpStatus === 'registering' && (
               <Badge variant="outline" className="border-blue-200 bg-blue-50 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
                 <Loader2 className="mr-1 size-3 animate-spin" />

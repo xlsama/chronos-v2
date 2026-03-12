@@ -11,15 +11,6 @@ export type CreateConnectionInput = {
   name: string
   type: (typeof connectionTypeEnum.enumValues)[number]
   config: Record<string, unknown>
-  kbProjectId?: string | null
-  importSource?: 'manual' | 'kb'
-  importMetadata?: {
-    sourceDocuments: Array<{ id: string; title: string }>
-    warnings: string[]
-    confidence: number | null
-    sourceExcerpt: string | null
-    importedAt: string
-  } | null
 }
 
 export type UpdateConnectionInput = {
@@ -92,9 +83,6 @@ export const connectionService = {
       name: input.name,
       type: input.type,
       config: encryptedConfig,
-      kbProjectId: input.kbProjectId ?? null,
-      importSource: input.importSource ?? 'manual',
-      importMetadata: input.importMetadata ?? null,
     }).returning()
 
     // Register MCP server asynchronously (fire-and-forget)
