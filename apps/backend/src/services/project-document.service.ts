@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { projectDocuments, projects } from '../db/schema'
+import { GLOBAL_PROJECT_SLUG } from './project.service'
 import { pgVector } from '../db/vector-store'
 import { env } from '../env'
 import { chunkMarkdown, chunkTabularText, chunkText } from '../lib/chunker'
@@ -247,10 +248,23 @@ export const projectDocumentService = {
     projectId?: string
     publicationStatuses?: PublicationStatus[]
     limit?: number
+    includeGlobal?: boolean
   }): Promise<SearchDocumentResult[]> {
     const embedding = await embedText(query)
     const filter: Record<string, unknown> = { kind: options.kind }
-    if (options.projectId) filter.projectId = options.projectId
+
+    // Include global project in search when searching a specific project
+    if (options.projectId && (options.includeGlobal ?? true)) {
+      const [globalProject] = await db.select().from(projects).where(eq(projects.slug, GLOBAL_PROJECT_SLUG))
+      if (globalProject && globalProject.id !== options.projectId) {
+        filter.projectId = { $in: [options.projectId, globalProject.id] }
+      } else {
+        filter.projectId = options.projectId
+      }
+    } else if (options.projectId) {
+      filter.projectId = options.projectId
+    }
+
     if (options.publicationStatuses?.length) filter.publicationStatus = { $in: options.publicationStatuses }
 
     const vectorResults = await pgVector.query({

@@ -50,6 +50,9 @@ services:
       DATABASE_URL: postgresql://chronos:chronos@postgres:5432/chronos
       REDIS_URL: redis://redis:6379
       NODE_ENV: production
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully

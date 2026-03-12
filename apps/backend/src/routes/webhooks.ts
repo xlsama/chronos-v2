@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod/v4'
 import { incidentService } from '../services/incident.service'
 import { incidentWorkflowService } from '../services/incident-workflow.service'
+import { sendFeishuMessage } from '../lib/feishu'
 
 const attachmentSchema = z.object({
   type: z.enum(['image', 'file']),
@@ -48,4 +49,15 @@ export const webhookRoutes = new Hono()
 
     void incidentWorkflowService.start(incident)
     return c.json({ data: incident }, 201)
+  })
+  .post('/test', zValidator('json', z.object({
+    webhookUrl: z.string().url(),
+    signKey: z.string().optional(),
+    platform: z.enum(['feishu']),
+  })), async (c) => {
+    const { webhookUrl, signKey, platform } = c.req.valid('json')
+    if (platform === 'feishu') {
+      await sendFeishuMessage({ webhookUrl, signKey, text: '[Chronos] 测试消息 - 通知配置成功 ✅' })
+    }
+    return c.json({ data: { success: true } })
   })

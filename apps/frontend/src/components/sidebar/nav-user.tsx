@@ -3,6 +3,7 @@ import {
   ChevronsUpDown,
   LogOut,
   Moon,
+  Settings,
   Sun,
   Monitor,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { useTheme } from '@/contexts/theme-provider'
+import { SettingsDialog } from './settings-dialog'
 
 const user = {
   name: 'Admin',
@@ -34,6 +36,7 @@ const user = {
 export function NavUser() {
   const { isMobile } = useSidebar()
   const { setTheme } = useTheme()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
     <SidebarMenu>
@@ -60,6 +63,10 @@ export function NavUser() {
             align="end"
             sideOffset={4}
           >
+            <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+              <Settings className="mr-2 size-4" />
+              设置
+            </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <Sun className="mr-2 size-4 dark:hidden" />
@@ -88,6 +95,7 @@ export function NavUser() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       </SidebarMenuItem>
     </SidebarMenu>
   )

@@ -2,6 +2,23 @@ import { count, desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { projectDocuments, projects, projectServices } from '../db/schema'
 import { slugifySegment } from '../lib/file-storage'
+import { logger } from '../lib/logger'
+
+export const GLOBAL_PROJECT_SLUG = '_global'
+
+export async function ensureGlobalProject() {
+  const [existing] = await db.select().from(projects).where(eq(projects.slug, GLOBAL_PROJECT_SLUG))
+  if (existing) return existing
+
+  const [row] = await db.insert(projects).values({
+    name: 'Global',
+    slug: GLOBAL_PROJECT_SLUG,
+    description: '全局共享项目，用于存放跨项目的 Runbook 和知识库文档',
+    tags: ['global', 'system'],
+  }).returning()
+  logger.info({ id: row.id }, 'Global project created')
+  return row
+}
 
 export const projectService = {
   async list() {

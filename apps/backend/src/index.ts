@@ -11,6 +11,8 @@ import { handleError } from "./lib/errors";
 import { apiRoutes } from "./routes/index";
 import { initVectorStore } from "./db/vector-store";
 import { ensureDataRootsSync } from "./lib/file-storage";
+import { startCronJobs } from "./cron/index";
+import { ensureGlobalProject } from "./services/project.service";
 
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 const dataDir = path.resolve(env.DATA_DIR);
@@ -74,10 +76,16 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 // Error handler
 app.onError(handleError);
 
-// Initialize PgVector index
+// Initialize PgVector index + global project + cron
 initVectorStore().catch((err) => {
   logger.error(err, "Failed to initialize vector store");
 });
+
+ensureGlobalProject().catch((err) => {
+  logger.error(err, "Failed to ensure global project");
+});
+
+startCronJobs();
 
 // Start server
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
