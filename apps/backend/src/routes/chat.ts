@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai'
 import { toAISdkStream } from '@mastra/ai-sdk'
 import { logger } from '../lib/logger'
+import { abortAgent } from '../lib/agent-runner'
 import { publishChatEvent, getSubscriber, chatChannel } from '../lib/redis'
 import { messageService } from '../services/message.service'
 import { incidentService } from '../services/incident.service'
@@ -72,7 +73,7 @@ export const chatRoutes = new Hono()
         thread: threadId,
         resource: incidentId ?? 'chat',
       },
-      maxSteps: 10,
+      maxSteps: 50,
       onStepFinish: (event) => {
         const toolNames = event.toolCalls?.map((tc) => tc.payload.toolName) ?? []
         if (toolNames.length > 0) {
@@ -126,13 +127,15 @@ export const chatRoutes = new Hono()
             metadata: { parts: responseMessage.parts },
           })
 
+          logger.info({ threadId, incidentId }, '[Agent] supervisor response saved')
+
           await publishChatEvent(threadId, 'message', {
             id: responseMessage.id,
             role: 'assistant',
             parts: responseMessage.parts,
           })
         } catch (err) {
-          logger.error({ err }, 'Failed to save assistant message')
+          logger.error({ err, threadId }, '[Agent] failed to save response')
         }
       },
     })
@@ -205,4 +208,11 @@ export const chatRoutes = new Hono()
     }))
 
     return c.json(uiMessages)
+  })
+
+  // Abort a running background agent
+  .post('/:threadId/abort', async (c) => {
+    const { threadId } = c.req.param()
+    const aborted = abortAgent(threadId)
+    return c.json({ success: aborted })
   })

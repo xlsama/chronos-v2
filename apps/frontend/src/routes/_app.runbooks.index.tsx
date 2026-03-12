@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import dayjs from "dayjs";
-import { ArrowRight, Clock3, Plus, ScrollText, Trash2 } from "lucide-react";
+import { Plus, ScrollText, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import type { ProjectDocument } from "@chronos/shared";
@@ -18,9 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -203,100 +201,34 @@ function RunbooksPage() {
               </EmptyContent>
             </Empty>
           ) : (
-            <div className="grid gap-3">
-              {runbooks.map((runbook) => {
-                const excerpt = buildRunbookExcerpt(runbook);
-
-                return (
-                  <Card
-                    key={runbook.id}
-                    className="overflow-hidden border-border/70 bg-card/90 shadow-sm transition-colors hover:border-foreground/15"
+            <div className="divide-y rounded-lg border">
+              {runbooks.map((runbook) => (
+                <div key={runbook.id} className="flex items-center gap-3 px-4 py-3">
+                  <StatusBadge
+                    value={runbook.publicationStatus}
+                    label={getRunbookStatusLabel(runbook.publicationStatus)}
+                  />
+                  <Link
+                    to="/runbooks/$id"
+                    params={{ id: runbook.id }}
+                    className="min-w-0 flex-1 truncate font-medium transition-colors hover:text-foreground/80"
                   >
-                    <CardContent className="flex flex-col gap-5 p-5">
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <StatusBadge
-                            value={runbook.publicationStatus}
-                            label={getRunbookStatusLabel(runbook.publicationStatus)}
-                          />
-                          <StatusBadge
-                            value={runbook.status}
-                            label={getRunbookStatusLabel(runbook.status)}
-                          />
-                        </div>
-
-                        <Link
-                          to="/runbooks/$id"
-                          params={{ id: runbook.id }}
-                          className="mt-4 block text-xl font-semibold tracking-tight transition-colors hover:text-foreground/80"
-                        >
-                          {runbook.title}
-                        </Link>
-
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                          {runbook.description ||
-                            "用于重复性故障处理和运维检查的 Markdown 操作指南。"}
-                        </p>
-
-                        {excerpt ? (
-                          <p className="mt-3 line-clamp-3 max-w-4xl whitespace-pre-line text-sm leading-6 text-foreground/80">
-                            {excerpt}
-                          </p>
-                        ) : null}
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {runbook.tags.length > 0 ? (
-                            runbook.tags.map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="outline"
-                                className="rounded-full bg-background/80"
-                              >
-                                {tag}
-                              </Badge>
-                            ))
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="rounded-full bg-background/80 text-muted-foreground"
-                            >
-                              无标签
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="mt-auto flex flex-wrap items-center gap-4 pt-5 text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1.5">
-                            <Clock3 className="size-3.5" />
-                            更新于 {dayjs(runbook.updatedAt).format("YYYY-MM-DD HH:mm")}
-                          </span>
-                          <span>{runbook.source}</span>
-                          <span>{runbook.fileName}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2">
-                        <Button asChild variant="outline" size="sm">
-                          <Link to="/runbooks/$id" params={{ id: runbook.id }}>
-                            打开
-                            <ArrowRight data-icon="inline-end" className="size-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-destructive/30 text-destructive hover:border-destructive hover:bg-destructive hover:text-white"
-                          disabled={deleteDocument.isPending}
-                          onClick={() => setDeleteTarget(runbook)}
-                        >
-                          <Trash2 data-icon="inline-start" className="size-4" />
-                          删除
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                    {runbook.title}
+                  </Link>
+                  <span className="shrink-0 text-sm text-muted-foreground">
+                    {dayjs(runbook.updatedAt).format("MM-DD HH:mm")}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                    disabled={deleteDocument.isPending}
+                    onClick={() => setDeleteTarget(runbook)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -383,28 +315,6 @@ function RunbooksPage() {
       </motion.div>
     </div>
   );
-}
-
-function buildRunbookExcerpt(runbook: ProjectDocument) {
-  const content = (runbook.content ?? "")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^\s*[-*+]\s+/gm, "")
-    .replace(/^\s*\d+\.\s+/gm, "")
-    .replace(/[>*_~|]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!content) return "";
-  return truncateText(content, 100);
-}
-
-function truncateText(value: string, maxLength: number) {
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength).trimEnd()}...`;
 }
 
 function getRunbookStatusLabel(value: string) {

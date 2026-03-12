@@ -28,48 +28,8 @@ export interface Incident {
   updatedAt: string;
 }
 
-export interface AgentRun {
-  id: string;
-  incidentId: string;
-  projectId: string | null;
-  status: "queued" | "running" | "waiting_approval" | "completed" | "failed" | "cancelled";
-  stage: string;
-  selectedSkills: string[];
-  analysis?: Record<string, unknown> | null;
-  context?: Record<string, unknown> | null;
-  plannedActions?: Record<string, unknown>[] | null;
-  result?: string | null;
-  lastError?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface WorkflowApproval {
-  id: string;
-  agentRunId: string;
-  incidentId: string;
-  projectId: string | null;
-  skillSlug: string;
-  toolKey: string;
-  toolName: string;
-  serviceId: string | null;
-  serviceName: string | null;
-  riskLevel: "none" | "low" | "medium" | "high";
-  approvalMode: "auto" | "manual";
-  input: Record<string, unknown>;
-  description: string | null;
-  status: "pending" | "approved" | "declined" | "expired";
-  decidedAt: string | null;
-  declineReason: string | null;
-  expiresAt: string;
-  createdAt: string;
-}
-
 export interface IncidentDetail extends Incident {
   project: Project | null;
-  approvals: WorkflowApproval[];
-  runs: AgentRun[];
-  approvalCount: number;
   relatedHistory: ProjectDocument[];
 }
 

@@ -22,10 +22,6 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().default("./uploads"),
   DATA_DIR: z.string().default("./data"),
   SKILLS_DIR: z.string().default("./data/skills"),
-  AGENT_AUTO_TRIGGER: z
-    .string()
-    .default("true")
-    .transform((v) => v === "true" || v === "1"),
 });
 
 export const env = envSchema.parse(process.env);

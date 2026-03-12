@@ -1,7 +1,10 @@
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { skillCatalogService } from '../services/skill-catalog.service'
 import { projectServiceCatalog } from '../services/project-service-catalog.service'
+import { getSkillsRoot } from './file-storage'
 import { logger } from './logger'
 
 interface ActiveMcp {
@@ -23,12 +26,9 @@ export const skillMcpManager = {
     if (!skill) throw new Error(`Skill not found: ${skillSlug}`)
 
     // Read raw config to get MCP-related fields (not part of simplified SkillRecord)
-    const { readFileSync } = await import('node:fs')
-    const { join } = await import('node:path')
-    const { getSkillsRoot } = await import('./file-storage')
     let rawConfig: { mcpServers?: string[]; applicableServiceTypes?: string[] } = {}
     try {
-      rawConfig = JSON.parse(readFileSync(join(getSkillsRoot(), skillSlug, 'skill.config.json'), 'utf-8'))
+      rawConfig = JSON.parse(await readFile(path.join(getSkillsRoot(), skillSlug, 'skill.config.json'), 'utf-8'))
     } catch { /* ignore */ }
 
     const mcpServers = rawConfig.mcpServers ?? []

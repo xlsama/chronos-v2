@@ -132,7 +132,7 @@ function IncidentDialog(props: {
             <PromptInputActions className="justify-between px-2 pb-2">
               <PromptInputAction tooltip="上传文件">
                 <FileUploadTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-8">
+                  <Button variant="ghost" size="icon" className="size-8 rounded-full">
                     <Plus className="size-5" />
                   </Button>
                 </FileUploadTrigger>

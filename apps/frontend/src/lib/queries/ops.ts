@@ -310,7 +310,7 @@ export function useTestService() {
 export function useCreateSkill() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: { name: string; description?: string; markdown: string }) =>
+    mutationFn: (data: { markdown: string }) =>
       unwrap<{ data: SkillRecord }>(client.api.skills.$post({ json: data })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'skills'] }),
   })
@@ -319,7 +319,7 @@ export function useCreateSkill() {
 export function useUpdateSkill() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ slug, data }: { slug: string; data: Partial<{ name: string; description: string; markdown: string }> }) =>
+    mutationFn: ({ slug, data }: { slug: string; data: { markdown: string } }) =>
       unwrap<{ data: SkillRecord }>(client.api.skills[':slug'].$put({ param: { slug }, json: data })),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'skills'] })
@@ -361,17 +361,3 @@ export function useSaveIncidentSummary() {
   })
 }
 
-export function useDecideApproval() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ incidentId, approvalId, approved, reason }: { incidentId: string; approvalId: string; approved: boolean; reason?: string }) =>
-      unwrap(client.api.incidents[':id'].approve.$post({
-        param: { id: incidentId },
-        json: { approvalId, approved, reason },
-      })),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['ops', 'incidents', variables.incidentId] })
-      queryClient.invalidateQueries({ queryKey: ['ops', 'incidents'] })
-    },
-  })
-}

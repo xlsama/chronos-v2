@@ -5,9 +5,7 @@ import { AppError } from '../lib/errors'
 import { skillCatalogService } from '../services/skill-catalog.service'
 
 const skillSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  markdown: z.string().default(''),
+  markdown: z.string().min(1),
 })
 
 export const skillRoutes = new Hono()
@@ -24,7 +22,7 @@ export const skillRoutes = new Hono()
     if (!data) throw new AppError(404, 'Skill not found')
     return c.json({ data })
   })
-  .put('/:slug', zValidator('json', skillSchema.partial()), async (c) => {
+  .put('/:slug', zValidator('json', skillSchema), async (c) => {
     const data = await skillCatalogService.update(c.req.param('slug'), c.req.valid('json'))
     if (!data) throw new AppError(404, 'Skill not found')
     return c.json({ data })

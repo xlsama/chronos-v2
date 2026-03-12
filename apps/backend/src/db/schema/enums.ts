@@ -15,12 +15,7 @@ export const mcpStatusEnum = pgEnum('mcp_status', ['idle', 'registering', 'regis
 export const documentTypeEnum = pgEnum('document_type', ['markdown', 'pdf', 'xlsx', 'csv', 'docx'])
 export const documentStatusEnum = pgEnum('document_status', ['pending', 'processing', 'ready', 'error', 'cancelling', 'cancelled'])
 
-export const riskLevelEnum = pgEnum('risk_level', ['none', 'low', 'medium', 'high'])
-export const approvalStatusEnum = pgEnum('approval_status', ['pending', 'approved', 'declined', 'expired'])
-
 export const documentKindEnum = pgEnum('document_kind', ['knowledge', 'runbook', 'incident_history'])
 export const documentSourceEnum = pgEnum('document_source', ['upload', 'markdown', 'agent', 'job'])
 export const publicationStatusEnum = pgEnum('publication_status', ['active', 'draft', 'published', 'archived'])
 export const incidentSourceEnum = pgEnum('incident_source', ['manual', 'webhook'])
-export const agentRunStatusEnum = pgEnum('agent_run_status', ['queued', 'running', 'waiting_approval', 'completed', 'failed', 'cancelled'])
-export const approvalModeEnum = pgEnum('approval_mode', ['auto', 'manual'])

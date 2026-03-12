@@ -48,13 +48,14 @@ export function DataTable<TData>({ columns, data, emptyState, columnPinning }: D
       <TableBody>
         {table.getRowModel().rows.length ? (
           table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
+            <TableRow key={row.id} className="group/row hover:bg-transparent">
               {row.getVisibleCells().map((cell) => {
                 const pinned = cell.column.getIsPinned()
                 return (
                   <TableCell
                     key={cell.id}
                     className={cn(
+                      'transition-colors group-hover/row:bg-muted/50',
                       pinned && 'sticky z-10 bg-background',
                       pinned === 'left' && 'left-0',
                       pinned === 'right' && 'right-0',

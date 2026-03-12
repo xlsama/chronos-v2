@@ -2,12 +2,11 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod/v4'
 import { incidentService } from '../services/incident.service'
-import { incidentWorkflowService } from '../services/incident-workflow.service'
 import { messageService } from '../services/message.service'
 import { publishChatEvent } from '../lib/redis'
 import { runAgentInBackground } from '../lib/agent-runner'
 import { sendFeishuMessage } from '../lib/feishu'
-import { env } from '../env'
+import { logger } from '../lib/logger'
 
 const attachmentSchema = z.object({
   type: z.enum(['image', 'file']),
@@ -25,6 +24,7 @@ const eventSchema = z.object({
 
 async function triggerAgent(incident: Awaited<ReturnType<typeof incidentService.create>>) {
   const threadId = `incident-${incident.id}`
+  logger.info({ incidentId: incident.id, threadId }, '[Incident] triggering agent analysis')
 
   await messageService.save({
     threadId,
@@ -50,11 +50,11 @@ export const webhookRoutes = new Hono()
       processingMode: 'automatic',
     })
 
-    if (env.AGENT_AUTO_TRIGGER) {
-      void triggerAgent(incident)
-    } else {
-      void incidentWorkflowService.start(incident)
-    }
+    logger.info(
+      { incidentId: incident.id, source: 'webhook', projectId: incident.projectId },
+      '[Incident] received via webhook'
+    )
+    void triggerAgent(incident)
     return c.json({ data: incident }, 201)
   })
   .post('/alert', zValidator('json', eventSchema), async (c) => {
@@ -69,11 +69,11 @@ export const webhookRoutes = new Hono()
       processingMode: 'automatic',
     })
 
-    if (env.AGENT_AUTO_TRIGGER) {
-      void triggerAgent(incident)
-    } else {
-      void incidentWorkflowService.start(incident)
-    }
+    logger.info(
+      { incidentId: incident.id, source: 'webhook', projectId: incident.projectId },
+      '[Incident] received via webhook'
+    )
+    void triggerAgent(incident)
     return c.json({ data: incident }, 201)
   })
   .post('/test', zValidator('json', z.object({

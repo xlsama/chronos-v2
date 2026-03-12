@@ -11,7 +11,6 @@ import {
   deleteStoredFile,
   readStoredText,
   resolveStoredPath,
-  slugifySegment,
   toPublicFileUrl,
   writeMarkdownProjectFile,
   writeUploadedProjectFile,
@@ -229,7 +228,6 @@ export const projectDocumentService = {
         projectId: input.projectId,
         kind: input.kind,
         title: input.title,
-        slug: slugifySegment(input.title),
         description: input.description,
         tags: input.tags ?? [],
         content: input.content,
@@ -237,7 +235,6 @@ export const projectDocumentService = {
         fileName: stored.fileName,
         mimeType: "text/markdown",
         extension: stored.extension,
-        checksum: stored.checksum,
         source: input.source ?? "markdown",
         publicationStatus: input.publicationStatus ?? defaultPublicationStatus(input.kind),
         createdBy: input.createdBy,
@@ -276,14 +273,12 @@ export const projectDocumentService = {
         projectId: input.projectId,
         kind: input.kind,
         title: input.title,
-        slug: slugifySegment(input.title),
         description: input.description,
         tags: input.tags ?? [],
         filePath: stored.relativePath,
         fileName: stored.fileName,
         mimeType: input.file.type || "application/octet-stream",
         extension: stored.extension,
-        checksum: stored.checksum,
         source: "upload",
         publicationStatus: input.publicationStatus ?? defaultPublicationStatus(input.kind),
         createdBy: input.createdBy,
@@ -310,7 +305,6 @@ export const projectDocumentService = {
     if (!existing) return null;
 
     let content = existing.content ?? null;
-    let checksum = existing.checksum;
     let filePath = existing.filePath;
     let fileName = existing.fileName;
     let extension = existing.extension;
@@ -337,7 +331,6 @@ export const projectDocumentService = {
         content: input.content,
       });
       content = input.content;
-      checksum = stored.checksum;
       filePath = stored.relativePath;
       fileName = stored.fileName;
       extension = stored.extension;
@@ -347,9 +340,7 @@ export const projectDocumentService = {
       .update(projectDocuments)
       .set({
         ...input,
-        ...(input.title ? { slug: slugifySegment(input.title) } : {}),
         ...(content !== null ? { content } : {}),
-        ...(checksum ? { checksum } : {}),
         ...(filePath ? { filePath } : {}),
         ...(fileName ? { fileName } : {}),
         ...(extension ? { extension } : {}),

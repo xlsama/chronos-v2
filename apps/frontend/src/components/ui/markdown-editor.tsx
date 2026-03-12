@@ -1,49 +1,52 @@
-import type { CSSProperties } from 'react'
-import {
-  BlockTypeSelect,
-  BoldItalicUnderlineToggles,
-  ChangeCodeMirrorLanguage,
-  CodeToggle,
-  codeBlockPlugin,
-  codeMirrorPlugin,
-  ConditionalContents,
-  CreateLink,
-  headingsPlugin,
-  InsertCodeBlock,
-  InsertTable,
-  InsertThematicBreak,
-  linkDialogPlugin,
-  linkPlugin,
-  listsPlugin,
-  ListsToggle,
-  markdownShortcutPlugin,
-  MDXEditor,
-  quotePlugin,
-  Separator,
-  tablePlugin,
-  thematicBreakPlugin,
-  toolbarPlugin,
-  UndoRedo,
-} from '@mdxeditor/editor'
+import CodeMirror, { type ReactCodeMirrorProps } from '@uiw/react-codemirror'
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
+import { languages } from '@codemirror/language-data'
+import { EditorView } from '@codemirror/view'
 import { cn } from '@/lib/utils'
 
-const CODE_BLOCK_LANGUAGES: Record<string, string> = {
-  plaintext: 'Plain text',
-  markdown: 'Markdown',
-  bash: 'Bash',
-  shell: 'Shell',
-  sh: 'Shell',
-  json: 'JSON',
-  yaml: 'YAML',
-  yml: 'YAML',
-  sql: 'SQL',
-  ts: 'TypeScript',
-  tsx: 'TSX',
-  js: 'JavaScript',
-  jsx: 'JSX',
-  python: 'Python',
-  py: 'Python',
-}
+const baseTheme = EditorView.theme({
+  '&': {
+    backgroundColor: 'transparent',
+    fontSize: '14px',
+  },
+  '&.cm-focused': {
+    outline: 'none',
+  },
+  '.cm-scroller': {
+    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    lineHeight: '1.6',
+  },
+  '.cm-gutters': {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: 'var(--muted-foreground)',
+  },
+  '.cm-activeLineGutter': {
+    backgroundColor: 'transparent',
+  },
+  '.cm-activeLine': {
+    backgroundColor: 'var(--accent)',
+  },
+  '.cm-cursor': {
+    borderLeftColor: 'var(--foreground)',
+  },
+  '.cm-selectionBackground': {
+    backgroundColor: 'var(--accent) !important',
+  },
+  '&.cm-focused .cm-selectionBackground': {
+    backgroundColor: 'var(--ring) !important',
+    opacity: '0.3',
+  },
+  '.cm-line': {
+    padding: '0 8px',
+  },
+})
+
+const extensions = [
+  markdown({ base: markdownLanguage, codeLanguages: languages }),
+  EditorView.lineWrapping,
+  baseTheme,
+]
 
 export type MarkdownEditorProps = {
   value: string
@@ -54,67 +57,6 @@ export type MarkdownEditorProps = {
   disabled?: boolean
   minHeight?: number | string
   className?: string
-}
-
-function renderToolbar() {
-  return (
-    <ConditionalContents
-      options={[
-        {
-          when: (editor) => editor?.editorType === 'codeblock',
-          contents: () => (
-            <>
-              <UndoRedo />
-              <Separator />
-              <ChangeCodeMirrorLanguage />
-            </>
-          ),
-        },
-        {
-          fallback: () => (
-            <>
-              <UndoRedo />
-              <Separator />
-              <BlockTypeSelect />
-              <Separator />
-              <BoldItalicUnderlineToggles options={['Bold', 'Italic']} />
-              <CodeToggle />
-              <Separator />
-              <ListsToggle />
-              <CreateLink />
-              <Separator />
-              <InsertTable />
-              <InsertThematicBreak />
-              <InsertCodeBlock />
-            </>
-          ),
-        },
-      ]}
-    />
-  )
-}
-
-function createPlugins(editable: boolean) {
-  return [
-    headingsPlugin({ allowedHeadingLevels: [1, 2, 3, 4] }),
-    quotePlugin(),
-    listsPlugin(),
-    linkPlugin(),
-    linkDialogPlugin(),
-    tablePlugin(),
-    thematicBreakPlugin(),
-    markdownShortcutPlugin(),
-    codeBlockPlugin({ defaultCodeBlockLanguage: 'plaintext' }),
-    codeMirrorPlugin({ codeBlockLanguages: CODE_BLOCK_LANGUAGES }),
-    ...(editable
-      ? [
-          toolbarPlugin({
-            toolbarClassName: 'markdown-editor-toolbar',
-            toolbarContents: renderToolbar,
-          }),
-        ]
-      : []),
-  ]
 }
 
 export function MarkdownEditor({
@@ -128,16 +70,21 @@ export function MarkdownEditor({
   className,
 }: MarkdownEditorProps) {
   const editable = !readOnly && !disabled
+  const minH = typeof minHeight === 'number' ? `${minHeight}px` : minHeight
 
-  const style = {
-    '--markdown-editor-min-height':
-      typeof minHeight === 'number' ? `${minHeight}px` : minHeight,
-  } as CSSProperties
+  const basicSetup: ReactCodeMirrorProps['basicSetup'] = {
+    lineNumbers: false,
+    foldGutter: false,
+    highlightActiveLine: editable,
+    highlightSelectionMatches: true,
+    bracketMatching: true,
+    closeBrackets: true,
+    autocompletion: false,
+    searchKeymap: true,
+  }
 
   return (
     <div
-      data-markdown-editor=""
-      style={style}
       className={cn(
         'overflow-hidden rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow]',
         editable && 'focus-within:border-ring',
@@ -145,17 +92,17 @@ export function MarkdownEditor({
         className,
       )}
     >
-      <MDXEditor
+      <CodeMirror
         key={resetKey}
-        markdown={value}
-        trim={false}
-        readOnly={!editable}
-        spellCheck={editable}
+        value={value}
+        onChange={onChange}
+        extensions={extensions}
         placeholder={placeholder}
-        onChange={(markdown) => onChange?.(markdown)}
-        className="markdown-editor-root"
-        contentEditableClassName="markdown-editor-content prose prose-sm max-w-none"
-        plugins={createPlugins(editable)}
+        editable={editable}
+        readOnly={!editable}
+        basicSetup={basicSetup}
+        style={{ minHeight: minH }}
+        theme="none"
       />
     </div>
   )

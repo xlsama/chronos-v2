@@ -1,8 +1,23 @@
 import { toAISdkStream } from '@mastra/ai-sdk'
 import { createSupervisorAgent } from '../mastra/agents/supervisor-agent'
+import { skillMcpManager } from './skill-mcp-manager'
 import { messageService } from '../services/message.service'
 import { publishChatEvent } from './redis'
 import { logger } from './logger'
+
+// Active background agent registry
+const activeAgents = new Map<string, AbortController>()
+
+export function abortAgent(threadId: string): boolean {
+  const controller = activeAgents.get(threadId)
+  if (!controller) return false
+  controller.abort()
+  return true
+}
+
+export function isAgentRunning(threadId: string): boolean {
+  return activeAgents.has(threadId)
+}
 
 export async function runAgentStream(options: {
   threadId: string
@@ -20,7 +35,7 @@ export async function runAgentStream(options: {
       thread: threadId,
       resource: incidentId,
     },
-    maxSteps: 10,
+    maxSteps: 50,
     onStepFinish: (event) => {
       const toolNames = event.toolCalls?.map((tc) => tc.payload.toolName) ?? []
       if (toolNames.length > 0) {
@@ -53,6 +68,10 @@ export async function runAgentInBackground(
   threadId: string,
   incident: { id: string; content: string; projectId: string | null; summary?: string | null },
 ) {
+  const controller = new AbortController()
+  activeAgents.set(threadId, controller)
+  const startTime = Date.now()
+
   try {
     const context: Parameters<typeof createSupervisorAgent>[0] = {
       incidentContent: incident.content,
@@ -67,7 +86,8 @@ export async function runAgentInBackground(
       `请分析以下事件并提出解决方案：\n\n${incident.content}`,
       {
         memory: { thread: threadId, resource: incident.id },
-        maxSteps: 10,
+        maxSteps: 50,
+        abortSignal: controller.signal,
         onStepFinish: (event) => {
           const toolNames = event.toolCalls?.map((tc) => tc.payload.toolName) ?? []
           if (toolNames.length > 0) {
@@ -97,9 +117,17 @@ export async function runAgentInBackground(
     // Consume stream and broadcast each chunk to Redis
     const reader = sdkStream.getReader()
     while (true) {
+      if (controller.signal.aborted) break
       const { done, value } = await reader.read()
       if (done) break
       await publishChatEvent(threadId, 'stream-chunk', value)
+    }
+
+    if (controller.signal.aborted) {
+      logger.info({ threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` }, '[Agent] supervisor aborted')
+      await skillMcpManager.deactivateAll()
+      await publishChatEvent(threadId, 'stream-aborted', { threadId })
+      return
     }
 
     // Save complete assistant message
@@ -111,11 +139,27 @@ export async function runAgentInBackground(
       content: text,
     })
 
+    logger.info(
+      { threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` },
+      '[Agent] supervisor completed'
+    )
+
     await publishChatEvent(threadId, 'stream-end', { threadId })
   } catch (error) {
-    logger.error({ err: error, incidentId: incident.id }, 'Background agent failed')
+    if (controller.signal.aborted) {
+      logger.info({ threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` }, '[Agent] supervisor aborted')
+      await skillMcpManager.deactivateAll()
+      await publishChatEvent(threadId, 'stream-aborted', { threadId })
+      return
+    }
+    logger.error(
+      { err: error, incidentId: incident.id, duration: `${Date.now() - startTime}ms` },
+      '[Agent] supervisor failed'
+    )
     await publishChatEvent(threadId, 'stream-error', {
       error: error instanceof Error ? error.message : 'Agent execution failed',
     })
+  } finally {
+    activeAgents.delete(threadId)
   }
 }

@@ -11,7 +11,6 @@ export interface ProjectDocument {
   projectId: string;
   kind: "knowledge" | "runbook" | "incident_history";
   title: string;
-  slug: string;
   description: string | null;
   tags: string[];
   content: string | null;
@@ -20,7 +19,6 @@ export interface ProjectDocument {
   fileUrl: string;
   mimeType: string | null;
   extension: string | null;
-  checksum: string | null;
   source: "upload" | "markdown" | "agent" | "job";
   status: "pending" | "processing" | "ready" | "error" | "cancelling" | "cancelled";
   publicationStatus: "active" | "draft" | "published" | "archived";

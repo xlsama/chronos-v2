@@ -1,19 +1,14 @@
-import { count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod/v4";
-import { db } from "../db";
-import { workflowApprovals } from "../db/schema";
 import { AppError } from "../lib/errors";
 import { publishChatEvent } from "../lib/redis";
 import { runAgentInBackground } from "../lib/agent-runner";
-import { env } from "../env";
-import { agentRunService } from "../services/agent-run.service";
 import { incidentService } from "../services/incident.service";
-import { incidentWorkflowService } from "../services/incident-workflow.service";
+import { messageService } from "../services/message.service";
+import { logger } from "../lib/logger";
 import { projectDocumentService } from "../services/project-document.service";
 import { projectService } from "../services/project.service";
-import { workflowApprovalService } from "../services/workflow-approval.service";
 
 const attachmentSchema = z.object({
   type: z.enum(["image", "file"]),
@@ -64,13 +59,22 @@ export const incidentRoutes = new Hono()
         processingMode: "automatic",
       });
 
-      if (env.AGENT_AUTO_TRIGGER) {
-        const threadId = `incident-${incident.id}`;
-        await publishChatEvent(threadId, "stream-start", { threadId });
-        void runAgentInBackground(threadId, incident);
-      } else {
-        void incidentWorkflowService.start(incident);
-      }
+      logger.info(
+        { incidentId: incident.id, source: 'manual', projectId: incident.projectId },
+        '[Incident] created manually'
+      )
+
+      const threadId = `incident-${incident.id}`;
+      logger.info({ incidentId: incident.id, threadId }, '[Incident] triggering agent analysis')
+      await messageService.save({
+        threadId,
+        incidentId: incident.id,
+        role: "user",
+        content: incident.content,
+      });
+      await publishChatEvent(threadId, "stream-start", { threadId });
+      void runAgentInBackground(threadId, incident);
+
       return c.json({ data: incident }, 201);
     },
   )
@@ -78,31 +82,21 @@ export const incidentRoutes = new Hono()
     const incident = await incidentService.getById(c.req.param("id"));
     if (!incident) throw new AppError(404, "Incident not found");
 
-    const [project, approvals, runs, approvalCount] = await Promise.all([
+    const [project, relatedHistory] = await Promise.all([
       incident.projectId ? projectService.getById(incident.projectId) : Promise.resolve(null),
-      workflowApprovalService.list({ incidentId: incident.id }),
-      agentRunService.listByIncident(incident.id),
-      db
-        .select({ total: count() })
-        .from(workflowApprovals)
-        .where(eq(workflowApprovals.incidentId, incident.id)),
+      incident.projectId
+        ? projectDocumentService.search(incident.content, {
+            kind: "incident_history",
+            projectId: incident.projectId,
+            limit: 3,
+          })
+        : Promise.resolve([]),
     ]);
-
-    const relatedHistory = incident.projectId
-      ? await projectDocumentService.search(incident.content, {
-          kind: "incident_history",
-          projectId: incident.projectId,
-          limit: 3,
-        })
-      : [];
 
     return c.json({
       data: {
         ...incident,
         project,
-        approvals,
-        runs,
-        approvalCount: approvalCount[0]?.total ?? 0,
         relatedHistory,
       },
     });
@@ -124,54 +118,6 @@ export const incidentRoutes = new Hono()
       const incident = await incidentService.update(c.req.param("id"), c.req.valid("json"));
       if (!incident) throw new AppError(404, "Incident not found");
       return c.json({ data: incident });
-    },
-  )
-  .get("/:id/approvals", async (c) => {
-    const incident = await incidentService.getById(c.req.param("id"));
-    if (!incident) throw new AppError(404, "Incident not found");
-    const data = await workflowApprovalService.list({ incidentId: incident.id });
-    return c.json({ data });
-  })
-  .post(
-    "/:id/approve",
-    zValidator(
-      "json",
-      z.object({
-        approvalId: z.string().uuid(),
-        approved: z.boolean(),
-        reason: z.string().optional(),
-      }),
-    ),
-    async (c) => {
-      const incident = await incidentService.getById(c.req.param("id"));
-      if (!incident) throw new AppError(404, "Incident not found");
-
-      const input = c.req.valid("json");
-      const approval = await workflowApprovalService.getById(input.approvalId);
-      if (!approval || approval.incidentId !== incident.id) {
-        throw new AppError(404, "Approval not found");
-      }
-
-      const updatedApproval = await workflowApprovalService.decide(
-        input.approvalId,
-        input.approved,
-        input.reason,
-      );
-
-      const pendingApprovals = await workflowApprovalService.list({
-        incidentId: incident.id,
-        status: "pending",
-      });
-      if (pendingApprovals.length === 0) {
-        await incidentService.update(incident.id, {
-          status: input.approved ? "in_progress" : "waiting_human",
-          resolutionNotes: input.approved
-            ? "所有待审批动作已确认，等待人工执行或二次触发处理。"
-            : `审批被拒绝: ${input.reason ?? "未提供原因"}`,
-        });
-      }
-
-      return c.json({ data: updatedApproval });
     },
   )
   .post("/:id/save-summary", async (c) => {

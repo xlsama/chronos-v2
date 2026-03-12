@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import { MessageCircle } from 'lucide-react'
 import type { Incident } from '@chronos/shared'
 import { AlertCell } from '@/components/ops/alert-cell'
-import { StatusBadge } from '@/components/ops/status-badge'
+import { StatusBadge, processingModeLabelMap, sourceLabelMap } from '@/components/ops/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -25,8 +25,8 @@ export const incidentColumns: ColumnDef<Incident, unknown>[] = [
     id: 'source',
     header: '来源',
     cell: ({ row }) => (
-      <Badge variant="outline" className="rounded-full capitalize">
-        {row.original.source ?? '-'}
+      <Badge variant="secondary" className="rounded-full">
+        {(row.original.source && sourceLabelMap[row.original.source]) ?? row.original.source ?? '-'}
       </Badge>
     ),
     size: 100,
@@ -35,8 +35,8 @@ export const incidentColumns: ColumnDef<Incident, unknown>[] = [
     id: 'mode',
     header: '模式',
     cell: ({ row }) => (
-      <span className="capitalize text-muted-foreground">
-        {row.original.processingMode ?? '-'}
+      <span className="text-muted-foreground">
+        {(row.original.processingMode && processingModeLabelMap[row.original.processingMode]) ?? row.original.processingMode ?? '-'}
       </span>
     ),
     size: 100,
@@ -46,10 +46,10 @@ export const incidentColumns: ColumnDef<Incident, unknown>[] = [
     header: '创建时间',
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        {dayjs(row.original.createdAt).format('YYYY-MM-DD')}
+        {dayjs(row.original.createdAt).format('YYYY-MM-DD HH:mm:ss')}
       </span>
     ),
-    size: 140,
+    size: 180,
   },
   {
     id: 'actions',

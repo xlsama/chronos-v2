@@ -5,6 +5,7 @@ interface UseChatSubscriptionOptions {
   onStreamStart?: () => void
   onStreamChunk?: (chunk: unknown) => void
   onStreamEnd?: (data: { threadId: string }) => void
+  onStreamAborted?: (data: { threadId: string }) => void
   onStreamError?: (data: { error: string }) => void
   onMessage?: (data: unknown) => void
   enabled?: boolean
@@ -15,6 +16,7 @@ export function useChatSubscription({
   onStreamStart,
   onStreamChunk,
   onStreamEnd,
+  onStreamAborted,
   onStreamError,
   onMessage,
   enabled = true,
@@ -40,6 +42,9 @@ export function useChatSubscription({
           case 'stream-end':
             onStreamEnd?.(parsed.data as { threadId: string })
             break
+          case 'stream-aborted':
+            onStreamAborted?.(parsed.data as { threadId: string })
+            break
           case 'stream-error':
             onStreamError?.(parsed.data as { error: string })
             break
@@ -60,7 +65,7 @@ export function useChatSubscription({
       es.close()
       eventSourceRef.current = null
     }
-  }, [threadId, enabled, onStreamStart, onStreamChunk, onStreamEnd, onStreamError, onMessage])
+  }, [threadId, enabled, onStreamStart, onStreamChunk, onStreamEnd, onStreamAborted, onStreamError, onMessage])
 
   return {
     close: () => {

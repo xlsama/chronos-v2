@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import matter from 'gray-matter'
 import { getSkillsRoot, slugifySegment } from '../lib/file-storage'
 
 export interface SkillRecord {
@@ -11,21 +12,47 @@ export interface SkillRecord {
 
 async function readSkill(slug: string): Promise<SkillRecord | null> {
   const skillDir = path.join(getSkillsRoot(), slug)
-  const configPath = path.join(skillDir, 'skill.config.json')
   const markdownPath = path.join(skillDir, 'skill.md')
+  const configPath = path.join(skillDir, 'skill.config.json')
 
   try {
-    const [configText, markdown] = await Promise.all([
-      fs.readFile(configPath, 'utf-8'),
-      fs.readFile(markdownPath, 'utf-8'),
-    ])
+    const raw = await fs.readFile(markdownPath, 'utf-8')
+    const { data: frontmatter } = matter(raw)
 
-    const config = JSON.parse(configText)
-    return {
-      name: config.name,
-      slug,
-      description: config.description,
-      markdown,
+    if (frontmatter.name) {
+      return {
+        name: frontmatter.name,
+        slug,
+        description: frontmatter.description,
+        markdown: raw,
+      }
+    }
+
+    // Fallback: no frontmatter but has skill.config.json (old format)
+    try {
+      const configText = await fs.readFile(configPath, 'utf-8')
+      const config = JSON.parse(configText)
+      // Reconstruct with frontmatter prepended
+      const fm = [
+        '---',
+        `name: "${config.name}"`,
+        ...(config.description ? [`description: "${config.description}"`] : []),
+        '---',
+        '',
+      ].join('\n')
+      return {
+        name: config.name,
+        slug,
+        description: config.description,
+        markdown: fm + raw,
+      }
+    } catch {
+      // No config either, use slug as name
+      return {
+        name: slug,
+        slug,
+        markdown: raw,
+      }
     }
   } catch {
     return null
@@ -35,18 +62,7 @@ async function readSkill(slug: string): Promise<SkillRecord | null> {
 async function writeSkill(record: SkillRecord) {
   const skillDir = path.join(getSkillsRoot(), record.slug)
   await fs.mkdir(skillDir, { recursive: true })
-
-  const config = {
-    name: record.name,
-    slug: record.slug,
-    description: record.description,
-  }
-
-  await Promise.all([
-    fs.writeFile(path.join(skillDir, 'skill.md'), record.markdown, 'utf-8'),
-    fs.writeFile(path.join(skillDir, 'skill.config.json'), JSON.stringify(config, null, 2), 'utf-8'),
-  ])
-
+  await fs.writeFile(path.join(skillDir, 'skill.md'), record.markdown, 'utf-8')
   return record
 }
 
@@ -63,33 +79,28 @@ export const skillCatalogService = {
     return readSkill(slug)
   },
 
-  async create(input: {
-    name: string
-    description?: string
-    markdown: string
-  }) {
-    const slug = slugifySegment(input.name)
+  async create(input: { markdown: string }) {
+    const { data: frontmatter } = matter(input.markdown)
+    const name = frontmatter.name || 'Untitled Skill'
+    const slug = slugifySegment(name)
     return writeSkill({
-      name: input.name,
+      name,
       slug,
-      description: input.description,
+      description: frontmatter.description,
       markdown: input.markdown,
     })
   },
 
-  async update(slug: string, input: {
-    name?: string
-    description?: string
-    markdown?: string
-  }) {
+  async update(slug: string, input: { markdown: string }) {
     const existing = await readSkill(slug)
     if (!existing) return null
 
+    const { data: frontmatter } = matter(input.markdown)
     return writeSkill({
-      name: input.name ?? existing.name,
+      name: frontmatter.name || existing.name,
       slug,
-      description: input.description ?? existing.description,
-      markdown: input.markdown ?? existing.markdown,
+      description: frontmatter.description ?? existing.description,
+      markdown: input.markdown,
     })
   },
 

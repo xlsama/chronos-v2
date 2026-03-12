@@ -1,6 +1,6 @@
-import type { AgentRun, IncidentDetail, ProjectDocument, WorkflowApproval } from "@chronos/shared";
+import type { IncidentDetail, ProjectDocument } from "@chronos/shared";
 import dayjs from "dayjs";
-import { Check, Clock3, Save, X } from "lucide-react";
+import { Clock3, Save } from "lucide-react";
 import { AttachmentThumbnails } from "@/components/ops/attachment-thumbnails";
 import { JsonBlock } from "@/components/ops/json-block";
 import { StatusBadge } from "@/components/ops/status-badge";
@@ -14,22 +14,16 @@ export type IncidentTimelineEventItem =
   | { id: string; kind: "incident"; createdAt: string; incident: IncidentDetail }
   | { id: string; kind: "analysis"; createdAt: string; analysis: Record<string, unknown> }
   | { id: string; kind: "summary"; createdAt: string; summary: string }
-  | { id: string; kind: "run"; createdAt: string; run: AgentRun }
-  | { id: string; kind: "approval"; createdAt: string; approval: WorkflowApproval }
   | { id: string; kind: "history"; createdAt: string; entry: ProjectDocument };
 
 export function IncidentTimelineEvent(props: {
   item: IncidentTimelineEventItem;
-  onApprovalDecision?: (approvalId: string, approved: boolean) => void;
   onSaveSummary?: () => void;
-  approvalPending?: boolean;
   summaryPending?: boolean;
 }) {
   const {
     item,
-    onApprovalDecision,
     onSaveSummary,
-    approvalPending = false,
     summaryPending = false,
   } = props;
 
@@ -60,9 +54,7 @@ export function IncidentTimelineEvent(props: {
         >
           {renderContent({
             item,
-            onApprovalDecision,
             onSaveSummary,
-            approvalPending,
             summaryPending,
           })}
         </div>
@@ -73,12 +65,10 @@ export function IncidentTimelineEvent(props: {
 
 function renderContent(props: {
   item: IncidentTimelineEventItem;
-  onApprovalDecision?: (approvalId: string, approved: boolean) => void;
   onSaveSummary?: () => void;
-  approvalPending: boolean;
   summaryPending: boolean;
 }) {
-  const { item, onApprovalDecision, onSaveSummary, approvalPending, summaryPending } = props;
+  const { item, onSaveSummary, summaryPending } = props;
 
   switch (item.kind) {
     case "incident":
@@ -155,91 +145,6 @@ function renderContent(props: {
         </div>
       );
 
-    case "run":
-      return (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-semibold text-foreground">{item.run.stage}</h3>
-              <p className="text-sm text-muted-foreground">
-                {item.run.selectedSkills.length > 0
-                  ? `Selected skills: ${item.run.selectedSkills.join(", ")}`
-                  : "No skills selected for this run."}
-              </p>
-            </div>
-            <StatusBadge value={item.run.status} />
-          </div>
-          {item.run.selectedSkills.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {item.run.selectedSkills.map((skill) => (
-                <Badge key={skill} variant="outline" className="rounded-full">
-                  {skill}
-                </Badge>
-              ))}
-            </div>
-          ) : null}
-          {item.run.plannedActions?.length ? <JsonBlock value={item.run.plannedActions} /> : null}
-          {item.run.lastError ? (
-            <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
-              {item.run.lastError}
-            </div>
-          ) : null}
-          {item.run.result ? (
-            <div className="rounded-2xl border bg-background px-3 py-3 text-sm leading-7 text-muted-foreground">
-              {item.run.result}
-            </div>
-          ) : null}
-        </div>
-      );
-
-    case "approval":
-      return (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-semibold text-foreground">{item.approval.toolName}</h3>
-              <p className="text-sm text-muted-foreground">
-                {item.approval.description ?? item.approval.skillSlug}
-              </p>
-            </div>
-            <StatusBadge value={item.approval.status} />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className="rounded-full">
-              {item.approval.skillSlug}
-            </Badge>
-            <Badge variant="outline" className="rounded-full">
-              {item.approval.serviceName ?? "generic"}
-            </Badge>
-            <Badge variant="outline" className="rounded-full">
-              {item.approval.riskLevel}
-            </Badge>
-          </div>
-          <JsonBlock value={item.approval.input} />
-          {item.approval.status === "pending" && onApprovalDecision ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                disabled={approvalPending}
-                onClick={() => onApprovalDecision(item.approval.id, true)}
-              >
-                <Check className="size-4" />
-                Approve
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={approvalPending}
-                onClick={() => onApprovalDecision(item.approval.id, false)}
-              >
-                <X className="size-4" />
-                Decline
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      );
-
     case "history":
       return (
         <div className="space-y-3">
@@ -291,26 +196,6 @@ function getEventMeta(item: IncidentTimelineEventItem) {
           "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200",
         cardClassName:
           "border-emerald-200/80 bg-emerald-50/60 dark:border-emerald-400/20 dark:bg-emerald-500/8",
-      };
-    case "run":
-      return {
-        label: "Workflow run",
-        fallback: "R",
-        avatarClassName:
-          "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-400/20 dark:bg-violet-500/10 dark:text-violet-200",
-        badgeClassName: "bg-violet-100 text-violet-900 dark:bg-violet-500/15 dark:text-violet-200",
-        cardClassName:
-          "border-violet-200/80 bg-violet-50/55 dark:border-violet-400/20 dark:bg-violet-500/8",
-      };
-    case "approval":
-      return {
-        label: "Approval",
-        fallback: "P",
-        avatarClassName:
-          "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200",
-        badgeClassName: "bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200",
-        cardClassName:
-          "border-rose-200/80 bg-rose-50/60 dark:border-rose-400/20 dark:bg-rose-500/8",
       };
     case "history":
       return {
