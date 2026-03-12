@@ -24,8 +24,8 @@ const mainNav = [
 
 const platformNav = [
   { title: "知识库", icon: LibraryBig, to: "/knowledge-base" as const },
-  { title: "Runbook", icon: ScrollText, to: "/runbooks" as const },
   { title: "Services", icon: Waypoints, to: "/services" as const },
+  { title: "Runbook", icon: ScrollText, to: "/runbooks" as const },
 ];
 
 const automationNav = [
