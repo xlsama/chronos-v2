@@ -7,7 +7,7 @@
 ## 前置条件
 
 - Chronos 后端和前端已启动（`pnpm dev:backend` + `pnpm dev:frontend`）
-- 本机已安装 `psql`、`redis-cli`、`curl`、`python3`
+- 本机已安装 `psql`、`redis-cli`、`curl`、`jq`
 - Docker 已启动
 
 ---
@@ -28,17 +28,21 @@ docker compose up -d --wait
 
 ---
 
-## Step 2: 初始化模拟故障数据
+## Step 2: 初始化模拟故障数据和 Chronos 配置
 
 ```bash
 bash seed.sh
 ```
 
-该脚本做 3 件事：
+该脚本做 4 件事：
 
 1. **模拟生产 PostgreSQL**：创建 `app_errors` 表，插入 7 条错误日志（WRONGTYPE 报错、熔断器打开、延迟告警等）
 2. **模拟生产 Redis**：将 `config:order-service:rate_limit` 写成 hash 类型（正确应为 string 类型的 JSON），导致应用 `GET` 时报 `WRONGTYPE` 错误
-3. **Chronos 平台**：通过 API 创建 Skill（Redis 诊断方法论）和 Service Map（订单服务拓扑）
+3. **Chronos 平台 - 创建项目和服务**：
+   - 创建项目「订单系统」
+   - 添加「生产数据库」PostgreSQL 连接（localhost:15432）
+   - 添加「生产 Redis」Redis 连接（localhost:16379）
+4. **Chronos 平台 - 创建诊断 Skill**：Redis 配置键值诊断方法论
 
 可手动验证故障已就位：
 
@@ -52,36 +56,7 @@ redis-cli -p 16379 GET config:order-service:rate_limit
 
 ---
 
-## Step 3: 在 Chronos 页面添加连接
-
-打开 Chronos 前端「连接管理」页面，手动添加以下两个连接：
-
-### PostgreSQL 连接
-
-| 字段 | 值 |
-|------|----|
-| 名称 | `生产数据库` |
-| 类型 | PostgreSQL |
-| Host | `localhost` |
-| Port | `15432` |
-| Username | `prod` |
-| Password | `prod123` |
-| Database | `order_service` |
-
-### Redis 连接
-
-| 字段 | 值 |
-|------|----|
-| 名称 | `生产 Redis` |
-| 类型 | Redis |
-| Host | `localhost` |
-| Port | `16379` |
-
-添加后，Chronos 会自动为每个连接注册对应的 MCP 工具，Agent 就能通过这些工具直接操作模拟生产环境。
-
----
-
-## Step 4: 触发告警事件
+## Step 3: 触发告警事件
 
 ```bash
 bash trigger.sh
@@ -101,14 +76,14 @@ bash trigger.sh
 
 ---
 
-## Step 5: 验证
+## Step 4: 验证
 
 ### 观察 Agent 处理过程
 
 查看后端日志，Agent 预期会调用以下 MCP 工具：
 
 1. `searchSkills` — 查找 Redis 相关的诊断知识
-2. `getServiceMap` / `getServiceNeighbors` — 了解 order-service 的依赖拓扑
+2. `getProjectServices` — 了解订单系统的关联服务（生产数据库、生产 Redis）
 3. `生产数据库_query` — 查询 app_errors 表中的错误日志
 4. `生产Redis_*` — 检查 Redis key 类型、读取内容
 5. `生产Redis_*` — 修复 key：DEL + SET 正确的 JSON 字符串
@@ -140,4 +115,8 @@ redis-cli -p 16379 GET config:order-service:rate_limit
 bash cleanup.sh
 ```
 
-该脚本会停止并删除模拟环境的 Docker 容器和数据卷。Chronos 平台中的测试数据（连接、Skill、Service Map、事件）需在前端手动删除。
+该脚本会：
+1. 停止并删除模拟环境的 Docker 容器和数据卷
+2. 通过 API 自动删除 Chronos 平台中的测试数据（项目、服务、Skill）
+
+若需手动清理告警事件等其他数据，可在前端手动删除。

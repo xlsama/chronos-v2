@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CHRONOS_API="http://localhost:8000/api"
 PG_HOST="localhost"
 PG_PORT="15432"
@@ -50,34 +51,96 @@ redis-cli -p "$REDIS_PORT" SET "config:user-service:rate_limit" '{"max_requests"
 
 echo "    -> 已写入损坏的 rate_limit key (hash 类型，应为 string)"
 
-echo "==> [3/3] 向 Chronos 写入种子数据 (Service Map)..."
+echo "==> [3/3] 向 Chronos 写入种子数据 (Project + Services + Skill)..."
 
-# 创建 Service Map: 订单服务拓扑
-curl -s -X POST "$CHRONOS_API/service-maps" \
+# 1. 创建项目
+PROJECT_RESPONSE=$(curl -s -X POST "$CHRONOS_API/projects" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "订单系统服务拓扑",
-    "description": "订单服务及其依赖的中间件和下游服务拓扑图",
-    "graph": {
-      "nodes": [
-        {"id": "gateway",       "type": "service",    "position": {"x": 250, "y": 0},   "data": {"label": "API Gateway",     "tier": "edge"}},
-        {"id": "order-service", "type": "service",    "position": {"x": 250, "y": 120}, "data": {"label": "Order Service",    "tier": "core",  "language": "Node.js", "port": 3000}},
-        {"id": "user-service",  "type": "service",    "position": {"x": 500, "y": 120}, "data": {"label": "User Service",     "tier": "core",  "language": "Node.js", "port": 3001}},
-        {"id": "redis",         "type": "middleware",  "position": {"x": 100, "y": 250}, "data": {"label": "Redis",            "tier": "infra", "port": 6379, "usage": "配置缓存 + 限流"}},
-        {"id": "postgres",      "type": "middleware",  "position": {"x": 400, "y": 250}, "data": {"label": "PostgreSQL",       "tier": "infra", "port": 5432, "database": "order_service"}},
-        {"id": "payment",       "type": "external",   "position": {"x": 250, "y": 370}, "data": {"label": "Payment Gateway",  "tier": "external"}}
-      ],
-      "edges": [
-        {"id": "e1", "source": "gateway",       "target": "order-service", "label": "HTTP /api/orders"},
-        {"id": "e2", "source": "gateway",       "target": "user-service",  "label": "HTTP /api/users"},
-        {"id": "e3", "source": "order-service", "target": "redis",         "label": "读取配置/限流"},
-        {"id": "e4", "source": "order-service", "target": "postgres",      "label": "订单 CRUD"},
-        {"id": "e5", "source": "order-service", "target": "payment",       "label": "支付请求"},
-        {"id": "e6", "source": "user-service",  "target": "redis",         "label": "会话缓存"},
-        {"id": "e7", "source": "user-service",  "target": "postgres",      "label": "用户查询"}
-      ]
+    "name": "订单系统",
+    "description": "模拟生产订单系统，用于 case-1 故障诊断演示"
+  }')
+
+PROJECT_ID=$(echo "$PROJECT_RESPONSE" | jq -r '.data.id // empty')
+if [ -z "$PROJECT_ID" ]; then
+  echo "    -> ERROR: 项目创建失败"
+  echo "$PROJECT_RESPONSE"
+  exit 1
+fi
+echo "    -> 项目创建成功: $PROJECT_ID"
+
+# 2. 添加 PostgreSQL 服务
+PG_SERVICE_RESPONSE=$(curl -s -X POST "$CHRONOS_API/projects/$PROJECT_ID/services" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"生产数据库\",
+    \"type\": \"postgresql\",
+    \"config\": {
+      \"host\": \"$PG_HOST\",
+      \"port\": $PG_PORT,
+      \"username\": \"$PG_USER\",
+      \"password\": \"$PG_PASS\",
+      \"database\": \"$PG_DB\"
     }
-  }' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"    -> Service Map 创建成功: {d['data']['id']}\")" 2>/dev/null || echo "    -> Service Map 创建失败（Chronos 后端是否已启动？）"
+  }")
+
+PG_SERVICE_ID=$(echo "$PG_SERVICE_RESPONSE" | jq -r '.data.id // empty')
+if [ -z "$PG_SERVICE_ID" ]; then
+  echo "    -> ERROR: PostgreSQL 服务创建失败"
+  echo "$PG_SERVICE_RESPONSE"
+  exit 1
+fi
+echo "    -> PostgreSQL 服务创建成功: $PG_SERVICE_ID"
+
+# 3. 添加 Redis 服务
+REDIS_SERVICE_RESPONSE=$(curl -s -X POST "$CHRONOS_API/projects/$PROJECT_ID/services" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"生产 Redis\",
+    \"type\": \"redis\",
+    \"config\": {
+      \"host\": \"localhost\",
+      \"port\": $REDIS_PORT
+    }
+  }")
+
+REDIS_SERVICE_ID=$(echo "$REDIS_SERVICE_RESPONSE" | jq -r '.data.id // empty')
+if [ -z "$REDIS_SERVICE_ID" ]; then
+  echo "    -> ERROR: Redis 服务创建失败"
+  echo "$REDIS_SERVICE_RESPONSE"
+  exit 1
+fi
+echo "    -> Redis 服务创建成功: $REDIS_SERVICE_ID"
+
+# 4. 创建 Skill
+SKILL_RESPONSE=$(curl -s -X POST "$CHRONOS_API/skills" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "slug": "redis-config-diagnosis",
+    "name": "Redis 配置键值诊断",
+    "description": "诊断和修复 Redis 配置键值类型错误和数据格式问题",
+    "methodology": "## Redis 配置键值诊断方法论\n\n### 诊断步骤\n\n1. **KEY 类型检查** - 使用 TYPE 命令验证 Redis key 的类型\n   - 配置键通常应为 string 类型\n   - hash/list/set 类型表示可能有格式错误\n\n2. **值内容验证** - 使用 GET/HGETALL 等命令读取值\n   - 验证 JSON 格式是否正确\n   - 检查必要字段是否齐全\n\n3. **应用日志查询** - 检查错误日志中的 WRONGTYPE 错误\n   - 错误堆栈可能指向具体的配置键\n   - 记录问题发生的时间范围\n\n### 修复步骤\n\n1. **备份现有数据** - 如果 hash/list 中有有效数据，先 HGETALL/LRANGE 备份\n2. **删除错误类型的 key** - DEL key\n3. **写入正确类型的 key** - SET key 正确的 JSON 字符串\n4. **验证修复** - 确认应用能正确读取新的 key\n\n### 常见问题\n\n- **config:order-service:rate_limit**: 应为 `{\\\"max_requests\\\": 100, \\\"window_seconds\\\": 60}` 格式的 string\n- **WRONGTYPE Operation**: 表示操作与 key 的实际类型不匹配\n",
+    "applicableServiceTypes": ["redis", "postgresql"]
+  }')
+
+SKILL_SLUG=$(echo "$SKILL_RESPONSE" | jq -r '.data.slug // empty')
+if [ -z "$SKILL_SLUG" ]; then
+  echo "    -> ERROR: Skill 创建失败"
+  echo "$SKILL_RESPONSE"
+  exit 1
+fi
+echo "    -> Skill 创建成功: $SKILL_SLUG"
+
+# 5. 保存 IDs 到 .case1-state 文件
+STATE_FILE="$SCRIPT_DIR/.case1-state"
+cat > "$STATE_FILE" <<EOF
+PROJECT_ID=$PROJECT_ID
+PG_SERVICE_ID=$PG_SERVICE_ID
+REDIS_SERVICE_ID=$REDIS_SERVICE_ID
+SKILL_SLUG=$SKILL_SLUG
+EOF
+
+echo "    -> 状态已保存到 .case1-state"
 
 echo ""
 echo "=== 种子数据初始化完成 ==="
@@ -86,4 +149,9 @@ echo "模拟故障概要："
 echo "  - 生产 PostgreSQL (localhost:$PG_PORT): app_errors 表中有 7 条错误日志"
 echo "  - 生产 Redis (localhost:$REDIS_PORT): config:order-service:rate_limit 类型错误 (hash, 应为 string)"
 echo ""
-echo "下一步: 在 Chronos 前端添加连接（详见 README.md Step 3）"
+echo "Chronos 平台数据："
+echo "  - 项目: 订单系统 ($PROJECT_ID)"
+echo "  - 服务: 生产数据库 ($PG_SERVICE_ID), 生产 Redis ($REDIS_SERVICE_ID)"
+echo "  - Skill: Redis 配置键值诊断 ($SKILL_SLUG)"
+echo ""
+echo "下一步: bash trigger.sh 触发告警事件"
