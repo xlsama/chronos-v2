@@ -77,7 +77,7 @@ pnpm dev:frontend     # 前端 → http://localhost:5173
 docker compose up --build
 ```
 
-启动 5 个服务：postgres → redis → migrate（推 schema 后自动退出）→ backend(:8000) → frontend(nginx:80)
+启动 5 个服务：postgres → redis → db-push（推送 schema 后自动退出）→ backend(:8000) → frontend(nginx:80)
 
 访问 http://localhost 即可。
 
@@ -89,10 +89,13 @@ pnpm dev:backend      # 只启后端（tsx watch）
 pnpm dev:frontend     # 只启前端（Vite）
 pnpm build            # 构建所有包
 
-pnpm db:push          # 推送 schema 到数据库
-pnpm db:generate      # 生成迁移文件
+pnpm db:push          # 标准做法：按当前 schema 推送数据库变更
+pnpm db:generate      # 生成 SQL 迁移文件并提交到仓库
+pnpm db:migrate       # 仅用于全新数据库或已对齐 migration 历史的环境
 pnpm db:studio        # 打开 Drizzle Studio
 ```
+
+当前仓库统一约定：日常开发和 Docker 启动都使用 `pnpm db:push`。如果修改了 schema，同时执行 `pnpm db:generate` 提交 migration 文件，保证新环境仍可基于 migration 初始化。
 
 ## API 端点
 

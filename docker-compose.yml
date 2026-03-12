@@ -25,13 +25,13 @@ services:
       timeout: 3s
       retries: 5
 
-  migrate:
+  db-push:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
       target: build
     working_dir: /app/apps/backend
-    command: npx drizzle-kit push
+    command: pnpm db:push
     environment:
       DATABASE_URL: postgresql://chronos:chronos@postgres:5432/chronos
     depends_on:
@@ -54,7 +54,7 @@ services:
       - ./data:/app/data
       - ./uploads:/app/uploads
     depends_on:
-      migrate:
+      db-push:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
