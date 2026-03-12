@@ -1,0 +1,22 @@
+services:
+  case4-mysql:
+    image: mysql:8.0
+    container_name: case4-mysql
+    ports:
+      - "33306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: shop_service
+      MYSQL_USER: shop
+      MYSQL_PASSWORD: shop123
+    volumes:
+      - case4-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  case4-mysql-data:

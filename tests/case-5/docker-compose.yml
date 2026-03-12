@@ -1,0 +1,21 @@
+services:
+  case5-postgres:
+    image: postgres:16
+    container_name: case5-postgres
+    ports:
+      - "35432:5432"
+    environment:
+      POSTGRES_DB: analytics_service
+      POSTGRES_USER: analytics
+      POSTGRES_PASSWORD: analytics123
+    volumes:
+      - case5-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics -d analytics_service"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  case5-pg-data:
