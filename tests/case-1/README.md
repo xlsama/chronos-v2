@@ -36,7 +36,7 @@ pnpm test:case-1
 
 | # | 检查项 | 说明 |
 |---|--------|------|
-| 1 | Incident 状态 | 变为 `resolved` 或 `closed` |
+| 1 | Incident 状态 | 进入 `resolved` / `summarizing` / `completed` |
 | 2 | 限流识别 | Agent 提到 ratelimit/限流/rate limit |
 | 3 | 根因定位 | Agent 提到 limit=0 |
 | 4 | MCP 使用 | Agent 通过 Redis MCP 执行了操作 |

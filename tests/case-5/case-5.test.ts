@@ -59,8 +59,8 @@ bi-gateway 在刷新报表时未找到近期数据。
     const finalSummary = await waitForIncidentFinalSummary(incident.id)
 
     // 4. Assertions
-    // 4a. Incident resolved
-    expect(['resolved', 'closed']).toContain(finalStatus)
+    // 4a. Incident reached a post-diagnosis state
+    expect(['resolved', 'summarizing', 'completed']).toContain(finalStatus)
 
     // 4b. Agent identified disabled scheduled job
     expect(fullText).toMatch(/disabled|禁用|is_enabled|generate_daily_report/i)

@@ -274,7 +274,11 @@ async function finalizeBackgroundIncidentIfNeeded(options: {
 
   const latestIncident = await incidentService.getById(incident.id)
   if (!latestIncident) return
-  if (latestIncident.status === 'resolved' || latestIncident.status === 'closed') return
+  if (
+    latestIncident.status === 'resolved'
+    || latestIncident.status === 'summarizing'
+    || latestIncident.status === 'completed'
+  ) return
 
   const mcpQueries = extractExecutedQueries(toolTrace)
   const meaningfulQueries = extractMeaningfulQueries(mcpQueries)
@@ -448,6 +452,6 @@ function buildResolutionNotes(serviceLabel: string, text: string, queries: strin
     '- 已确认并记录关键查询：',
     queryLines,
     trimmedText ? `- Agent 原始结论摘要：${trimmedText}` : '',
-    '- 事件已更新为 resolved，最终报告待用户确认后可添加到记忆。',
+    '- 事件已更新为 resolved，系统将继续自动生成最终总结。',
   ].filter(Boolean).join('\n')
 }

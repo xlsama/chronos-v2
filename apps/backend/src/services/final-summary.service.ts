@@ -17,13 +17,23 @@ export const finalSummaryService = {
     logger.info({ incidentId: input.incidentId, threadId: input.threadId }, '[Summary] ensureForIncident invoked')
     const incident = await incidentService.getById(input.incidentId)
     if (!incident) return null
-    if (incident.status !== 'resolved' && incident.status !== 'closed') return incident
-    if (incident.finalSummaryDraft?.trim()) return incident
+    if (incident.finalSummaryDraft?.trim()) {
+      if (incident.status === 'resolved' || incident.status === 'summarizing') {
+        const completedIncident = await incidentService.update(incident.id, { status: 'completed' })
+        return completedIncident ?? incident
+      }
+      return incident
+    }
+    if (incident.status === 'summarizing' || incident.status === 'completed') return incident
+    if (incident.status !== 'resolved') return incident
+
+    const summarizingIncident = await incidentService.update(incident.id, { status: 'summarizing' })
+    const currentIncident = summarizingIncident ?? incident
 
     const messages = await messageService.listByThread(input.threadId)
     const latestAssistantMessage = [...messages].reverse().find((message) => message.role === 'assistant')
     const prompt = buildSummaryPrompt({
-      incident,
+      incident: currentIncident,
       threadId: input.threadId,
       messages: messages.map((message) => ({
         role: message.role,
@@ -36,31 +46,43 @@ export const finalSummaryService = {
 
     logger.debug({ incidentId: input.incidentId, promptLength: prompt.length }, '[Summary] prompt built')
 
-    const result = await summarizeAgent.generate(prompt)
-    const summary = result.text.trim()
-    if (!summary) {
-      logger.warn({ incidentId: input.incidentId, threadId: input.threadId }, '[Summary] empty final summary generated')
-      return incident
+    try {
+      const result = await summarizeAgent.generate(prompt)
+      const summary = result.text.trim()
+      if (!summary) {
+        logger.warn({ incidentId: input.incidentId, threadId: input.threadId }, '[Summary] empty final summary generated')
+        const reverted = await incidentService.update(currentIncident.id, { status: 'resolved' })
+        return reverted ?? currentIncident
+      }
+
+      logger.debug({ incidentId: input.incidentId, summaryLength: summary.length }, '[Summary] summary generated')
+
+      const existingMeta = getFinalSummaryMetadata(currentIncident.metadata)
+      const generatedAt = existingMeta?.generatedAt ?? new Date().toISOString()
+
+      const updated = await incidentService.update(currentIncident.id, {
+        status: 'completed',
+        finalSummaryDraft: summary,
+        metadata: mergeFinalSummaryMetadata(currentIncident.metadata, {
+          status: existingMeta?.documentId ? 'saved' : 'generated',
+          generatedAt,
+          source: 'summarize-agent',
+          ...(existingMeta?.documentId ? { documentId: existingMeta.documentId } : {}),
+          ...(existingMeta?.savedAt ? { savedAt: existingMeta.savedAt } : {}),
+        }),
+      })
+
+      logger.info({ incidentId: input.incidentId }, '[Summary] final summary saved')
+      return updated
+    } catch (error) {
+      await incidentService.update(currentIncident.id, { status: 'resolved' }).catch((rollbackError) => {
+        logger.error(
+          { err: rollbackError, incidentId: input.incidentId, threadId: input.threadId },
+          '[Summary] failed to rollback incident status after summary error',
+        )
+      })
+      throw error
     }
-
-    logger.debug({ incidentId: input.incidentId, summaryLength: summary.length }, '[Summary] summary generated')
-
-    const existingMeta = getFinalSummaryMetadata(incident.metadata)
-    const generatedAt = existingMeta?.generatedAt ?? new Date().toISOString()
-
-    const updated = await incidentService.update(incident.id, {
-      finalSummaryDraft: summary,
-      metadata: mergeFinalSummaryMetadata(incident.metadata, {
-        status: existingMeta?.documentId ? 'saved' : 'generated',
-        generatedAt,
-        source: 'summarize-agent',
-        ...(existingMeta?.documentId ? { documentId: existingMeta.documentId } : {}),
-        ...(existingMeta?.savedAt ? { savedAt: existingMeta.savedAt } : {}),
-      }),
-    })
-
-    logger.info({ incidentId: input.incidentId }, '[Summary] final summary saved')
-    return updated
   },
 }
 

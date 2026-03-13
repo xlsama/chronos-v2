@@ -28,7 +28,7 @@ import { useVoiceInput } from '@/hooks/use-voice-input'
 import { VoiceRecordingOverlay } from '@/components/ui/voice-recording-overlay'
 import { opsQueries, useCreateIncident } from '@/lib/queries/ops'
 
-const INCIDENT_STATUSES: IncidentStatus[] = ['triaging', 'in_progress', 'waiting_human', 'resolved', 'closed']
+const INCIDENT_STATUSES: IncidentStatus[] = ['triaging', 'in_progress', 'waiting_human', 'resolved', 'summarizing', 'completed']
 
 const PAGE_SIZE = 10
 

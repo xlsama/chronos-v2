@@ -1,6 +1,6 @@
 import { pgEnum } from 'drizzle-orm/pg-core'
 
-export const incidentStatusEnum = pgEnum('incident_status', ['new', 'triaging', 'in_progress', 'waiting_human', 'resolved', 'closed'])
+export const incidentStatusEnum = pgEnum('incident_status', ['new', 'triaging', 'in_progress', 'waiting_human', 'resolved', 'summarizing', 'completed'])
 export const connectionTypeEnum = pgEnum('connection_type', [
   'mysql', 'postgresql', 'redis', 'mongodb', 'clickhouse',
   'elasticsearch', 'kafka', 'rabbitmq',

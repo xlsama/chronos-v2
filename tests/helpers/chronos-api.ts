@@ -137,24 +137,32 @@ export async function waitForIncidentResolution(incidentId: string, timeoutMs = 
       console.log(`  [${Math.round((Date.now() - start) / 1000)}s] ${lastStatus || 'initial'} → ${incident.status}`)
       lastStatus = incident.status
     }
-    if (incident.status === 'resolved' || incident.status === 'closed') {
+    if (
+      incident.status === 'resolved'
+      || incident.status === 'summarizing'
+      || incident.status === 'completed'
+    ) {
       return incident.status
     }
     await new Promise((r) => setTimeout(r, 3000))
   }
-  throw new Error(`Incident ${incidentId} not resolved after ${timeoutMs}ms (last: ${lastStatus})`)
+  throw new Error(`Incident ${incidentId} did not reach a post-diagnosis state after ${timeoutMs}ms (last: ${lastStatus})`)
 }
 
 export async function waitForIncidentFinalSummary(incidentId: string, timeoutMs = 120_000): Promise<string> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     const incident = await getIncident(incidentId)
-    if (typeof incident.finalSummaryDraft === 'string' && incident.finalSummaryDraft.trim()) {
+    if (
+      incident.status === 'completed'
+      && typeof incident.finalSummaryDraft === 'string'
+      && incident.finalSummaryDraft.trim()
+    ) {
       return incident.finalSummaryDraft
     }
     await new Promise((r) => setTimeout(r, 3000))
   }
-  throw new Error(`Incident ${incidentId} final summary not generated after ${timeoutMs}ms`)
+  throw new Error(`Incident ${incidentId} final summary not generated and completed after ${timeoutMs}ms`)
 }
 
 export async function saveIncidentSummary(incidentId: string) {

@@ -81,11 +81,11 @@ export function evaluatePolicy(
 
   // 3. updateIncidentStatus → only when resolving
   if (toolName === 'updateIncidentStatus') {
-    if (args.status === 'resolved' || args.status === 'closed') {
+    if (args.status === 'resolved') {
       return {
         needsApproval: true,
         riskLevel: 'medium',
-        reason: `关闭事件 (${args.status})`,
+        reason: `将事件标记为已解决 (${args.status})`,
       }
     }
     return { needsApproval: false, riskLevel: 'none' }

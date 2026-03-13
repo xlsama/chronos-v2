@@ -6,10 +6,10 @@ import { logger } from '../../lib/logger'
 
 export const updateIncidentStatus = createTool({
   id: 'updateIncidentStatus',
-  description: '更新事件状态。可用状态: new, triaging, in_progress, waiting_human, resolved, closed。关闭事件（resolved/closed）需要人工审批。',
+  description: '更新事件状态。可用状态: new, triaging, in_progress, waiting_human, resolved。更新为 resolved 需要人工审批；summarizing/completed 由系统自动维护。',
   inputSchema: z.object({
     incidentId: z.string().describe('事件 ID'),
-    status: z.enum(['new', 'triaging', 'in_progress', 'waiting_human', 'resolved', 'closed']).describe('目标状态'),
+    status: z.enum(['new', 'triaging', 'in_progress', 'waiting_human', 'resolved']).describe('目标状态'),
     resolutionNotes: z.string().optional().describe('解决备注（解决时填写）'),
   }),
   outputSchema: z.object({

@@ -11,6 +11,16 @@ import { logger } from "../lib/logger";
 import { projectDocumentService } from "../services/project-document.service";
 import { projectService } from "../services/project.service";
 
+const incidentStatusSchema = z.enum([
+  "new",
+  "triaging",
+  "in_progress",
+  "waiting_human",
+  "resolved",
+  "summarizing",
+  "completed",
+]);
+
 const attachmentSchema = z.object({
   type: z.enum(["image", "file"]),
   url: z.string(),
@@ -24,9 +34,7 @@ export const incidentRoutes = new Hono()
     zValidator(
       "query",
       z.object({
-        status: z
-          .enum(["new", "triaging", "in_progress", "waiting_human", "resolved", "closed"])
-          .optional(),
+        status: incidentStatusSchema.optional(),
         limit: z.coerce.number().optional(),
         offset: z.coerce.number().optional(),
       }),
@@ -106,9 +114,7 @@ export const incidentRoutes = new Hono()
     zValidator(
       "json",
       z.object({
-        status: z
-          .enum(["new", "triaging", "in_progress", "waiting_human", "resolved", "closed"])
-          .optional(),
+        status: incidentStatusSchema.optional(),
         summary: z.string().nullable().optional(),
         finalSummaryDraft: z.string().nullable().optional(),
         resolutionNotes: z.string().nullable().optional(),
@@ -123,7 +129,7 @@ export const incidentRoutes = new Hono()
   .post("/:id/save-summary", async (c) => {
     const incident = await incidentService.getById(c.req.param("id"));
     if (!incident) throw new AppError(404, "Incident not found");
-    if (!incident.projectId) throw new AppError(400, "Incident has no resolved project");
+    if (!incident.projectId) throw new AppError(400, "Incident has no associated project");
     if (!incident.finalSummaryDraft) throw new AppError(400, "Incident has no summary draft");
 
     const summaryMeta = getFinalSummaryMetadata(incident.metadata);
@@ -151,7 +157,7 @@ export const incidentRoutes = new Hono()
     const now = new Date().toISOString();
 
     await incidentService.update(incident.id, {
-      status: "resolved",
+      status: "completed",
       resolutionNotes: `Saved to incident history: ${document.title}`,
       metadata: mergeFinalSummaryMetadata(incident.metadata, {
         status: "saved",

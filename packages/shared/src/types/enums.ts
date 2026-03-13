@@ -5,7 +5,8 @@ export type IncidentStatus =
   | "in_progress"
   | "waiting_human"
   | "resolved"
-  | "closed";
+  | "summarizing"
+  | "completed";
 
 
 // ── Message ─────────────────────────────────────────────────

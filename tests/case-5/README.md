@@ -36,7 +36,7 @@ pnpm test:case-5
 
 | # | 检查项 | 说明 |
 |---|--------|------|
-| 1 | Incident 状态 | 变为 `resolved` 或 `closed` |
+| 1 | Incident 状态 | 进入 `resolved` / `summarizing` / `completed` |
 | 2 | 任务禁用识别 | Agent 提到 disabled 或 is_enabled=false |
 | 3 | MCP 使用 | Agent 通过 PostgreSQL MCP 执行了查询 |
 | 4 | 事件历史 | 生成了 incident_history 文档 |

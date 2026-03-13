@@ -60,8 +60,8 @@ describe('Case 2: MySQL 优惠券过期日期异常导致核销失败', () => {
     const finalSummary = await waitForIncidentFinalSummary(incident.id)
 
     // 4. Assertions
-    // 4a. Incident resolved
-    expect(['resolved', 'closed']).toContain(finalStatus)
+    // 4a. Incident reached a post-diagnosis state
+    expect(['resolved', 'summarizing', 'completed']).toContain(finalStatus)
 
     // 4b. Agent identified coupon / 优惠券 / expire / 过期 issue
     expect(fullText).toMatch(/coupon|优惠券|expire|过期/i)

@@ -60,8 +60,8 @@ describe('Case 1: Redis 限流配置异常导致 API 全面 429', () => {
     const finalSummary = await waitForIncidentFinalSummary(incident.id)
 
     // 4. Assertions
-    // 4a. Incident resolved
-    expect(['resolved', 'closed']).toContain(finalStatus)
+    // 4a. Incident reached a post-diagnosis state
+    expect(['resolved', 'summarizing', 'completed']).toContain(finalStatus)
 
     // 4b. Agent identified rate limit / 限流 issue
     expect(fullText).toMatch(/ratelimit|限流|rate.?limit/i)

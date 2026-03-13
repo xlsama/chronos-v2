@@ -92,8 +92,8 @@ function buildWorkflowLayer(): string {
 - 更新事件状态（使用 updateIncidentStatus）
 - 在本次事件诊断流程中，不要创建 Runbook、知识库文档或其他持久化草稿
 - 用简洁 Markdown 向用户说明：根因、关键证据、已经确认的处理结果
-- 不要主动保存 Incident History；最终报告会由 summarize agent 在事件 resolved 后生成
-- 一旦事件已成功更新为 \`resolved\` 或 \`closed\`，立即停止后续工具调用和 Sub-Agent 委派，直接结束本轮回复`
+- 不要主动保存 Incident History；最终报告会由 summarize agent 在事件进入 resolved 后自动生成，并由系统推进到 summarizing/completed
+- 一旦事件已成功更新为 \`resolved\`，立即停止后续工具调用和 Sub-Agent 委派，直接结束本轮回复`
 }
 
 // Layer 5: 约束规则（审批、证据要求、行为准则）
