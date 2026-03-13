@@ -9,7 +9,7 @@ import { projectServiceCatalog } from '../services/project-service-catalog.servi
 import { incidentService } from '../services/incident.service'
 import { publishChatEvent } from '../lib/redis'
 import { logger, truncate } from '../lib/logger'
-import { agentContextStorage } from '../lib/agent-context'
+import { agentContextStorage, createAgentContext, popCurrentAgent, pushCurrentAgent } from '../lib/agent-context'
 import { redisConnection, type AgentBackgroundJobData } from '../lib/queues'
 import { registerActiveAgent, removeActiveAgent, getActiveAgent } from '../lib/agent-runner'
 
@@ -52,7 +52,7 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
         }
 
         const response = await agentContextStorage.run(
-          { threadId, incidentId: incident.id, isBackground: true },
+          createAgentContext({ threadId, incidentId: incident.id, isBackground: true }),
           () => agent.stream(
             `请分析以下事件并提出解决方案：\n\n${incident.content}`,
             {
@@ -78,9 +78,13 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
               },
               delegation: {
                 onDelegationStart: ({ primitiveId, primitiveType }) => {
+                  if (primitiveType === 'agent') {
+                    pushCurrentAgent({ id: primitiveId, name: primitiveId })
+                  }
                   logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
                 },
                 onDelegationComplete: ({ primitiveId, duration, success, error }) => {
+                  popCurrentAgent(primitiveId)
                   logger.info(
                     { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
                     '[Agent] sub-agent completed',

@@ -2,7 +2,7 @@ import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { projectDocumentService } from '../../services/project-document.service'
 import { logger, truncate } from '../../lib/logger'
-import { agentContextStorage, resolveProjectId } from '../../lib/agent-context'
+import { getAgentLogContext, resolveProjectId, toolLogLabel } from '../../lib/agent-context'
 
 export const searchKnowledgeBase = createTool({
   id: 'searchKnowledgeBase',
@@ -21,9 +21,9 @@ export const searchKnowledgeBase = createTool({
     })),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
+    const ctx = getAgentLogContext()
     const projectId = await resolveProjectId(input.projectId)
-    logger.info({ ...ctx, query: truncate(input.query, 200), projectId, limit: input.limit }, '[Tool:searchKnowledgeBase] invoked')
+    logger.info({ ...ctx, query: truncate(input.query, 200), projectId, limit: input.limit }, toolLogLabel('searchKnowledgeBase', 'invoked'))
     const results = await projectDocumentService.search(input.query, {
       kind: 'knowledge',
       projectId,
@@ -31,7 +31,7 @@ export const searchKnowledgeBase = createTool({
     })
     logger.debug(
       { ...ctx, resultCount: results.length, topSimilarity: results[0]?.similarity },
-      '[Tool:searchKnowledgeBase] results',
+      toolLogLabel('searchKnowledgeBase', 'results'),
     )
     return {
       results: results.map((r) => ({
@@ -56,10 +56,10 @@ export const getKnowledgeDocument = createTool({
     found: z.boolean(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, documentId: input.documentId }, '[Tool:getKnowledgeDocument] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, documentId: input.documentId }, toolLogLabel('getKnowledgeDocument', 'invoked'))
     const doc = await projectDocumentService.getById(input.documentId)
-    logger.debug({ ...ctx, documentId: input.documentId, found: Boolean(doc) }, '[Tool:getKnowledgeDocument] result')
+    logger.debug({ ...ctx, documentId: input.documentId, found: Boolean(doc) }, toolLogLabel('getKnowledgeDocument', 'result'))
     if (!doc) return { found: false }
     return { found: true, title: doc.title, content: doc.content ?? '' }
   },

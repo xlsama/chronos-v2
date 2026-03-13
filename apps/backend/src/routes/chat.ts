@@ -5,7 +5,7 @@ import { type SummaryToolTrace } from '../lib/final-summary'
 import { logger, truncate } from '../lib/logger'
 import { abortAgent } from '../lib/agent-runner'
 import { publishChatEvent, getSubscriber, chatChannel } from '../lib/redis'
-import { agentContextStorage } from '../lib/agent-context'
+import { agentContextStorage, createAgentContext, popCurrentAgent, pushCurrentAgent } from '../lib/agent-context'
 import { finalSummaryService } from '../services/final-summary.service'
 import { messageService } from '../services/message.service'
 import { incidentService } from '../services/incident.service'
@@ -82,7 +82,7 @@ export const chatRoutes = new Hono()
     const toolTrace: SummaryToolTrace[] = []
 
     const response = await agentContextStorage.run(
-      { threadId, incidentId },
+      createAgentContext({ threadId, incidentId }),
       () => agent.stream(messageText, {
         memory: {
           thread: threadId,
@@ -108,9 +108,13 @@ export const chatRoutes = new Hono()
         },
         delegation: {
           onDelegationStart: ({ primitiveId, primitiveType }) => {
+            if (primitiveType === 'agent') {
+              pushCurrentAgent({ id: primitiveId, name: primitiveId })
+            }
             logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
           },
           onDelegationComplete: ({ primitiveId, duration, success, error }) => {
+            popCurrentAgent(primitiveId)
             logger.info(
               { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
               '[Agent] sub-agent completed',

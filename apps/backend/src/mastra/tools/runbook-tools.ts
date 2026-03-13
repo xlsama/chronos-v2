@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { projectDocumentService } from '../../services/project-document.service'
 import { projectService } from '../../services/project.service'
 import { logger, truncate } from '../../lib/logger'
-import { agentContextStorage, resolveProjectId } from '../../lib/agent-context'
+import { getAgentLogContext, resolveProjectId, toolLogLabel } from '../../lib/agent-context'
 
 export const searchRunbooks = createTool({
   id: 'searchRunbooks',
@@ -23,9 +23,9 @@ export const searchRunbooks = createTool({
     })),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
+    const ctx = getAgentLogContext()
     const projectId = await resolveProjectId(input.projectId)
-    logger.info({ ...ctx, query: truncate(input.query, 200), projectId, limit: input.limit }, '[Tool:searchRunbooks] invoked')
+    logger.info({ ...ctx, query: truncate(input.query, 200), projectId, limit: input.limit }, toolLogLabel('searchRunbooks', 'invoked'))
     const results = await projectDocumentService.search(input.query, {
       kind: 'runbook',
       projectId,
@@ -34,7 +34,7 @@ export const searchRunbooks = createTool({
     })
     logger.debug(
       { ...ctx, resultCount: results.length, topSimilarity: results[0]?.similarity },
-      '[Tool:searchRunbooks] results',
+      toolLogLabel('searchRunbooks', 'results'),
     )
     return {
       results: results.map((r) => ({
@@ -60,10 +60,10 @@ export const getRunbook = createTool({
     found: z.boolean(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, documentId: input.documentId }, '[Tool:getRunbook] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, documentId: input.documentId }, toolLogLabel('getRunbook', 'invoked'))
     const doc = await projectDocumentService.getById(input.documentId)
-    logger.debug({ ...ctx, documentId: input.documentId, found: Boolean(doc) }, '[Tool:getRunbook] result')
+    logger.debug({ ...ctx, documentId: input.documentId, found: Boolean(doc) }, toolLogLabel('getRunbook', 'result'))
     if (!doc) return { found: false }
     return { found: true, title: doc.title, content: doc.content ?? '' }
   },
@@ -85,15 +85,15 @@ export const createRunbook = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
+    const ctx = getAgentLogContext()
     const projectId = await resolveProjectId(input.projectId)
     if (!projectId) {
-      logger.error({ ...ctx, inputProjectId: input.projectId, title: input.title }, '[Tool:createRunbook] projectId not resolved')
+      logger.error({ ...ctx, inputProjectId: input.projectId, title: input.title }, toolLogLabel('createRunbook', 'projectId not resolved'))
       return { success: false, error: 'Project not resolved' }
     }
-    logger.info({ ...ctx, projectId, title: input.title }, '[Tool:createRunbook] invoked')
+    logger.info({ ...ctx, projectId, title: input.title }, toolLogLabel('createRunbook', 'invoked'))
     if (projectId !== input.projectId) {
-      logger.warn({ ...ctx, inputProjectId: input.projectId, resolvedProjectId: projectId }, '[Tool:createRunbook] corrected projectId from incident context')
+      logger.warn({ ...ctx, inputProjectId: input.projectId, resolvedProjectId: projectId }, toolLogLabel('createRunbook', 'corrected projectId from incident context'))
     }
     try {
       const doc = await projectDocumentService.createMarkdownDocument({
@@ -107,10 +107,10 @@ export const createRunbook = createTool({
         source: 'agent',
         createdBy: 'agent',
       })
-      logger.info({ ...ctx, documentId: doc.id }, '[Tool:createRunbook] created')
+      logger.info({ ...ctx, documentId: doc.id }, toolLogLabel('createRunbook', 'created'))
       return { success: true, documentId: doc.id }
     } catch (error) {
-      logger.error({ ...ctx, err: error, title: input.title }, '[Tool:createRunbook] failed')
+      logger.error({ ...ctx, err: error, title: input.title }, toolLogLabel('createRunbook', 'failed'))
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   },

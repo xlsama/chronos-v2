@@ -1,7 +1,7 @@
 import { toAISdkStream } from '@mastra/ai-sdk'
 import { createSupervisorAgent } from '../mastra/agents/supervisor-agent'
 import { logger, truncate } from './logger'
-import { agentContextStorage } from './agent-context'
+import { agentContextStorage, createAgentContext, popCurrentAgent, pushCurrentAgent } from './agent-context'
 import { agentBackgroundQueue } from './queues'
 
 // Active background agent registry (shared with worker in same process)
@@ -41,7 +41,7 @@ export async function runAgentStream(options: {
 
   logger.info({ threadId, incidentId }, '[Agent] supervisor started (stream)')
 
-  const response = await agentContextStorage.run({ threadId, incidentId }, () => agent.stream(message, {
+  const response = await agentContextStorage.run(createAgentContext({ threadId, incidentId }), () => agent.stream(message, {
     memory: {
       thread: threadId,
       resource: incidentId,
@@ -62,9 +62,13 @@ export async function runAgentStream(options: {
     },
     delegation: {
       onDelegationStart: ({ primitiveId, primitiveType }) => {
+        if (primitiveType === 'agent') {
+          pushCurrentAgent({ id: primitiveId, name: primitiveId })
+        }
         logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
       },
       onDelegationComplete: ({ primitiveId, duration, success, error }) => {
+        popCurrentAgent(primitiveId)
         logger.info(
           { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
           '[Agent] sub-agent completed',

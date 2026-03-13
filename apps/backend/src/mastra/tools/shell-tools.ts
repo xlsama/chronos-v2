@@ -3,7 +3,7 @@ import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { checkApproval } from '../../lib/approval-interceptor'
 import { logger, truncate } from '../../lib/logger'
-import { agentContextStorage } from '../../lib/agent-context'
+import { getAgentLogContext, toolLogLabel } from '../../lib/agent-context'
 
 const MAX_OUTPUT_CHARS = 12_000
 
@@ -28,13 +28,13 @@ export const runContainerCommand = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, command: truncate(input.command, 200), timeoutMs: input.timeoutMs }, '[Tool:runContainerCommand] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, command: truncate(input.command, 200), timeoutMs: input.timeoutMs }, toolLogLabel('runContainerCommand', 'invoked'))
 
     // Check approval policy
     const decision = await checkApproval('runContainerCommand', input)
     if (decision.action === 'declined') {
-      logger.warn({ ...ctx }, '[Tool:runContainerCommand] declined by approval')
+      logger.warn({ ...ctx }, toolLogLabel('runContainerCommand', 'declined by approval'))
       return { success: false, error: decision.message }
     }
 
@@ -70,7 +70,7 @@ export const runContainerCommand = createTool({
       child.on('error', (error) => {
         clearTimeout(timeout)
         if (hardKillTimeout) clearTimeout(hardKillTimeout)
-        logger.error({ ...ctx, error: error.message }, '[Tool:runContainerCommand] spawn error')
+        logger.error({ ...ctx, error: error.message }, toolLogLabel('runContainerCommand', 'spawn error'))
         resolve({
           success: false,
           stdout,
@@ -84,7 +84,7 @@ export const runContainerCommand = createTool({
         if (hardKillTimeout) clearTimeout(hardKillTimeout)
 
         if (timedOut) {
-          logger.warn({ ...ctx, exitCode: code, stdoutLen: stdout.length, stderrLen: stderr.length }, '[Tool:runContainerCommand] timed out')
+          logger.warn({ ...ctx, exitCode: code, stdoutLen: stdout.length, stderrLen: stderr.length }, toolLogLabel('runContainerCommand', 'timed out'))
           resolve({
             success: false,
             exitCode: code,
@@ -96,7 +96,7 @@ export const runContainerCommand = createTool({
         }
 
         if (code === 0) {
-          logger.info({ ...ctx, exitCode: code, stdoutLen: stdout.length, stderrLen: stderr.length }, '[Tool:runContainerCommand] succeeded')
+          logger.info({ ...ctx, exitCode: code, stdoutLen: stdout.length, stderrLen: stderr.length }, toolLogLabel('runContainerCommand', 'succeeded'))
           resolve({
             success: true,
             exitCode: code,
@@ -106,7 +106,7 @@ export const runContainerCommand = createTool({
           return
         }
 
-        logger.warn({ ...ctx, exitCode: code, signal, stdoutLen: stdout.length, stderrLen: stderr.length }, '[Tool:runContainerCommand] non-zero exit')
+        logger.warn({ ...ctx, exitCode: code, signal, stdoutLen: stdout.length, stderrLen: stderr.length }, toolLogLabel('runContainerCommand', 'non-zero exit'))
         resolve({
           success: false,
           exitCode: code,

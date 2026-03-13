@@ -6,7 +6,7 @@ import { db } from '../../db'
 import { projectServiceMaps } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '../../lib/logger'
-import { agentContextStorage } from '../../lib/agent-context'
+import { getAgentLogContext, toolLogLabel } from '../../lib/agent-context'
 
 export const listProjectServices = createTool({
   id: 'listProjectServices',
@@ -31,15 +31,15 @@ export const listProjectServices = createTool({
     })),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, projectId: input.projectId }, '[Tool:listProjectServices] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, projectId: input.projectId }, toolLogLabel('listProjectServices', 'invoked'))
     const [services, skills] = await Promise.all([
       projectServiceCatalog.list(input.projectId),
       skillCatalogService.list(),
     ])
     logger.debug(
       { ...ctx, serviceCount: services.length, serviceTypes: services.map((s) => s.type) },
-      '[Tool:listProjectServices] results',
+      toolLogLabel('listProjectServices', 'results'),
     )
     return {
       services: services.map((s) => ({
@@ -73,11 +73,11 @@ export const getServiceDetails = createTool({
     service: z.any().optional(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, serviceId: input.serviceId }, '[Tool:getServiceDetails] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, serviceId: input.serviceId }, toolLogLabel('getServiceDetails', 'invoked'))
     const service = await projectServiceCatalog.getById(input.serviceId)
     if (!service) {
-      logger.debug({ ...ctx, serviceId: input.serviceId, found: false }, '[Tool:getServiceDetails] result')
+      logger.debug({ ...ctx, serviceId: input.serviceId, found: false }, toolLogLabel('getServiceDetails', 'result'))
       return { found: false }
     }
     // Mask sensitive config values
@@ -89,7 +89,7 @@ export const getServiceDetails = createTool({
         maskedConfig[key] = value
       }
     }
-    logger.debug({ ...ctx, serviceId: input.serviceId, found: true, type: service.type }, '[Tool:getServiceDetails] result')
+    logger.debug({ ...ctx, serviceId: input.serviceId, found: true, type: service.type }, toolLogLabel('getServiceDetails', 'result'))
     return {
       found: true,
       service: {
@@ -117,10 +117,10 @@ export const getServiceMap = createTool({
     graph: z.any().optional(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, projectId: input.projectId }, '[Tool:getServiceMap] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, projectId: input.projectId }, toolLogLabel('getServiceMap', 'invoked'))
     const [map] = await db.select().from(projectServiceMaps).where(eq(projectServiceMaps.projectId, input.projectId))
-    logger.debug({ ...ctx, projectId: input.projectId, found: Boolean(map) }, '[Tool:getServiceMap] result')
+    logger.debug({ ...ctx, projectId: input.projectId, found: Boolean(map) }, toolLogLabel('getServiceMap', 'result'))
     if (!map) return { found: false }
     return { found: true, graph: map.graph }
   },

@@ -2,6 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { skillCatalogService } from '../services/skill-catalog.service'
 import { projectServiceCatalog } from '../services/project-service-catalog.service'
+import { agentLogLabel, getAgentLogContext } from './agent-context'
 import { logger, truncate } from './logger'
 
 export interface McpToolMeta {
@@ -26,6 +27,18 @@ interface SpawnConfig {
 }
 
 const activeMcps = new Map<string, ActiveMcp>()
+
+function mcpLogLabel(input: {
+  skillSlug: string
+  serverType?: string
+  toolName?: string
+  action: string
+}): string {
+  const parts = [`[MCP:${input.skillSlug}]`]
+  if (input.serverType) parts.push(`[Server:${input.serverType}]`)
+  if (input.toolName) parts.push(`[Tool:${input.toolName}]`)
+  return agentLogLabel(`${parts.join(' ')} ${input.action}`)
+}
 
 // ── Spawn Config Registry ──────────────────────────────────────────
 
@@ -321,20 +334,26 @@ export const skillMcpManager = {
 
     const existing = activeMcps.get(skillSlug)
     if (existing) {
+      const ctx = getAgentLogContext()
       if (existing.projectId === projectId && existing.serviceId === matchedService.id) {
-        logger.info({ skillSlug, projectId, serviceId: matchedService.id }, '[MCP] reusing active server')
+        logger.info(
+          { ...ctx, skillSlug, serverType: existing.serverType, projectId, serviceId: matchedService.id },
+          mcpLogLabel({ skillSlug, serverType: existing.serverType, action: 'reusing active server' }),
+        )
         return existing.tools
       }
 
       logger.info(
         {
+          ...ctx,
           skillSlug,
+          serverType: existing.serverType,
           previousProjectId: existing.projectId,
           previousServiceId: existing.serviceId,
           projectId,
           serviceId: matchedService.id,
         },
-        '[MCP] replacing active server due to context change',
+        mcpLogLabel({ skillSlug, serverType: existing.serverType, action: 'replacing active server due to context change' }),
       )
       await this.deactivate(skillSlug)
     }
@@ -345,8 +364,10 @@ export const skillMcpManager = {
       throw new Error(`Unsupported MCP server type: ${serverType}`)
     }
 
+    const ctx = getAgentLogContext()
     logger.info(
       {
+        ...ctx,
         skillSlug,
         projectId,
         serverType,
@@ -356,7 +377,7 @@ export const skillMcpManager = {
         port: matchedService.config.port ?? null,
         database: matchedService.config.database ?? null,
       },
-      '[MCP] activating server'
+      mcpLogLabel({ skillSlug, serverType, action: 'activating server' }),
     )
 
     const mergedEnv: Record<string, string> = {}
@@ -390,10 +411,16 @@ export const skillMcpManager = {
         projectId,
         serviceId: matchedService.id,
       })
-      logger.info({ skillSlug, tools: toolMetas.map((t) => t.name) }, '[MCP] server activated')
+      logger.info(
+        { ...ctx, skillSlug, serverType, tools: toolMetas.map((t) => t.name) },
+        mcpLogLabel({ skillSlug, serverType, action: 'server activated' }),
+      )
       return toolMetas
     } catch (error) {
-      logger.error({ err: error, skillSlug }, '[MCP] failed to activate server')
+      logger.error(
+        { ...ctx, err: error, skillSlug, serverType },
+        mcpLogLabel({ skillSlug, serverType, action: 'failed to activate server' }),
+      )
       throw error
     }
   },
@@ -409,13 +436,20 @@ export const skillMcpManager = {
     const active = activeMcps.get(skillSlug)
     if (!active) throw new Error(`MCP server not active for skill: ${skillSlug}. Call activateSkillMcp first.`)
 
+    const ctx = getAgentLogContext()
     try {
       const normalizedArgs = normalizeMcpArgs(active.serverType, mcpToolName, args)
       const result = await active.client.callTool({ name: mcpToolName, arguments: normalizedArgs })
-      logger.info({ toolName, result: truncate(result) }, '[MCP] tool execution succeeded')
+      logger.info(
+        { ...ctx, skillSlug, serverType: active.serverType, toolName, mcpToolName, result: truncate(result) },
+        mcpLogLabel({ skillSlug, serverType: active.serverType, toolName: mcpToolName, action: 'execution succeeded' }),
+      )
       return result
     } catch (error) {
-      logger.error({ err: error, toolName }, '[MCP] tool execution failed')
+      logger.error(
+        { ...ctx, err: error, skillSlug, serverType: active.serverType, toolName, mcpToolName },
+        mcpLogLabel({ skillSlug, serverType: active.serverType, toolName: mcpToolName, action: 'execution failed' }),
+      )
       throw error
     }
   },
@@ -424,13 +458,20 @@ export const skillMcpManager = {
     const active = activeMcps.get(skillSlug)
     if (!active) return
 
+    const ctx = getAgentLogContext()
     try {
       await active.transport.close()
     } catch (error) {
-      logger.warn({ err: error, skillSlug }, '[MCP] error closing transport')
+      logger.warn(
+        { ...ctx, err: error, skillSlug, serverType: active.serverType },
+        mcpLogLabel({ skillSlug, serverType: active.serverType, action: 'error closing transport' }),
+      )
     }
     activeMcps.delete(skillSlug)
-    logger.info({ skillSlug }, '[MCP] server deactivated')
+    logger.info(
+      { ...ctx, skillSlug, serverType: active.serverType },
+      mcpLogLabel({ skillSlug, serverType: active.serverType, action: 'server deactivated' }),
+    )
   },
 
   async deactivateAll(): Promise<void> {

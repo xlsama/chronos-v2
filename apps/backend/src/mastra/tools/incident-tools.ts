@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { incidentService } from '../../services/incident.service'
 import { checkApproval } from '../../lib/approval-interceptor'
 import { logger } from '../../lib/logger'
+import { getAgentLogContext, toolLogLabel } from '../../lib/agent-context'
 
 export const updateIncidentStatus = createTool({
   id: 'updateIncidentStatus',
@@ -18,7 +19,8 @@ export const updateIncidentStatus = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
-    logger.info({ incidentId: input.incidentId, status: input.status }, '[Tool:updateIncidentStatus] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, incidentId: input.incidentId, status: input.status }, toolLogLabel('updateIncidentStatus', 'invoked'))
     try {
       // Check approval policy (resolving/closing requires approval)
       const decision = await checkApproval('updateIncidentStatus', input)

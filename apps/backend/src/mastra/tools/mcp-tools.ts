@@ -4,7 +4,7 @@ import { skillMcpManager } from '../../lib/skill-mcp-manager'
 import { skillCatalogService } from '../../services/skill-catalog.service'
 import { checkApproval } from '../../lib/approval-interceptor'
 import { logger, truncate } from '../../lib/logger'
-import { agentContextStorage, resolveProjectId } from '../../lib/agent-context'
+import { getAgentLogContext, resolveProjectId, toolLogLabel } from '../../lib/agent-context'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -94,20 +94,20 @@ export const activateSkillMcp = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, skillSlug: input.skillSlug, projectId: input.projectId }, '[Tool:activateSkillMcp] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, skillSlug: input.skillSlug, projectId: input.projectId }, toolLogLabel('activateSkillMcp', 'invoked'))
     try {
       // Resolve projectId from incident context to guard against LLM passing wrong ID (e.g. serviceId)
       const projectId = await resolveProjectId(input.projectId) ?? input.projectId
       if (projectId !== input.projectId) {
-        logger.warn({ ...ctx, inputProjectId: input.projectId, resolvedProjectId: projectId }, '[Tool:activateSkillMcp] corrected projectId from incident context')
+        logger.warn({ ...ctx, inputProjectId: input.projectId, resolvedProjectId: projectId }, toolLogLabel('activateSkillMcp', 'corrected projectId from incident context'))
       }
 
       const tools = await skillMcpManager.activate(input.skillSlug, projectId)
-      logger.info({ ...ctx, skillSlug: input.skillSlug, toolCount: tools.length, toolNames: tools.map((t) => t.name) }, '[Tool:activateSkillMcp] activated')
+      logger.info({ ...ctx, skillSlug: input.skillSlug, toolCount: tools.length, toolNames: tools.map((t) => t.name) }, toolLogLabel('activateSkillMcp', 'activated'))
       return { success: true, activatedTools: tools }
     } catch (error) {
-      logger.error({ ...ctx, err: error, skillSlug: input.skillSlug }, '[Tool:activateSkillMcp] failed')
+      logger.error({ ...ctx, err: error, skillSlug: input.skillSlug }, toolLogLabel('activateSkillMcp', 'failed'))
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   },
@@ -126,14 +126,14 @@ export const executeMcpTool = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, toolName: input.toolName, args: truncate(input.args) }, '[Tool:executeMcpTool] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, toolName: input.toolName, args: truncate(input.args) }, toolLogLabel('executeMcpTool', 'invoked'))
     try {
       // Check approval policy
       const skillRiskLevel = await getSkillRiskLevel(input.toolName)
       const decision = await checkApproval('executeMcpTool', input, { skillRiskLevel })
       if (decision.action === 'declined') {
-        logger.warn({ ...ctx, toolName: input.toolName }, '[Tool:executeMcpTool] declined by approval')
+        logger.warn({ ...ctx, toolName: input.toolName }, toolLogLabel('executeMcpTool', 'declined by approval'))
         return { success: false, error: decision.message }
       }
 
@@ -141,14 +141,14 @@ export const executeMcpTool = createTool({
       const result = simplifyMcpResult(rawResult)
       const errorMessage = extractMcpErrorMessage(result)
       if (errorMessage) {
-        logger.warn({ ...ctx, toolName: input.toolName, errorMessage }, '[Tool:executeMcpTool] MCP returned error')
+        logger.warn({ ...ctx, toolName: input.toolName, errorMessage }, toolLogLabel('executeMcpTool', 'MCP returned error'))
         return { success: false, error: errorMessage, result }
       }
 
-      logger.info({ ...ctx, toolName: input.toolName, result: truncate(result) }, '[Tool:executeMcpTool] succeeded')
+      logger.info({ ...ctx, toolName: input.toolName, result: truncate(result) }, toolLogLabel('executeMcpTool', 'succeeded'))
       return { success: true, result }
     } catch (error) {
-      logger.error({ ...ctx, err: error, toolName: input.toolName }, '[Tool:executeMcpTool] failed')
+      logger.error({ ...ctx, err: error, toolName: input.toolName }, toolLogLabel('executeMcpTool', 'failed'))
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   },
@@ -171,8 +171,9 @@ export const listActiveMcps = createTool({
     })),
   }),
   execute: async () => {
+    const ctx = getAgentLogContext()
     const active = skillMcpManager.listActive()
-    logger.debug({ count: active.length }, '[Tool:listActiveMcps] invoked')
+    logger.debug({ ...ctx, count: active.length }, toolLogLabel('listActiveMcps', 'invoked'))
     return { activeMcps: active }
   },
 })
@@ -187,10 +188,10 @@ export const deactivateSkillMcp = createTool({
     success: z.boolean(),
   }),
   execute: async (input) => {
-    const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, skillSlug: input.skillSlug }, '[Tool:deactivateSkillMcp] invoked')
+    const ctx = getAgentLogContext()
+    logger.info({ ...ctx, skillSlug: input.skillSlug }, toolLogLabel('deactivateSkillMcp', 'invoked'))
     await skillMcpManager.deactivate(input.skillSlug)
-    logger.info({ ...ctx, skillSlug: input.skillSlug }, '[Tool:deactivateSkillMcp] done')
+    logger.info({ ...ctx, skillSlug: input.skillSlug }, toolLogLabel('deactivateSkillMcp', 'done'))
     return { success: true }
   },
 })
