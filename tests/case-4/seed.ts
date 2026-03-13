@@ -111,6 +111,8 @@ export interface SeedResult {
 }
 
 export async function seed(): Promise<SeedResult> {
+  const runId = Date.now().toString(36)
+
   console.log('[1/4] 初始化 MySQL 数据...')
   const conn = await mysql.createConnection({
     host: MYSQL_HOST,
@@ -127,7 +129,7 @@ export async function seed(): Promise<SeedResult> {
 
   console.log('[2/4] 创建 Chronos 项目...')
   const project = await createProject({
-    name: '电商商品服务',
+    name: `电商商品服务 case4 ${runId}`,
     description: '商品服务管理分类、商品和订单数据。当前故障表现为数码配件分类价格被污染为 0，导致零元订单和支付拒绝。',
     tags: ['ecommerce', 'mysql', 'shop'],
   })

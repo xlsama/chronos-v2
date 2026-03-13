@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
 import { getDocumentIndexingLabel, getDocumentIndexingReasonLabel, getDocumentIndexingSummary, shouldShowDocumentIndexing } from '@/lib/document-indexing'
+import { getProjectDisplayName } from '@/lib/project-display'
 import { opsQueries, useDeleteDocument, useUpdateDocument } from '@/lib/queries/ops'
 
 export const Route = createFileRoute('/_app/knowledge-base/$projectId/$docId')({
@@ -40,7 +41,10 @@ function DocumentEditPage() {
 
   const updateDocument = useUpdateDocument()
   const deleteDocument = useDeleteDocument()
-  const projectName = projects.find((project) => project.id === projectId)?.name ?? '项目文档'
+  const projectName = getProjectDisplayName(
+    projects.find((project) => project.id === projectId),
+    '项目文档',
+  )
   const documentTitle = title || '未命名文档'
 
   async function handleSave() {

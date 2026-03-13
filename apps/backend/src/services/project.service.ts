@@ -5,15 +5,28 @@ import { slugifySegment } from '../lib/file-storage'
 import { logger } from '../lib/logger'
 
 export const GLOBAL_PROJECT_SLUG = '_global'
+export const GLOBAL_PROJECT_NAME = '全局'
+const GLOBAL_PROJECT_DESCRIPTION = '全局共享项目，用于存放跨项目的 Runbook 和知识库文档'
 
 export async function ensureGlobalProject() {
   const [existing] = await db.select().from(projects).where(eq(projects.slug, GLOBAL_PROJECT_SLUG))
-  if (existing) return existing
+  if (existing) {
+    if (existing.name === GLOBAL_PROJECT_NAME && existing.description === GLOBAL_PROJECT_DESCRIPTION) {
+      return existing
+    }
+
+    const [row] = await db.update(projects).set({
+      name: GLOBAL_PROJECT_NAME,
+      description: GLOBAL_PROJECT_DESCRIPTION,
+    }).where(eq(projects.id, existing.id)).returning()
+
+    return row ?? existing
+  }
 
   const [row] = await db.insert(projects).values({
-    name: 'Global',
+    name: GLOBAL_PROJECT_NAME,
     slug: GLOBAL_PROJECT_SLUG,
-    description: '全局共享项目，用于存放跨项目的 Runbook 和知识库文档',
+    description: GLOBAL_PROJECT_DESCRIPTION,
     tags: ['global', 'system'],
   }).returning()
   logger.info({ id: row.id }, 'Global project created')

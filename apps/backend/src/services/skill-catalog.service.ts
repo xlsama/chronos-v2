@@ -2,6 +2,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import matter from 'gray-matter'
 import { getSkillsRoot, slugifySegment } from '../lib/file-storage'
+import { AppError } from '../lib/errors'
+import { logger } from '../lib/logger'
 
 const SKILL_MARKDOWN_FILE = 'SKILL.md'
 
@@ -15,6 +17,49 @@ export interface SkillRecord {
   markdown: string
 }
 
+type SkillFrontmatter = {
+  name: string
+  description: string
+  mcpServers: string[]
+  applicableServiceTypes: string[]
+  riskLevel: string
+}
+
+function readRequiredString(value: unknown, field: keyof SkillFrontmatter, skillRef: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new AppError(400, `Skill ${skillRef} is missing required frontmatter field "${field}"`)
+  }
+
+  return value.trim()
+}
+
+function readRequiredStringArray(value: unknown, field: keyof SkillFrontmatter, skillRef: string): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new AppError(400, `Skill ${skillRef} is missing required frontmatter field "${field}"`)
+  }
+
+  const normalized = value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
+  if (normalized.length === 0) {
+    throw new AppError(400, `Skill ${skillRef} is missing required frontmatter field "${field}"`)
+  }
+
+  return normalized
+}
+
+function parseFrontmatter(frontmatter: Record<string, unknown>, skillRef: string): SkillFrontmatter {
+  return {
+    name: readRequiredString(frontmatter.name, 'name', skillRef),
+    description: readRequiredString(frontmatter.description, 'description', skillRef),
+    mcpServers: readRequiredStringArray(frontmatter.mcpServers, 'mcpServers', skillRef),
+    applicableServiceTypes: readRequiredStringArray(frontmatter.applicableServiceTypes, 'applicableServiceTypes', skillRef),
+    riskLevel: readRequiredString(frontmatter.riskLevel, 'riskLevel', skillRef),
+  }
+}
+
 async function readSkill(slug: string): Promise<SkillRecord | null> {
   const skillDir = path.join(getSkillsRoot(), slug)
   const markdownPath = path.join(skillDir, SKILL_MARKDOWN_FILE)
@@ -22,17 +67,26 @@ async function readSkill(slug: string): Promise<SkillRecord | null> {
   try {
     const raw = await fs.readFile(markdownPath, 'utf-8')
     const { data: frontmatter } = matter(raw)
+    const parsed = parseFrontmatter(frontmatter, slug)
 
     return {
-      name: frontmatter.name || slug,
+      name: parsed.name,
       slug,
-      description: frontmatter.description,
-      mcpServers: frontmatter.mcpServers,
-      applicableServiceTypes: frontmatter.applicableServiceTypes,
-      riskLevel: frontmatter.riskLevel,
+      description: parsed.description,
+      mcpServers: parsed.mcpServers,
+      applicableServiceTypes: parsed.applicableServiceTypes,
+      riskLevel: parsed.riskLevel,
       markdown: raw,
     }
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null
+    }
+
+    logger.warn(
+      { err: error, skillSlug: slug, markdownFile: SKILL_MARKDOWN_FILE },
+      'Skipping invalid skill definition',
+    )
     return null
   }
 }
@@ -59,15 +113,16 @@ export const skillCatalogService = {
 
   async create(input: { markdown: string }) {
     const { data: frontmatter } = matter(input.markdown)
-    const name = frontmatter.name || 'Untitled Skill'
+    const parsed = parseFrontmatter(frontmatter, 'new-skill')
+    const name = parsed.name
     const slug = slugifySegment(name)
     return writeSkill({
       name,
       slug,
-      description: frontmatter.description,
-      mcpServers: frontmatter.mcpServers,
-      applicableServiceTypes: frontmatter.applicableServiceTypes,
-      riskLevel: frontmatter.riskLevel,
+      description: parsed.description,
+      mcpServers: parsed.mcpServers,
+      applicableServiceTypes: parsed.applicableServiceTypes,
+      riskLevel: parsed.riskLevel,
       markdown: input.markdown,
     })
   },
@@ -77,13 +132,14 @@ export const skillCatalogService = {
     if (!existing) return null
 
     const { data: frontmatter } = matter(input.markdown)
+    const parsed = parseFrontmatter(frontmatter, slug)
     return writeSkill({
-      name: frontmatter.name || existing.name,
+      name: parsed.name,
       slug,
-      description: frontmatter.description ?? existing.description,
-      mcpServers: frontmatter.mcpServers ?? existing.mcpServers,
-      applicableServiceTypes: frontmatter.applicableServiceTypes ?? existing.applicableServiceTypes,
-      riskLevel: frontmatter.riskLevel ?? existing.riskLevel,
+      description: parsed.description,
+      mcpServers: parsed.mcpServers,
+      applicableServiceTypes: parsed.applicableServiceTypes,
+      riskLevel: parsed.riskLevel,
       markdown: input.markdown,
     })
   },

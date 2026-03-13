@@ -20,6 +20,8 @@ export interface SeedResult {
 }
 
 export async function seed(): Promise<SeedResult> {
+  const runId = Date.now().toString(36)
+
   console.log('[1/4] 初始化 MySQL 数据...')
   const conn = await mysql.createConnection({
     host: MYSQL_HOST,
@@ -149,7 +151,7 @@ export async function seed(): Promise<SeedResult> {
 
   console.log('[2/4] 创建 Chronos 项目...')
   const project = await createProject({
-    name: '优惠券促销服务',
+    name: `优惠券促销服务 case2 ${runId}`,
     description: '电商促销平台优惠券服务负责优惠券批次、发放、核销与异常投诉处理。当前故障表现为 SPRING2026 批次在活动有效期内持续报过期。',
     tags: ['coupon', 'promotion', 'mysql'],
   })

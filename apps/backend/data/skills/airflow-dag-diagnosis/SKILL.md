@@ -1,6 +1,6 @@
 ---
 name: "Airflow DAG 诊断"
-description: "诊断 Apache Airflow DAG 执行异常，包括任务失败、调度延迟、依赖问题"
+description: "当事件指向 Airflow DAG、任务实例失败、调度延迟、依赖阻塞、Worker 异常或数据管道停滞时使用。通过只读 Airflow MCP 查询定位失败 DAG、任务日志和调度瓶颈。"
 mcpServers:
   - airflow
 applicableServiceTypes:
@@ -8,64 +8,39 @@ applicableServiceTypes:
 riskLevel: read-only
 ---
 
-# Airflow DAG 诊断方法论
+# Airflow DAG 诊断
 
-## 适用场景
+## 任务目标
 
-- DAG 任务执行失败
-- 任务调度延迟
-- 任务依赖阻塞
-- DAG 解析错误
-- Worker 资源不足
+- 用只读 Airflow MCP 确认失败 DAG、失败任务、调度延迟和阻塞点，给出可验证的根因。
 
-## 诊断步骤
+## 运行上下文
 
-### 1. 检查 DAG 状态
+- 该 skill 由 Chronos Supervisor Agent 在服务端容器中执行，不依赖用户本机环境。
+- 优先使用 `loadSkill`、`activateSkillMcp` 和 `executeMcpTool` 完成诊断。
+- 如果 MCP 缺少某个探测能力，可使用 `runContainerCommand` 检查容器内现有命令；确有必要时可安装 CLI，但要先说明用途和影响。
+- 完成诊断后停用 MCP，并在结论里说明关键查询与证据。
 
-- 列出所有 DAG 及其状态（active/paused）
-- 找到与告警相关的 DAG
-- 检查 DAG 是否被暂停（is_paused）
+## 推荐流程
 
-### 2. 查看 DAG Run
+1. 用 `listProjectServices` 或 `getServiceDetails` 确认 Airflow 服务和访问配置。
+2. 激活 MCP 后先列出 DAG、最近的 DAG Run 和相关 Task Instance，不要先猜 DAG ID。
+3. 优先定位最近失败、长时间 running、频繁 retry 或明显延迟的 DAG Run。
+4. 围绕异常 DAG 下钻到 task 状态、依赖关系、日志和调度时间差。
+5. 拿到足够证据后输出根因、影响范围和后续建议，再停用 MCP。
 
-- 获取最近的 DAG Run 列表
-- 检查 Run 状态（success/failed/running）
-- 关注 execution_date 和实际执行时间的差异（调度延迟）
+## 查询策略
 
-### 3. 分析任务实例
+- 先按时间范围查最近失败或异常耗时的 DAG Run，再看单个 task，不要一开始就拉全量日志。
+- 用 task instance 状态定位第一个失败、`upstream_failed`、`skipped` 或持续 retry 的任务。
+- 将“调度延迟”和“任务执行失败”分开判断：前者优先看 scheduler、队列和 worker 饱和，后者优先看任务日志和外部依赖。
+- 只有在确认 DAG 或 task 名后再查看更细的变量、连接或历史记录。
 
-- 列出失败 DAG Run 中的所有 Task Instance
-- 找到第一个失败的任务
-- 查看任务日志，获取错误详情
+## 风险边界
 
-### 4. 检查任务依赖
+- 默认只读，不触发 DAG Run、不清理任务状态、不修改变量或连接。
+- 如果缺少 Airflow URL、凭据或项目里没有匹配服务，直接报告阻塞，不要编造结果。
 
-- 查看 DAG 的任务依赖图
-- 确认是否有上游任务失败导致下游阻塞
-- 检查 trigger_rule 设置
+## 输出要求
 
-### 5. 检查资源和配置
-
-- 查看 Airflow 变量和连接配置
-- 检查 Worker 并发数和队列状态
-- 确认外部依赖（数据库、API）是否可用
-
-### 6. 输出诊断结论
-
-- 总结 DAG 执行异常的根因
-- 列出受影响的任务和数据管道
-- 建议修复措施（重试任务、修复配置等）
-
-## 常见模式
-
-| 症状 | 根因 | 诊断方向 |
-|------|------|----------|
-| 任务 failed | 代码或配置错误 | 查看任务日志 |
-| 调度延迟 | Scheduler 过载 | 检查 Scheduler 状态 |
-| 任务 upstream_failed | 上游依赖失败 | 检查上游任务 |
-| DAG 不显示 | 解析错误 | 检查 DAG 文件语法 |
-
-## 安全注意事项
-
-- 只读操作，不触发 DAG Run 或清除任务状态
-- 不修改 DAG 配置或变量
+- 最终回复必须写明：异常 DAG、异常 task、关键状态或日志证据、根因判断，以及是否已经激活 MCP。

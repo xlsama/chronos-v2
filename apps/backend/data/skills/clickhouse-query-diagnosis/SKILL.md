@@ -1,6 +1,6 @@
 ---
 name: "ClickHouse 查询诊断"
-description: "诊断 ClickHouse 数据查询异常、性能问题和数据完整性问题"
+description: "当事件指向 ClickHouse 查询变慢、数据缺失、写入延迟、分区异常、合并阻塞或副本不一致时使用。通过只读 ClickHouse MCP 查询 system 表、表结构和采样数据定位根因。"
 mcpServers:
   - clickhouse
 applicableServiceTypes:
@@ -8,63 +8,38 @@ applicableServiceTypes:
 riskLevel: read-only
 ---
 
-# ClickHouse 查询诊断方法论
+# ClickHouse 查询诊断
 
-## 适用场景
+## 任务目标
 
-- 分析查询响应时间异常
-- 数据写入延迟或丢失
-- 磁盘空间不足
-- 合并（merge）操作阻塞
-- 分区管理问题
+- 用只读 ClickHouse 查询确认性能瓶颈、数据完整性问题、分区或副本异常，并给出可验证证据。
 
-## 诊断步骤
+## 运行上下文
 
-### 1. 检查集群状态
+- 该 skill 由 Chronos Agent 在服务端容器中执行，不依赖用户本机环境。
+- 优先使用 ClickHouse MCP；如需补充工具，只能在说明用途后使用 `runContainerCommand`。
+- 查询前先收敛数据库、表和时间范围，避免高成本全表扫描。
 
-- 查询 `system.clusters` 了解集群拓扑
-- 查询 `system.replicas` 检查副本同步状态
-- 查看当前运行中的查询 `system.processes`
+## 推荐流程
 
-### 2. 分析慢查询
+1. 先确认项目中存在 ClickHouse 服务，并激活 MCP。
+2. 优先查看 `system.clusters`、`system.replicas`、`system.processes`、`system.parts` 等 system 表，建立当前运行状态。
+3. 再通过 `system.tables`、表结构和小样本查询确认受影响的数据集。
+4. 只有在确认目标表和时间范围后，才下钻到慢查询、数据缺失或写入延迟问题。
+5. 用 system 表证据和业务样本共同支撑结论，再停用 MCP。
 
-- 查询 `system.query_log` 获取近期慢查询
-- 按 `query_duration_ms` 排序，找到耗时最长的查询
-- 分析查询计划，检查是否有全表扫描
+## 查询策略
 
-### 3. 检查表状态
+- 先看 system 表，再看业务表；不要先猜业务库名或表名。
+- 对慢查询问题优先使用 `system.query_log`、`system.processes` 和表结构，不直接跑复杂业务 SQL。
+- 对数据缺失或延迟问题先用聚合和样本确认时间范围，再对比分区、副本、merge 状态。
+- 每次业务查询都要带 `LIMIT`、明确时间范围或可验证过滤条件。
 
-- 查询 `system.tables` 获取表大小和行数
-- 查询 `system.parts` 检查分区状态和合并进度
-- 检查是否有过多的小分区（parts count）
+## 风险边界
 
-### 4. 检查数据完整性
+- 默认只读，只执行查询和元数据探测。
+- 如果没有足够的服务配置、认证信息或查询结果与假设不一致，应报告不确定性，不要硬推根因。
 
-- 对比预期数据量和实际数据量
-- 检查最新数据的写入时间
-- 通过采样查询验证数据质量
+## 输出要求
 
-### 5. 检查资源使用
-
-- 查询 `system.metrics` 和 `system.events` 获取运行指标
-- 关注内存使用、磁盘IO、合并操作等
-- 检查是否有资源配额限制
-
-### 6. 输出诊断结论
-
-- 总结性能问题或数据异常的根因
-- 提供查询优化建议
-- 建议分区策略调整或资源扩容
-
-## 常见模式
-
-| 症状 | 根因 | 查询 |
-|------|------|------|
-| 查询慢 | 全表扫描 | 检查 WHERE 条件和分区键 |
-| 写入延迟 | 合并阻塞 | `SELECT * FROM system.merges` |
-| 数据缺失 | 副本延迟 | `SELECT * FROM system.replicas` |
-
-## 安全注意事项
-
-- 只执行 SELECT 查询
-- 避免对大表执行无分区过滤的查询
+- 最终回复必须写明：受影响的库表或分区、关键 system 表证据、关键业务样本或聚合结果、根因判断，以及是否已经激活 MCP。

@@ -1,6 +1,6 @@
 ---
 name: "PostgreSQL 运维诊断"
-description: "诊断 PostgreSQL 数据库运维问题，包括定时任务异常、数据缺失、连接池耗尽、慢查询"
+description: "当事件指向 PostgreSQL 数据缺失、连接池耗尽、定时任务异常、慢查询、锁等待或同步延迟时使用。通过只读 PostgreSQL MCP 查询 schema、系统视图和业务样本定位根因。"
 mcpServers:
   - postgresql
 applicableServiceTypes:
@@ -8,58 +8,38 @@ applicableServiceTypes:
 riskLevel: read-only
 ---
 
-# PostgreSQL 运维诊断方法论
+# PostgreSQL 运维诊断
 
-## 适用场景
+## 任务目标
 
-- 定时任务不执行或失败
-- 数据缺失或不一致
-- 连接超时或拒绝
-- 慢查询导致的性能问题
-- 数据同步延迟
+- 用只读 PostgreSQL 查询确认问题属于连接、性能、锁、调度还是数据层，并给出可验证证据。
 
-## 诊断步骤
+## 运行上下文
 
-### 1. 确认数据缺失范围
+- 该 skill 在 Chronos 服务端容器内执行，不依赖用户本机环境。
+- 优先使用 PostgreSQL MCP；如需补充能力，只能在说明用途后使用 `runContainerCommand`。
+- 先看系统视图和 schema，再看业务表，不要先猜调度表或错误表存在。
 
-- 查询目标数据表，确认最近一条有效数据的时间
-- 与预期的更新频率对比，判断缺失了多长时间的数据
-- 通过 COUNT 和 GROUP BY 统计各时间段的数据量
+## 推荐流程
 
-### 2. 检查定时任务状态
+1. 确认项目中存在 PostgreSQL 服务，并激活 MCP。
+2. 先用 `information_schema`、`pg_catalog`、`pg_stat_activity`、`pg_locks` 等系统视图判断问题类型。
+3. 如果指向慢查询或连接问题，优先看活动会话、锁和等待。
+4. 如果指向数据缺失或任务异常，先确认相关 schema 和表，再做聚合和样本查询。
+5. 只有在确认实际存在调度表、扩展或业务表后，才做更细的业务诊断。
 
-- 查询 scheduled_jobs 表，获取所有任务的状态
-- 重点关注 `is_enabled` 字段（false 表示任务被禁用）
-- 查看 `last_run_at` 判断任务最后一次成功执行的时间
-- 检查 `error_message` 字段获取禁用或失败原因
+## 查询策略
 
-### 3. 查看错误日志
+- 不要预设 `scheduled_jobs`、`app_errors` 或 `data_sources` 一定存在；必须先发现再使用。
+- 连接池、锁等待和性能问题优先看系统视图，不先碰业务大表。
+- 数据缺失问题先用时间窗口聚合和样本确认影响范围，再关联上下游表。
+- 对长查询和锁冲突，优先确认阻塞源与等待链，而不是只看最终报错。
 
-- 查询 app_errors 表，筛选相关服务的日志
-- 按时间排序，追溯问题首次出现的时间
-- 关注 "job is disabled"、"skipped"、"stale data" 等关键词
+## 风险边界
 
-### 4. 排查数据源
+- 默认只读，不执行写操作、DDL、VACUUM、ANALYZE、取消会话或修改参数。
+- 如果认证信息、扩展权限或目标 schema 不可见，直接报告阻塞或不确定性。
 
-- 查询 data_sources 表确认各数据源连接状态
-- 检查 `last_sync_at` 判断同步是否正常
-- 如果数据源正常，问题通常在处理任务本身
+## 输出要求
 
-### 5. 形成诊断结论
-
-- 关联所有发现，确定根因
-- 评估业务影响（缺失数据的时间范围和涉及的指标）
-- 提出修复建议（启用任务、补跑数据等）
-
-## 常见模式
-
-| 症状 | 根因 | 查询 |
-|------|------|------|
-| 报表数据缺失 | 定时任务被禁用 | `SELECT * FROM scheduled_jobs WHERE is_enabled = false` |
-| 连接超时 | 连接池耗尽 | `SELECT count(*) FROM pg_stat_activity` |
-| 数据不一致 | 事务未提交 | 检查 pg_locks 和 pg_stat_activity |
-
-## 安全注意事项
-
-- 只执行 SELECT 查询，不执行 INSERT/UPDATE/DELETE
-- 避免执行无 WHERE 条件的全表扫描
+- 最终回复必须写明：问题类别、受影响的 schema 或表、关键系统视图或业务证据、根因判断，以及是否已经激活 MCP。

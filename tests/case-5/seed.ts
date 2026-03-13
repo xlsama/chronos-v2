@@ -102,6 +102,8 @@ export interface SeedResult {
 }
 
 export async function seed(): Promise<SeedResult> {
+  const runId = Date.now().toString(36)
+
   console.log('[1/4] 初始化 PostgreSQL 数据...')
   const sql = postgres({
     host: PG_HOST,
@@ -117,7 +119,7 @@ export async function seed(): Promise<SeedResult> {
 
   console.log('[2/4] 创建 Chronos 项目...')
   const project = await createProject({
-    name: '数据分析平台',
+    name: `数据分析平台 case5 ${runId}`,
     description: '数据分析平台负责定时聚合业务数据并生成 BI 报表。当前故障表现为日报任务停摆，导致最近 3 天看板数据缺失。',
     tags: ['analytics', 'postgresql', 'bi'],
   })

@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { getDocumentIndexingLabel, getDocumentIndexingSummary, shouldShowDocumentIndexing } from '@/lib/document-indexing'
+import { getProjectDisplayName } from '@/lib/project-display'
 import { opsQueries, useCreateKnowledgeDocument, useDeleteDocument, useDeleteProject } from '@/lib/queries/ops'
 
 export const Route = createFileRoute('/_app/knowledge-base/$projectId/')({
@@ -55,6 +56,7 @@ function ProjectDocumentsPage() {
   const deleteProject = useDeleteProject()
 
   const project = projects.find((p) => p.id === projectId)
+  const projectName = getProjectDisplayName(project, '项目文档')
   const canDeleteProject = Boolean(project && project.slug !== '_global')
 
   async function handleFileUpload(files: FileList) {
@@ -104,13 +106,13 @@ function ProjectDocumentsPage() {
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>{project?.name ?? '项目文档'}</BreadcrumbPage>
+                <BreadcrumbPage>{projectName}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h1 className="text-2xl font-medium tracking-tight">{project?.name ?? '项目文档'}</h1>
+            <h1 className="text-2xl font-medium tracking-tight">{projectName}</h1>
             <div className="flex flex-wrap items-center gap-2 md:justify-end">
               <Button onClick={() => fileInputRef.current?.click()}>
                 <Upload data-icon="inline-start" className="size-4" />

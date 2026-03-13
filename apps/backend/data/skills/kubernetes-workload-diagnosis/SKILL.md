@@ -1,6 +1,6 @@
 ---
 name: "Kubernetes 工作负载诊断"
-description: "诊断 Kubernetes 集群工作负载异常，包括 Pod 崩溃、部署失败、资源不足、网络问题"
+description: "当事件指向 Kubernetes Pod 崩溃、滚动发布失败、服务不可达、资源不足、探针失败或工作负载异常时使用。通过只读 Kubernetes MCP 查询工作负载、事件、日志和资源状态定位根因。"
 mcpServers:
   - kubernetes
 applicableServiceTypes:
@@ -8,64 +8,38 @@ applicableServiceTypes:
 riskLevel: read-only
 ---
 
-# Kubernetes 工作负载诊断方法论
+# Kubernetes 工作负载诊断
 
-## 适用场景
+## 任务目标
 
-- Pod CrashLoopBackOff 或 OOMKilled
-- Deployment 滚动更新失败
-- Service 不可达
-- 节点资源不足
-- HPA 扩缩容异常
+- 用只读 Kubernetes MCP 确认异常 namespace、workload、Pod、事件和日志证据，形成可验证的根因判断。
 
-## 诊断步骤
+## 运行上下文
 
-### 1. 检查 Pod 状态
+- 该 skill 在 Chronos 服务端容器内执行，不依赖用户本机环境。
+- 优先使用 Kubernetes MCP；如果 MCP 激活失败，可使用 `runContainerCommand` 检查 kubeconfig 或容器内工具，但不要伪造集群结果。
+- 先定位 namespace 和 workload，再下钻到 Pod 和事件。
 
-- 列出目标 namespace 下的 Pod 状态
-- 关注 STATUS 列：CrashLoopBackOff、Error、Pending、ImagePullBackOff
-- 查看 RESTARTS 列，频繁重启说明应用持续崩溃
+## 推荐流程
 
-### 2. 查看 Pod 日志
+1. 先确认项目中存在 Kubernetes 服务，并激活 MCP。
+2. 查看 namespace、Deployment、StatefulSet、Pod 概览，定位状态异常或最近变更对象。
+3. 优先查 Pod 状态、事件和最近日志，再看 ReplicaSet、Service、Node 或 HPA。
+4. 把 `CrashLoopBackOff`、`OOMKilled`、`Pending`、`ImagePullBackOff`、探针失败等症状分开判断。
+5. 有证据后再输出结论，不把旧的健康状态缓存当成事实。
 
-- 获取异常 Pod 的日志，查找错误信息
-- 如果 Pod 已重启，查看前一个容器的日志（previous container logs）
-- 关注 OOM、panic、connection refused 等关键词
+## 查询策略
 
-### 3. 检查 Pod 事件
+- 先确定受影响的 namespace 和 workload，避免全量扫集群。
+- 事件优先于猜测：调度失败看 events，应用崩溃看 logs，副本不齐看 rollout / ReplicaSet，资源不足看 Node 与 requests/limits。
+- 对网络或依赖问题，优先判断是 Pod 自身异常、Service 配置问题还是下游依赖异常。
+- 如果需要补充 CLI，只能用来辅助检查本容器能力，不替代集群查询。
 
-- 查看 Pod 的 Events，了解调度和启动过程
-- 关注 FailedScheduling（资源不足）、FailedMount（卷挂载失败）等事件
-- 检查 Liveness/Readiness 探针失败信息
+## 风险边界
 
-### 4. 检查 Deployment 状态
+- 默认只读，不执行 delete、scale、rollout restart、patch 或 exec。
+- 如果 kubeconfig、token、证书或网络访问缺失，直接报告阻塞。
 
-- 查看 Deployment 的 replicas 状态（desired vs ready）
-- 检查 rollout 历史，是否有失败的发布
-- 查看 ReplicaSet 状态
+## 输出要求
 
-### 5. 检查节点资源
-
-- 查看节点 CPU/内存使用情况
-- 检查是否有节点处于 NotReady 状态
-- 确认是否有资源配额限制
-
-### 6. 输出诊断结论
-
-- 总结根因（资源不足、配置错误、镜像问题等）
-- 列出受影响的服务和 Pod
-- 提供修复建议
-
-## 常见模式
-
-| 症状 | 根因 | 诊断方向 |
-|------|------|----------|
-| CrashLoopBackOff | 应用启动失败 | 查看 Pod 日志 |
-| OOMKilled | 内存限制太低 | 检查 resources.limits |
-| Pending | 资源不足 | 检查节点资源 |
-| ImagePullBackOff | 镜像拉取失败 | 检查镜像名和拉取策略 |
-
-## 安全注意事项
-
-- 只读操作，不执行 kubectl delete/scale/rollout 等修改操作
-- 查看敏感 Secret 时注意保护敏感信息
+- 最终回复必须写明：异常 namespace / workload / Pod、关键事件或日志证据、根因判断，以及是否已经激活 MCP。

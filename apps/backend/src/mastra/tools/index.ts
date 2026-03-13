@@ -5,4 +5,5 @@ export { searchIncidentHistory, getIncidentHistoryDetail } from './history-tools
 export { listSkills, loadSkill } from './skill-tools'
 export { listProjectServices, getServiceDetails, getServiceMap } from './service-tools'
 export { activateSkillMcp, executeMcpTool, deactivateSkillMcp } from './mcp-tools'
+export { runContainerCommand } from './shell-tools'
 export { saveIncidentHistory } from './summarize-tools'

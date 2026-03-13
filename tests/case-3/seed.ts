@@ -49,6 +49,8 @@ async function pushMetrics(metricsText: string): Promise<void> {
 }
 
 export async function seed(): Promise<SeedResult> {
+  const runId = Date.now().toString(36)
+
   console.log('[1/5] 推送 Prometheus 指标数据...')
 
   const metrics = `
@@ -95,7 +97,7 @@ container_memory_limit_bytes{service="user-service",pod="user-service-3a4b5c-q9w
 
   console.log('[2/5] 创建 Chronos 项目...')
   const project = await createProject({
-    name: '微服务电商平台监控',
+    name: `微服务电商平台监控 case3 ${runId}`,
     description: 'Prometheus 统一监控 payment-service、order-service、user-service 等核心服务。当前故障集中在支付链路与服务资源异常。',
     tags: ['prometheus', 'monitoring', 'microservice'],
   })

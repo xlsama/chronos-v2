@@ -17,6 +17,8 @@ export interface SeedResult {
 }
 
 export async function seed(): Promise<SeedResult> {
+  const runId = Date.now().toString(36)
+
   console.log('[1/4] 初始化 Redis 数据...')
   const redis = new Redis({ host: REDIS_HOST, port: REDIS_PORT, lazyConnect: true })
   await redis.connect()
@@ -47,7 +49,7 @@ export async function seed(): Promise<SeedResult> {
 
   console.log('[2/4] 创建 Chronos 项目...')
   const project = await createProject({
-    name: 'API 网关服务',
+    name: `API 网关服务 case1 ${runId}`,
     description: 'API 网关负责请求路由、身份验证和限流，核心限流配置存储于 Redis。当前故障表现为多个核心接口大面积返回 429。',
     tags: ['gateway', 'redis', 'ratelimit'],
   })

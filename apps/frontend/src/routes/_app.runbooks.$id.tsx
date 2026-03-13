@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { getProjectDisplayName } from "@/lib/project-display";
 import { opsQueries, useDeleteDocument, useUpdateDocument } from "@/lib/queries/ops";
 
 const RUNBOOK_PUBLICATION_STATUSES = ["draft", "published", "active", "archived"] as const;
@@ -50,7 +51,10 @@ function RunbookDetailPage() {
 
   const updateDocument = useUpdateDocument();
   const deleteDocument = useDeleteDocument();
-  const projectName = projects.find((project) => project.id === runbook.projectId)?.name ?? "项目";
+  const projectName = getProjectDisplayName(
+    projects.find((project) => project.id === runbook.projectId),
+    "项目",
+  );
   const documentTitle = title.trim() || "未命名 runbook";
   const publicationStatus = normalizePublicationStatus(runbook.publicationStatus);
 

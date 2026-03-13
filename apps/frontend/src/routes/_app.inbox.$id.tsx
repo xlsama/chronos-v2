@@ -5,6 +5,7 @@ import { ChatPanel } from "@/components/chat/chat-panel";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getProjectDisplayName } from "@/lib/project-display";
 import { opsQueries, useSaveIncidentSummary } from "@/lib/queries/ops";
 
 export const Route = createFileRoute("/_app/inbox/$id")({
@@ -34,7 +35,7 @@ function IncidentDetailPage() {
         </Badge>
         {incident.project ? (
           <Badge variant="outline" className="shrink-0 rounded-full text-xs">
-            {incident.project.name}
+            {getProjectDisplayName(incident.project)}
           </Badge>
         ) : null}
         <div className="ml-auto flex shrink-0 items-center gap-2">

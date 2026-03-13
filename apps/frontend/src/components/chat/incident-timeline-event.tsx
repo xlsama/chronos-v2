@@ -6,6 +6,7 @@ import { JsonBlock } from "@/components/ops/json-block";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getProjectDisplayName } from "@/lib/project-display";
 import { Markdown } from "@/components/ui/markdown";
 import { Message, MessageAvatar } from "@/components/ui/message";
 import { cn } from "@/lib/utils";
@@ -96,7 +97,7 @@ function renderContent(props: {
               </Badge>
               {item.incident.project ? (
                 <Badge variant="outline" className="rounded-full">
-                  {item.incident.project.name}
+                  {getProjectDisplayName(item.incident.project)}
                 </Badge>
               ) : null}
             </div>

@@ -1,6 +1,6 @@
 ---
 name: "Datadog 指标分析"
-description: "通过 Datadog 查询指标、日志和 APM 数据，诊断服务性能和可用性问题"
+description: "当事件指向 Datadog 指标、日志、APM 链路、延迟升高、错误率异常或基础设施资源波动时使用。通过只读 Datadog MCP 查询时间序列、tags、日志和 traces 定位根因。"
 mcpServers:
   - datadog
 applicableServiceTypes:
@@ -8,61 +8,38 @@ applicableServiceTypes:
 riskLevel: read-only
 ---
 
-# Datadog 指标分析方法论
+# Datadog 指标分析
 
-## 适用场景
+## 任务目标
 
-- 监控告警触发需要排查指标
-- 服务延迟或错误率异常
-- 基础设施资源使用分析
-- APM 调用链性能分析
-- 日志与指标关联分析
+- 用只读 Datadog 查询确认异常服务、异常指标、相关日志或 trace，并给出可验证的根因证据。
 
-## 诊断步骤
+## 运行上下文
 
-### 1. 查询相关指标
+- 该 skill 在 Chronos 后端容器中执行，不依赖用户本机环境。
+- 优先使用 Datadog MCP；只有当 MCP 不足时才考虑 `runContainerCommand` 作为辅助。
+- 先收敛时间范围、环境和服务标签，再做下钻。
 
-- 根据告警信息确定需要查询的指标名
-- 使用 Datadog 指标查询 API 获取时间序列数据
-- 常用指标前缀：
-  - `system.*`：CPU、内存、磁盘
-  - `docker.*`：容器指标
-  - `trace.*`：APM 指标
+## 推荐流程
 
-### 2. 分析指标趋势
+1. 用告警信息先锁定时间窗口、环境和候选服务。
+2. 激活 MCP 后优先查看可用指标、tags、日志源或 trace 维度，不要先猜指标名。
+3. 先做聚合趋势，找异常最大的服务、主机或容器，再查看单条日志和单条 trace。
+4. 只有在指标已经指向某个服务或依赖后，才做更细的链路和日志关联。
+5. 输出结论时同时给出指标证据与上下文证据。
 
-- 对比告警前后的指标变化
-- 使用聚合函数（avg/max/sum）分析趋势
-- 按 tag 分组（service/host/env）定位异常维度
+## 查询策略
 
-### 3. 检查日志
+- 先确认 tags 和资源维度，再查询具体 metric，避免盲目枚举高基数字段。
+- 对延迟、错误率、资源压力等问题先做聚合趋势，再按 service、host、container 等维度拆分。
+- 指标异常后再补日志或 trace，避免只凭单条错误日志下结论。
+- 如果多个服务同时异常，优先找最早出现拐点的维度，避免把级联故障误判为根因。
 
-- 搜索与告警时间范围匹配的日志
-- 按服务和严重级别过滤
-- 查看错误日志的上下文
+## 风险边界
 
-### 4. APM 调用链分析
+- 默认只读，不创建或修改 Dashboard、Monitor、SLO 或告警规则。
+- 如果缺少 Datadog API Key、权限不足或站点配置不正确，直接报告阻塞。
 
-- 查看服务间调用关系
-- 检查慢请求的调用链详情
-- 分析延迟分布和错误率
+## 输出要求
 
-### 5. 输出诊断结论
-
-- 基于指标和日志数据给出根因判断
-- 提供关键指标数值和变化趋势
-- 建议后续行动
-
-## 常用查询模式
-
-| 场景 | 指标 |
-|------|------|
-| CPU 使用率 | `system.cpu.user{service:xxx}` |
-| 内存使用 | `system.mem.used{service:xxx}` |
-| 请求错误率 | `trace.http.request.errors{service:xxx}` |
-| 请求延迟 | `trace.http.request.duration{service:xxx}` |
-
-## 安全注意事项
-
-- 只读操作，不创建或修改 Monitor/Dashboard
-- API Key 应使用只读权限
+- 最终回复必须写明：时间范围、异常服务或维度、关键指标和日志或 trace 证据、根因判断，以及是否已经激活 MCP。

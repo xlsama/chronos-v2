@@ -1,5 +1,6 @@
 import type { Project } from '@chronos/shared'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getProjectDisplayName } from '@/lib/project-display'
 import { cn } from '@/lib/utils'
 
 type ProjectPickerWidth = 'responsive' | 'full'
@@ -25,7 +26,7 @@ export function ProjectPicker(props: {
         <SelectGroup>
           {props.projects.map((project) => (
             <SelectItem key={project.id} value={project.id}>
-              {project.name}
+              {getProjectDisplayName(project)}
             </SelectItem>
           ))}
         </SelectGroup>
