@@ -1,6 +1,8 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { projectDocumentService } from '../../services/project-document.service'
+import { logger, truncate } from '../../lib/logger'
+import { agentContextStorage } from '../../lib/agent-context'
 
 export const saveIncidentHistory = createTool({
   id: 'saveIncidentHistory',
@@ -17,6 +19,8 @@ export const saveIncidentHistory = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, projectId: input.projectId, title: input.title }, '[Tool:saveIncidentHistory] invoked')
     try {
       const doc = await projectDocumentService.createMarkdownDocument({
         projectId: input.projectId,
@@ -27,8 +31,10 @@ export const saveIncidentHistory = createTool({
         source: 'agent',
         createdBy: 'agent',
       })
+      logger.info({ ...ctx, documentId: doc.id }, '[Tool:saveIncidentHistory] saved')
       return { success: true, documentId: doc.id }
     } catch (error) {
+      logger.error({ ...ctx, err: error, title: input.title }, '[Tool:saveIncidentHistory] failed')
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   },

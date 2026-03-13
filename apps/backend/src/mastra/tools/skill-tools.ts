@@ -1,6 +1,8 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { skillCatalogService } from '../../services/skill-catalog.service'
+import { logger } from '../../lib/logger'
+import { agentContextStorage } from '../../lib/agent-context'
 
 export const listSkills = createTool({
   id: 'listSkills',
@@ -16,7 +18,10 @@ export const listSkills = createTool({
     })),
   }),
   execute: async () => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx }, '[Tool:listSkills] invoked')
     const skills = await skillCatalogService.list()
+    logger.debug({ ...ctx, skillCount: skills.length }, '[Tool:listSkills] results')
     return {
       skills: skills.map((s) => ({
         slug: s.slug,
@@ -40,7 +45,10 @@ export const loadSkill = createTool({
     skill: z.any().optional(),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, slug: input.slug }, '[Tool:loadSkill] invoked')
     const skill = await skillCatalogService.getBySlug(input.slug)
+    logger.debug({ ...ctx, slug: input.slug, found: Boolean(skill) }, '[Tool:loadSkill] result')
     if (!skill) return { found: false }
     return {
       found: true,

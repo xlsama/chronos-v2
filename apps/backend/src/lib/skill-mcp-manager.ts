@@ -4,10 +4,16 @@ import { skillCatalogService } from '../services/skill-catalog.service'
 import { projectServiceCatalog } from '../services/project-service-catalog.service'
 import { logger } from './logger'
 
+export interface McpToolMeta {
+  name: string
+  description?: string
+  inputSchema?: Record<string, unknown>
+}
+
 interface ActiveMcp {
   client: Client
   transport: StdioClientTransport
-  tools: string[]
+  tools: McpToolMeta[]
   serverType: string
   projectId: string
   serviceId: string
@@ -290,7 +296,7 @@ function normalizeMcpArgs(serverType: string, toolName: string, args: Record<str
 // ── Skill MCP Manager ──────────────────────────────────────────────
 
 export const skillMcpManager = {
-  async activate(skillSlug: string, projectId: string): Promise<string[]> {
+  async activate(skillSlug: string, projectId: string): Promise<McpToolMeta[]> {
     const skill = await skillCatalogService.getBySlug(skillSlug)
     if (!skill) throw new Error(`Skill not found: ${skillSlug}`)
 
@@ -370,18 +376,22 @@ export const skillMcpManager = {
     try {
       await client.connect(transport)
       const { tools: mcpTools } = await client.listTools()
-      const toolNames = mcpTools.map((t) => `${skillSlug}_${t.name}`)
+      const toolMetas: McpToolMeta[] = mcpTools.map((t) => ({
+        name: `${skillSlug}_${t.name}`,
+        description: t.description,
+        inputSchema: t.inputSchema as Record<string, unknown> | undefined,
+      }))
 
       activeMcps.set(skillSlug, {
         client,
         transport,
-        tools: toolNames,
+        tools: toolMetas,
         serverType,
         projectId,
         serviceId: matchedService.id,
       })
-      logger.info({ skillSlug, tools: toolNames }, 'MCP server activated')
-      return toolNames
+      logger.info({ skillSlug, tools: toolMetas.map((t) => t.name) }, 'MCP server activated')
+      return toolMetas
     } catch (error) {
       logger.error({ err: error, skillSlug }, 'Failed to activate MCP server')
       throw error
@@ -427,5 +437,18 @@ export const skillMcpManager = {
     for (const slug of activeMcps.keys()) {
       await this.deactivate(slug)
     }
+  },
+
+  listActive(): Array<{ skillSlug: string; serverType: string; projectId: string; tools: McpToolMeta[] }> {
+    const result: Array<{ skillSlug: string; serverType: string; projectId: string; tools: McpToolMeta[] }> = []
+    for (const [slug, mcp] of activeMcps) {
+      result.push({
+        skillSlug: slug,
+        serverType: mcp.serverType,
+        projectId: mcp.projectId,
+        tools: mcp.tools,
+      })
+    }
+    return result
   },
 }

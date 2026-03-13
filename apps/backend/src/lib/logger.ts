@@ -13,3 +13,15 @@ export const logger = pino({
         }
       : undefined,
 })
+
+export function truncate(value: unknown, maxLen = 500): unknown {
+  if (typeof value === 'string') {
+    return value.length > maxLen ? value.slice(0, maxLen) + `...(${value.length} chars)` : value
+  }
+  if (typeof value === 'object' && value !== null) {
+    const str = JSON.stringify(value)
+    if (str.length > maxLen) return str.slice(0, maxLen) + `...(${str.length} chars)`
+    return value
+  }
+  return value
+}

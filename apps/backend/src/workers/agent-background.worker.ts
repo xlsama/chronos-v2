@@ -37,7 +37,7 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       const attemptToolTrace: SummaryToolTrace[] = []
-      const agent = createSupervisorAgent(context)
+      const agent = await createSupervisorAgent(context)
       const timeoutSignal = AbortSignal.timeout(ATTEMPT_TIMEOUT_MS)
       const abortSignal = AbortSignal.any([controller.signal, timeoutSignal])
       lastError = null

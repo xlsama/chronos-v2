@@ -1,6 +1,8 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { projectDocumentService } from '../../services/project-document.service'
+import { logger, truncate } from '../../lib/logger'
+import { agentContextStorage } from '../../lib/agent-context'
 
 export const searchKnowledgeBase = createTool({
   id: 'searchKnowledgeBase',
@@ -19,11 +21,17 @@ export const searchKnowledgeBase = createTool({
     })),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, query: truncate(input.query, 200), projectId: input.projectId, limit: input.limit }, '[Tool:searchKnowledgeBase] invoked')
     const results = await projectDocumentService.search(input.query, {
       kind: 'knowledge',
       projectId: input.projectId,
       limit: input.limit,
     })
+    logger.debug(
+      { ...ctx, resultCount: results.length, topSimilarity: results[0]?.similarity },
+      '[Tool:searchKnowledgeBase] results',
+    )
     return {
       results: results.map((r) => ({
         documentId: r.documentId,
@@ -47,7 +55,10 @@ export const getKnowledgeDocument = createTool({
     found: z.boolean(),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, documentId: input.documentId }, '[Tool:getKnowledgeDocument] invoked')
     const doc = await projectDocumentService.getById(input.documentId)
+    logger.debug({ ...ctx, documentId: input.documentId, found: Boolean(doc) }, '[Tool:getKnowledgeDocument] result')
     if (!doc) return { found: false }
     return { found: true, title: doc.title, content: doc.content ?? '' }
   },

@@ -2,6 +2,8 @@ import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { projectDocumentService } from '../../services/project-document.service'
 import { projectService } from '../../services/project.service'
+import { logger, truncate } from '../../lib/logger'
+import { agentContextStorage } from '../../lib/agent-context'
 
 export const searchRunbooks = createTool({
   id: 'searchRunbooks',
@@ -21,12 +23,18 @@ export const searchRunbooks = createTool({
     })),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, query: truncate(input.query, 200), projectId: input.projectId, limit: input.limit }, '[Tool:searchRunbooks] invoked')
     const results = await projectDocumentService.search(input.query, {
       kind: 'runbook',
       projectId: input.projectId,
       publicationStatuses: ['published'],
       limit: input.limit,
     })
+    logger.debug(
+      { ...ctx, resultCount: results.length, topSimilarity: results[0]?.similarity },
+      '[Tool:searchRunbooks] results',
+    )
     return {
       results: results.map((r) => ({
         documentId: r.documentId,
@@ -51,7 +59,10 @@ export const getRunbook = createTool({
     found: z.boolean(),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, documentId: input.documentId }, '[Tool:getRunbook] invoked')
     const doc = await projectDocumentService.getById(input.documentId)
+    logger.debug({ ...ctx, documentId: input.documentId, found: Boolean(doc) }, '[Tool:getRunbook] result')
     if (!doc) return { found: false }
     return { found: true, title: doc.title, content: doc.content ?? '' }
   },
@@ -73,6 +84,8 @@ export const createRunbook = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, projectId: input.projectId, title: input.title }, '[Tool:createRunbook] invoked')
     try {
       const doc = await projectDocumentService.createMarkdownDocument({
         projectId: input.projectId,
@@ -85,8 +98,10 @@ export const createRunbook = createTool({
         source: 'agent',
         createdBy: 'agent',
       })
+      logger.info({ ...ctx, documentId: doc.id }, '[Tool:createRunbook] created')
       return { success: true, documentId: doc.id }
     } catch (error) {
+      logger.error({ ...ctx, err: error, title: input.title }, '[Tool:createRunbook] failed')
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   },

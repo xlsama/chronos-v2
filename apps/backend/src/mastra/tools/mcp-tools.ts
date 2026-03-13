@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { skillMcpManager } from '../../lib/skill-mcp-manager'
 import { skillCatalogService } from '../../services/skill-catalog.service'
 import { checkApproval } from '../../lib/approval-interceptor'
+import { logger, truncate } from '../../lib/logger'
+import { agentContextStorage } from '../../lib/agent-context'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -84,14 +86,22 @@ export const activateSkillMcp = createTool({
   }),
   outputSchema: z.object({
     success: z.boolean(),
-    activatedTools: z.array(z.string()).optional(),
+    activatedTools: z.array(z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      inputSchema: z.record(z.string(), z.unknown()).optional(),
+    })).optional(),
     error: z.string().optional(),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, skillSlug: input.skillSlug, projectId: input.projectId }, '[Tool:activateSkillMcp] invoked')
     try {
       const tools = await skillMcpManager.activate(input.skillSlug, input.projectId)
+      logger.info({ ...ctx, skillSlug: input.skillSlug, toolCount: tools.length, toolNames: tools.map((t) => t.name) }, '[Tool:activateSkillMcp] activated')
       return { success: true, activatedTools: tools }
     } catch (error) {
+      logger.error({ ...ctx, err: error, skillSlug: input.skillSlug }, '[Tool:activateSkillMcp] failed')
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   },
@@ -110,11 +120,14 @@ export const executeMcpTool = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, toolName: input.toolName, args: truncate(input.args) }, '[Tool:executeMcpTool] invoked')
     try {
       // Check approval policy
       const skillRiskLevel = await getSkillRiskLevel(input.toolName)
       const decision = await checkApproval('executeMcpTool', input, { skillRiskLevel })
       if (decision.action === 'declined') {
+        logger.warn({ ...ctx, toolName: input.toolName }, '[Tool:executeMcpTool] declined by approval')
         return { success: false, error: decision.message }
       }
 
@@ -122,13 +135,39 @@ export const executeMcpTool = createTool({
       const result = simplifyMcpResult(rawResult)
       const errorMessage = extractMcpErrorMessage(result)
       if (errorMessage) {
+        logger.warn({ ...ctx, toolName: input.toolName, errorMessage }, '[Tool:executeMcpTool] MCP returned error')
         return { success: false, error: errorMessage, result }
       }
 
+      logger.info({ ...ctx, toolName: input.toolName, result: truncate(result) }, '[Tool:executeMcpTool] succeeded')
       return { success: true, result }
     } catch (error) {
+      logger.error({ ...ctx, err: error, toolName: input.toolName }, '[Tool:executeMcpTool] failed')
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
+  },
+})
+
+export const listActiveMcps = createTool({
+  id: 'listActiveMcps',
+  description: '列出当前所有已激活的 MCP 服务器及其工具清单。用于多 Skill 场景下确认当前激活状态。',
+  inputSchema: z.object({}),
+  outputSchema: z.object({
+    activeMcps: z.array(z.object({
+      skillSlug: z.string(),
+      serverType: z.string(),
+      projectId: z.string(),
+      tools: z.array(z.object({
+        name: z.string(),
+        description: z.string().optional(),
+        inputSchema: z.record(z.string(), z.unknown()).optional(),
+      })),
+    })),
+  }),
+  execute: async () => {
+    const active = skillMcpManager.listActive()
+    logger.debug({ count: active.length }, '[Tool:listActiveMcps] invoked')
+    return { activeMcps: active }
   },
 })
 
@@ -142,7 +181,10 @@ export const deactivateSkillMcp = createTool({
     success: z.boolean(),
   }),
   execute: async (input) => {
+    const ctx = agentContextStorage.getStore()
+    logger.info({ ...ctx, skillSlug: input.skillSlug }, '[Tool:deactivateSkillMcp] invoked')
     await skillMcpManager.deactivate(input.skillSlug)
+    logger.info({ ...ctx, skillSlug: input.skillSlug }, '[Tool:deactivateSkillMcp] done')
     return { success: true }
   },
 })

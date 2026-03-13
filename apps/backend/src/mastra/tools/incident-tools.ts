@@ -18,6 +18,7 @@ export const updateIncidentStatus = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
+    logger.info({ incidentId: input.incidentId, status: input.status }, '[Tool:updateIncidentStatus] invoked')
     try {
       // Check approval policy (resolving/closing requires approval)
       const decision = await checkApproval('updateIncidentStatus', input)

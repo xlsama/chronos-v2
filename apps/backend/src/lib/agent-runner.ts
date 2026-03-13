@@ -37,7 +37,7 @@ export async function runAgentStream(options: {
   context?: Parameters<typeof createSupervisorAgent>[0]
 }): Promise<{ sdkStream: ReadableStream; textPromise: Promise<string> }> {
   const { threadId, incidentId, message, context } = options
-  const agent = createSupervisorAgent(context)
+  const agent = await createSupervisorAgent(context)
 
   logger.info({ threadId, incidentId }, '[Agent] supervisor started (stream)')
 

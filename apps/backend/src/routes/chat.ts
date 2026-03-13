@@ -69,7 +69,7 @@ export const chatRoutes = new Hono()
     }
 
     // Create supervisor agent with incident context
-    const agent = createSupervisorAgent(context)
+    const agent = await createSupervisorAgent(context)
 
     logger.info({ threadId, incidentId }, '[Agent] supervisor started')
     const toolTrace: SummaryToolTrace[] = []
