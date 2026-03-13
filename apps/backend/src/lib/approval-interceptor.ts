@@ -18,6 +18,11 @@ export async function checkApproval(
 ): Promise<{ action: 'proceed' } | { action: 'declined'; message: string }> {
   const policy = evaluatePolicy(toolName, args, context)
 
+  logger.debug(
+    { toolName, needsApproval: policy.needsApproval, riskLevel: policy.riskLevel, reason: policy.reason },
+    '[Approval] policy evaluated',
+  )
+
   if (!policy.needsApproval) {
     return { action: 'proceed' }
   }

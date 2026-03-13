@@ -1,6 +1,6 @@
 import { toAISdkStream } from '@mastra/ai-sdk'
 import { createSupervisorAgent } from '../mastra/agents/supervisor-agent'
-import { logger } from './logger'
+import { logger, truncate } from './logger'
 import { agentContextStorage } from './agent-context'
 import { agentBackgroundQueue } from './queues'
 
@@ -48,7 +48,14 @@ export async function runAgentStream(options: {
     },
     maxSteps: 30,
     onStepFinish: (event) => {
-      const toolNames = event.toolCalls?.map((tc) => tc.payload.toolName) ?? []
+      const calls = event.toolCalls ?? []
+      const toolNames = calls.map((tc) => tc.payload.toolName)
+      for (const call of calls) {
+        logger.debug(
+          { threadId, tool: call.payload.toolName, args: truncate(call.payload.args) },
+          '[Agent] tool call detail',
+        )
+      }
       if (toolNames.length > 0) {
         logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
       }

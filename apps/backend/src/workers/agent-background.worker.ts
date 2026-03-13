@@ -8,7 +8,7 @@ import { finalSummaryService } from '../services/final-summary.service'
 import { projectServiceCatalog } from '../services/project-service-catalog.service'
 import { incidentService } from '../services/incident.service'
 import { publishChatEvent } from '../lib/redis'
-import { logger } from '../lib/logger'
+import { logger, truncate } from '../lib/logger'
 import { agentContextStorage } from '../lib/agent-context'
 import { redisConnection, type AgentBackgroundJobData } from '../lib/queues'
 import { registerActiveAgent, removeActiveAgent, getActiveAgent } from '../lib/agent-runner'
@@ -66,6 +66,10 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
                     toolName: call.payload.toolName,
                     args: call.payload.args as Record<string, unknown> | undefined,
                   })
+                  logger.debug(
+                    { threadId, tool: call.payload.toolName, args: truncate(call.payload.args) },
+                    '[Agent] tool call detail',
+                  )
                 }
                 if (toolNames.length > 0) {
                   logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
@@ -116,6 +120,10 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
         toolTrace.push(...attemptToolTrace)
 
         const shouldRetry = shouldRetryBackgroundAttempt(text, attemptToolTrace)
+        logger.debug(
+          { threadId, attempt, shouldRetry, toolCount: attemptToolTrace.length },
+          '[Agent] retry decision evaluated',
+        )
         if (shouldRetry && attempt < MAX_ATTEMPTS) {
           logger.warn(
             { threadId, incidentId: incident.id, attempt, text },

@@ -14,6 +14,7 @@ export const finalSummaryService = {
     threadId: string
     toolTrace?: SummaryToolTrace[]
   }) {
+    logger.info({ incidentId: input.incidentId, threadId: input.threadId }, '[Summary] ensureForIncident invoked')
     const incident = await incidentService.getById(input.incidentId)
     if (!incident) return null
     if (incident.status !== 'resolved' && incident.status !== 'closed') return incident
@@ -33,6 +34,8 @@ export const finalSummaryService = {
       toolTrace: input.toolTrace ?? [],
     })
 
+    logger.debug({ incidentId: input.incidentId, promptLength: prompt.length }, '[Summary] prompt built')
+
     const result = await summarizeAgent.generate(prompt)
     const summary = result.text.trim()
     if (!summary) {
@@ -40,10 +43,12 @@ export const finalSummaryService = {
       return incident
     }
 
+    logger.debug({ incidentId: input.incidentId, summaryLength: summary.length }, '[Summary] summary generated')
+
     const existingMeta = getFinalSummaryMetadata(incident.metadata)
     const generatedAt = existingMeta?.generatedAt ?? new Date().toISOString()
 
-    return incidentService.update(incident.id, {
+    const updated = await incidentService.update(incident.id, {
       finalSummaryDraft: summary,
       metadata: mergeFinalSummaryMetadata(incident.metadata, {
         status: existingMeta?.documentId ? 'saved' : 'generated',
@@ -53,6 +58,9 @@ export const finalSummaryService = {
         ...(existingMeta?.savedAt ? { savedAt: existingMeta.savedAt } : {}),
       }),
     })
+
+    logger.info({ incidentId: input.incidentId }, '[Summary] final summary saved')
+    return updated
   },
 }
 

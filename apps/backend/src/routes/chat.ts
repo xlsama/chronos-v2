@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai'
 import { toAISdkStream } from '@mastra/ai-sdk'
 import { type SummaryToolTrace } from '../lib/final-summary'
-import { logger } from '../lib/logger'
+import { logger, truncate } from '../lib/logger'
 import { abortAgent } from '../lib/agent-runner'
 import { publishChatEvent, getSubscriber, chatChannel } from '../lib/redis'
 import { agentContextStorage } from '../lib/agent-context'
@@ -68,6 +68,13 @@ export const chatRoutes = new Hono()
       }
     }
 
+    if (context) {
+      logger.info(
+        { threadId, incidentId, projectId: context.projectId, selectedSkills: context.selectedSkills },
+        '[Agent] context built',
+      )
+    }
+
     // Create supervisor agent with incident context
     const agent = await createSupervisorAgent(context)
 
@@ -90,6 +97,10 @@ export const chatRoutes = new Hono()
               toolName: call.payload.toolName,
               args: call.payload.args as Record<string, unknown> | undefined,
             })
+            logger.debug(
+              { threadId, tool: call.payload.toolName, args: truncate(call.payload.args) },
+              '[Agent] tool call detail',
+            )
           }
           if (toolNames.length > 0) {
             logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')

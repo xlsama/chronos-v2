@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { skillCatalogService } from '../services/skill-catalog.service'
 import { projectServiceCatalog } from '../services/project-service-catalog.service'
-import { logger } from './logger'
+import { logger, truncate } from './logger'
 
 export interface McpToolMeta {
   name: string
@@ -322,7 +322,7 @@ export const skillMcpManager = {
     const existing = activeMcps.get(skillSlug)
     if (existing) {
       if (existing.projectId === projectId && existing.serviceId === matchedService.id) {
-        logger.info({ skillSlug, projectId, serviceId: matchedService.id }, 'Reusing active MCP server')
+        logger.info({ skillSlug, projectId, serviceId: matchedService.id }, '[MCP] reusing active server')
         return existing.tools
       }
 
@@ -334,7 +334,7 @@ export const skillMcpManager = {
           projectId,
           serviceId: matchedService.id,
         },
-        'Replacing active MCP server due to context change',
+        '[MCP] replacing active server due to context change',
       )
       await this.deactivate(skillSlug)
     }
@@ -356,7 +356,7 @@ export const skillMcpManager = {
         port: matchedService.config.port ?? null,
         database: matchedService.config.database ?? null,
       },
-      'Activating MCP server'
+      '[MCP] activating server'
     )
 
     const mergedEnv: Record<string, string> = {}
@@ -390,10 +390,10 @@ export const skillMcpManager = {
         projectId,
         serviceId: matchedService.id,
       })
-      logger.info({ skillSlug, tools: toolMetas.map((t) => t.name) }, 'MCP server activated')
+      logger.info({ skillSlug, tools: toolMetas.map((t) => t.name) }, '[MCP] server activated')
       return toolMetas
     } catch (error) {
-      logger.error({ err: error, skillSlug }, 'Failed to activate MCP server')
+      logger.error({ err: error, skillSlug }, '[MCP] failed to activate server')
       throw error
     }
   },
@@ -412,10 +412,10 @@ export const skillMcpManager = {
     try {
       const normalizedArgs = normalizeMcpArgs(active.serverType, mcpToolName, args)
       const result = await active.client.callTool({ name: mcpToolName, arguments: normalizedArgs })
-      logger.info({ toolName, args: normalizedArgs }, 'MCP tool execution succeeded')
+      logger.info({ toolName, result: truncate(result) }, '[MCP] tool execution succeeded')
       return result
     } catch (error) {
-      logger.error({ err: error, toolName, args }, 'MCP tool execution failed')
+      logger.error({ err: error, toolName }, '[MCP] tool execution failed')
       throw error
     }
   },
@@ -427,10 +427,10 @@ export const skillMcpManager = {
     try {
       await active.transport.close()
     } catch (error) {
-      logger.warn({ err: error, skillSlug }, 'Error closing MCP transport')
+      logger.warn({ err: error, skillSlug }, '[MCP] error closing transport')
     }
     activeMcps.delete(skillSlug)
-    logger.info({ skillSlug }, 'MCP server deactivated')
+    logger.info({ skillSlug }, '[MCP] server deactivated')
   },
 
   async deactivateAll(): Promise<void> {
