@@ -278,7 +278,11 @@ async function finalizeBackgroundIncidentIfNeeded(options: {
 
   const mcpQueries = extractExecutedQueries(toolTrace)
   const meaningfulQueries = extractMeaningfulQueries(mcpQueries)
-  const hasEvidence = meaningfulQueries.length > 0 && hasConfidentDiagnosis(text)
+  const diagnosisText = [text, latestIncident.resolutionNotes ?? '']
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join('\n\n')
+  const hasEvidence = meaningfulQueries.length > 0 && hasConfidentDiagnosis(diagnosisText)
   if (!hasEvidence) return
 
   const services = await projectServiceCatalog.list(incident.projectId)
@@ -288,7 +292,9 @@ async function finalizeBackgroundIncidentIfNeeded(options: {
 
   await incidentService.update(incident.id, {
     status: 'resolved',
-    resolutionNotes: buildResolutionNotes(serviceLabel, text, meaningfulQueries.slice(0, 6)),
+    resolutionNotes: latestIncident.resolutionNotes?.trim()
+      ? latestIncident.resolutionNotes
+      : buildResolutionNotes(serviceLabel, diagnosisText, meaningfulQueries.slice(0, 6)),
     summary: resolutionTitle,
   })
 
