@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useChat, type UIMessage } from "@ai-sdk/react";
-import type { IncidentDetail } from "@chronos/shared";
+import type { IncidentDetail, ApprovalRequiredEvent } from "@chronos/shared";
 import { DefaultChatTransport } from "ai";
 import { Bot, Plus, Send, Square } from "lucide-react";
 import { AttachmentPreview } from "@/components/ui/attachment-preview";
@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { ChatMessage } from "./chat-message";
 import { getMessageText } from "./chat-utils";
 import { IncidentTimelineEvent, type IncidentTimelineEventItem } from "./incident-timeline-event";
+import { ToolApprovalCard } from "./tool-approval-card";
 
 interface ChatPanelProps {
   threadId: string;
@@ -34,6 +35,10 @@ interface ChatPanelProps {
   summarySaved?: boolean;
   className?: string;
   style?: React.CSSProperties;
+}
+
+interface ApprovalEntry extends ApprovalRequiredEvent {
+  status: "pending" | "approved" | "declined";
 }
 
 const TIMELINE_ORDER: Record<IncidentTimelineEventItem["kind"], number> = {
@@ -61,6 +66,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [backgroundStreaming, setBackgroundStreaming] = useState(false);
+  const [approvals, setApprovals] = useState<ApprovalEntry[]>([]);
   const hadInteractiveRunRef = useRef(false);
   const queryClient = useQueryClient();
   const { items, addFiles, removeFile, getAttachments, reset, isUploading } = useFileUpload();
@@ -74,6 +80,26 @@ export function ChatPanel({
       return (await res.json()) as UIMessage[];
     },
   });
+
+  // Load pending approvals on mount (page refresh recovery)
+  useEffect(() => {
+    if (!threadId) return;
+    fetch(`/api/chat/${threadId}/approvals`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Array<{ id: string; toolName: string; toolArgs?: Record<string, unknown> | null; riskLevel: string; reason?: string | null; status: string; createdAt: string }>) => {
+        const entries: ApprovalEntry[] = data.map((a) => ({
+          id: a.id,
+          toolName: a.toolName,
+          toolArgs: a.toolArgs,
+          riskLevel: a.riskLevel as ApprovalEntry["riskLevel"],
+          reason: a.reason,
+          createdAt: a.createdAt,
+          status: a.status as ApprovalEntry["status"],
+        }));
+        setApprovals(entries);
+      })
+      .catch(() => {});
+  }, [threadId]);
 
   const transport = useMemo(
     () =>
@@ -117,7 +143,7 @@ export function ChatPanel({
     }
   }, [incidentId, queryClient, status, threadId]);
 
-  // SSE subscription to track background agent state
+  // SSE subscription to track background agent state + approvals
   const onStreamStart = useCallback(() => setBackgroundStreaming(true), []);
   const onStreamChunk = useCallback(() => {
     setBackgroundStreaming((prev) => (prev ? prev : true));
@@ -132,6 +158,24 @@ export function ChatPanel({
   const onStreamAborted = useCallback(() => setBackgroundStreaming(false), []);
   const onStreamError = useCallback(() => setBackgroundStreaming(false), []);
 
+  const onApprovalRequired = useCallback((data: ApprovalRequiredEvent) => {
+    setApprovals((prev) => {
+      // Avoid duplicates
+      if (prev.some((a) => a.id === data.id)) return prev;
+      return [...prev, { ...data, status: "pending" as const }];
+    });
+  }, []);
+
+  const onApprovalResolved = useCallback((data: { id: string; action: "approve" | "decline" }) => {
+    setApprovals((prev) =>
+      prev.map((a) =>
+        a.id === data.id
+          ? { ...a, status: data.action === "approve" ? ("approved" as const) : ("declined" as const) }
+          : a,
+      ),
+    );
+  }, []);
+
   useChatSubscription({
     threadId,
     enabled: true,
@@ -140,6 +184,8 @@ export function ChatPanel({
     onStreamEnd,
     onStreamAborted,
     onStreamError,
+    onApprovalRequired,
+    onApprovalResolved,
   });
 
   // Unified active state: interactive chat OR background agent
@@ -152,6 +198,29 @@ export function ChatPanel({
       setBackgroundStreaming(false);
     }
   }, [isLoading, backgroundStreaming, stop, threadId]);
+
+  const handleResolveApproval = useCallback(
+    (approvalId: string, action: "approve" | "decline") => {
+      fetch(`/api/chat/${threadId}/approvals/${approvalId}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            setApprovals((prev) =>
+              prev.map((a) =>
+                a.id === approvalId
+                  ? { ...a, status: action === "approve" ? ("approved" as const) : ("declined" as const) }
+                  : a,
+              ),
+            );
+          }
+        })
+        .catch(() => {});
+    },
+    [threadId],
+  );
 
   const visibleMessages = useMemo(() => {
     if (!incident || incident.source !== "manual") {
@@ -281,12 +350,15 @@ export function ChatPanel({
     [addFiles],
   );
 
+  // Filter approvals that have pending status for rendering before "Agent is working"
+  const pendingApprovals = approvals.filter((a) => a.status === "pending");
+
   return (
     <div className={`flex h-full flex-col ${className ?? ""}`} style={style}>
       <ChatContainerRoot className="flex-1 min-h-0">
         <ChatContainerContent className="mx-auto flex w-full max-w-5xl flex-col px-4 py-5 md:px-6 md:py-5">
           <div className="flex flex-col gap-4">
-            {timelineItems.length === 0 && !isAgentActive && (
+            {timelineItems.length === 0 && !isAgentActive && approvals.length === 0 && (
               <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 px-5 py-5 text-sm text-muted-foreground">
                 这里会持续累积调查记录。你可以补充上下文、上传证据，或要求 Agent 继续推进处理。
               </div>
@@ -314,7 +386,28 @@ export function ChatPanel({
               </div>
             ))}
 
-            {(status === "submitted" || backgroundStreaming) && (
+            {/* Resolved approvals (not pending) rendered inline */}
+            {approvals
+              .filter((a) => a.status !== "pending")
+              .map((approval) => (
+                <ToolApprovalCard
+                  key={`approval-${approval.id}`}
+                  approval={approval}
+                  status={approval.status}
+                />
+              ))}
+
+            {/* Pending approvals rendered before "Agent is working" */}
+            {pendingApprovals.map((approval) => (
+              <ToolApprovalCard
+                key={`approval-${approval.id}`}
+                approval={approval}
+                status="pending"
+                onResolve={handleResolveApproval}
+              />
+            ))}
+
+            {(status === "submitted" || backgroundStreaming) && pendingApprovals.length === 0 && (
               <div className="flex gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200">
                   <Bot className="size-4" />

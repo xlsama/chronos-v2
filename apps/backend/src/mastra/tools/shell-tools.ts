@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
+import { checkApproval } from '../../lib/approval-interceptor'
 
 const MAX_OUTPUT_CHARS = 12_000
 
@@ -12,7 +13,7 @@ function appendOutput(current: string, chunk: string) {
 
 export const runContainerCommand = createTool({
   id: 'runContainerCommand',
-  description: '在 Chronos 后端运行容器中执行非交互式 shell 命令。优先用于 MCP 不足时的只读探测、检查命令是否存在，或在说明用途后安装额外 CLI。避免长时间运行和破坏性操作。',
+  description: '在 Chronos 后端运行容器中执行非交互式 shell 命令。所有 shell 命令都需要人工审批。优先用于 MCP 不足时的只读探测、检查命令是否存在，或在说明用途后安装额外 CLI。避免长时间运行和破坏性操作。',
   inputSchema: z.object({
     command: z.string().min(1).max(4000).describe('要在容器内执行的 shell 命令，使用 /bin/sh -lc 运行'),
     timeoutMs: z.number().int().min(1_000).max(300_000).default(60_000).describe('命令超时时间（毫秒）'),
@@ -25,6 +26,12 @@ export const runContainerCommand = createTool({
     error: z.string().optional(),
   }),
   execute: async (input) => {
+    // Check approval policy
+    const decision = await checkApproval('runContainerCommand', input)
+    if (decision.action === 'declined') {
+      return { success: false, error: decision.message }
+    }
+
     const timeoutMs = input.timeoutMs ?? 60_000
 
     return new Promise((resolve) => {

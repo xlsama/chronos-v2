@@ -5,10 +5,12 @@ import { type SummaryToolTrace } from '../lib/final-summary'
 import { logger } from '../lib/logger'
 import { abortAgent } from '../lib/agent-runner'
 import { publishChatEvent, getSubscriber, chatChannel } from '../lib/redis'
+import { agentContextStorage } from '../lib/agent-context'
 import { finalSummaryService } from '../services/final-summary.service'
 import { messageService } from '../services/message.service'
 import { incidentService } from '../services/incident.service'
 import { projectService } from '../services/project.service'
+import { toolApprovalService } from '../services/tool-approval.service'
 import { createSupervisorAgent } from '../mastra/agents/supervisor-agent'
 
 export const chatRoutes = new Hono()
@@ -55,7 +57,6 @@ export const chatRoutes = new Hono()
           projectName = project?.name
         }
         context = {
-          automationMode: 'interactive',
           incidentId: incident.id,
           incidentContent: incident.content,
           incidentSummary: incident.summary ?? undefined,
@@ -73,37 +74,40 @@ export const chatRoutes = new Hono()
     logger.info({ threadId, incidentId }, '[Agent] supervisor started')
     const toolTrace: SummaryToolTrace[] = []
 
-    const response = await agent.stream(messageText, {
-      memory: {
-        thread: threadId,
-        resource: incidentId ?? 'chat',
-      },
-      maxSteps: 50,
-      onStepFinish: (event) => {
-        const calls = event.toolCalls ?? []
-        const toolNames = calls.map((tc) => tc.payload.toolName)
-        for (const call of calls) {
-          toolTrace.push({
-            toolName: call.payload.toolName,
-            args: call.payload.args as Record<string, unknown> | undefined,
-          })
-        }
-        if (toolNames.length > 0) {
-          logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
-        }
-      },
-      delegation: {
-        onDelegationStart: ({ primitiveId, primitiveType }) => {
-          logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
+    const response = await agentContextStorage.run(
+      { threadId, incidentId },
+      () => agent.stream(messageText, {
+        memory: {
+          thread: threadId,
+          resource: incidentId ?? 'chat',
         },
-        onDelegationComplete: ({ primitiveId, duration, success, error }) => {
-          logger.info(
-            { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
-            '[Agent] sub-agent completed',
-          )
+        maxSteps: 30,
+        onStepFinish: (event) => {
+          const calls = event.toolCalls ?? []
+          const toolNames = calls.map((tc) => tc.payload.toolName)
+          for (const call of calls) {
+            toolTrace.push({
+              toolName: call.payload.toolName,
+              args: call.payload.args as Record<string, unknown> | undefined,
+            })
+          }
+          if (toolNames.length > 0) {
+            logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
+          }
         },
-      },
-    })
+        delegation: {
+          onDelegationStart: ({ primitiveId, primitiveType }) => {
+            logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
+          },
+          onDelegationComplete: ({ primitiveId, duration, success, error }) => {
+            logger.info(
+              { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
+              '[Agent] sub-agent completed',
+            )
+          },
+        },
+      }),
+    )
 
     logger.info({ threadId }, '[Agent] supervisor stream created')
 
@@ -238,4 +242,28 @@ export const chatRoutes = new Hono()
     const { threadId } = c.req.param()
     const aborted = abortAgent(threadId)
     return c.json({ success: aborted })
+  })
+
+  // List approvals for a thread
+  .get('/:threadId/approvals', async (c) => {
+    const { threadId } = c.req.param()
+    const approvals = await toolApprovalService.listByThread(threadId)
+    return c.json(approvals)
+  })
+
+  // Resolve an approval (approve or decline)
+  .post('/:threadId/approvals/:approvalId/resolve', async (c) => {
+    const { approvalId } = c.req.param()
+    const body = await c.req.json<{ action: 'approve' | 'decline' }>()
+
+    if (!body.action || !['approve', 'decline'].includes(body.action)) {
+      return c.json({ error: 'action must be "approve" or "decline"' }, 400)
+    }
+
+    const approval = await toolApprovalService.resolve(approvalId, body.action)
+    if (!approval) {
+      return c.json({ error: 'Approval not found or already resolved' }, 404)
+    }
+
+    return c.json({ success: true, approval })
   })

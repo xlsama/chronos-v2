@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import type { ApprovalRequiredEvent } from '@chronos/shared'
 
 interface UseChatSubscriptionOptions {
   threadId: string | undefined
@@ -8,6 +9,8 @@ interface UseChatSubscriptionOptions {
   onStreamAborted?: (data: { threadId: string }) => void
   onStreamError?: (data: { error: string }) => void
   onMessage?: (data: unknown) => void
+  onApprovalRequired?: (data: ApprovalRequiredEvent) => void
+  onApprovalResolved?: (data: { id: string; action: 'approve' | 'decline' }) => void
   enabled?: boolean
 }
 
@@ -19,6 +22,8 @@ export function useChatSubscription({
   onStreamAborted,
   onStreamError,
   onMessage,
+  onApprovalRequired,
+  onApprovalResolved,
   enabled = true,
 }: UseChatSubscriptionOptions) {
   const eventSourceRef = useRef<EventSource | null>(null)
@@ -51,6 +56,12 @@ export function useChatSubscription({
           case 'message':
             onMessage?.(parsed.data)
             break
+          case 'approval-required':
+            onApprovalRequired?.(parsed.data as ApprovalRequiredEvent)
+            break
+          case 'approval-resolved':
+            onApprovalResolved?.(parsed.data as { id: string; action: 'approve' | 'decline' })
+            break
         }
       } catch {
         // Ignore parse errors (heartbeats, etc.)
@@ -65,7 +76,7 @@ export function useChatSubscription({
       es.close()
       eventSourceRef.current = null
     }
-  }, [threadId, enabled, onStreamStart, onStreamChunk, onStreamEnd, onStreamAborted, onStreamError, onMessage])
+  }, [threadId, enabled, onStreamStart, onStreamChunk, onStreamEnd, onStreamAborted, onStreamError, onMessage, onApprovalRequired, onApprovalResolved])
 
   return {
     close: () => {

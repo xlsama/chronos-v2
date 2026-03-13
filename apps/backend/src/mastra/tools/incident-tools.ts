@@ -1,11 +1,12 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { incidentService } from '../../services/incident.service'
+import { checkApproval } from '../../lib/approval-interceptor'
 import { logger } from '../../lib/logger'
 
 export const updateIncidentStatus = createTool({
   id: 'updateIncidentStatus',
-  description: '更新事件状态。可用状态: new, triaging, in_progress, waiting_human, resolved, closed',
+  description: '更新事件状态。可用状态: new, triaging, in_progress, waiting_human, resolved, closed。关闭事件（resolved/closed）需要人工审批。',
   inputSchema: z.object({
     incidentId: z.string().describe('事件 ID'),
     status: z.enum(['new', 'triaging', 'in_progress', 'waiting_human', 'resolved', 'closed']).describe('目标状态'),
@@ -18,6 +19,12 @@ export const updateIncidentStatus = createTool({
   }),
   execute: async (input) => {
     try {
+      // Check approval policy (resolving/closing requires approval)
+      const decision = await checkApproval('updateIncidentStatus', input)
+      if (decision.action === 'declined') {
+        return { success: false, error: decision.message }
+      }
+
       const incident = await incidentService.update(input.incidentId, {
         status: input.status,
         ...(input.resolutionNotes ? { resolutionNotes: input.resolutionNotes } : {}),

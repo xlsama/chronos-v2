@@ -1,6 +1,8 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { skillMcpManager } from '../../lib/skill-mcp-manager'
+import { skillCatalogService } from '../../services/skill-catalog.service'
+import { checkApproval } from '../../lib/approval-interceptor'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -61,6 +63,18 @@ function extractMcpErrorMessage(result: unknown): string | null {
   return 'MCP tool returned an error result'
 }
 
+async function getSkillRiskLevel(toolName: string): Promise<string | undefined> {
+  const underscoreIndex = toolName.indexOf('_')
+  if (underscoreIndex === -1) return undefined
+  const skillSlug = toolName.substring(0, underscoreIndex)
+  try {
+    const skill = await skillCatalogService.getBySlug(skillSlug)
+    return skill?.riskLevel
+  } catch {
+    return undefined
+  }
+}
+
 export const activateSkillMcp = createTool({
   id: 'activateSkillMcp',
   description: '激活 Skill 所需的 MCP 服务器。根据 Skill 的 mcpServers 配置和项目服务信息，动态注册 MCP 服务器并返回可用的工具列表。必须在 executeMcpTool 之前调用。',
@@ -85,7 +99,7 @@ export const activateSkillMcp = createTool({
 
 export const executeMcpTool = createTool({
   id: 'executeMcpTool',
-  description: '执行已激活的 MCP 工具。传入工具名称和参数，返回执行结果。高风险操作将被标记，建议先确认风险等级。',
+  description: '执行已激活的 MCP 工具。传入工具名称和参数，返回执行结果。高风险操作（写操作）会自动触发人工审批。',
   inputSchema: z.object({
     toolName: z.string().describe('MCP 工具名称（从 activateSkillMcp 返回的列表中选择）'),
     args: z.record(z.string(), z.unknown()).describe('工具参数'),
@@ -97,6 +111,13 @@ export const executeMcpTool = createTool({
   }),
   execute: async (input) => {
     try {
+      // Check approval policy
+      const skillRiskLevel = await getSkillRiskLevel(input.toolName)
+      const decision = await checkApproval('executeMcpTool', input, { skillRiskLevel })
+      if (decision.action === 'declined') {
+        return { success: false, error: decision.message }
+      }
+
       const rawResult = await skillMcpManager.executeTool(input.toolName, input.args)
       const result = simplifyMcpResult(rawResult)
       const errorMessage = extractMcpErrorMessage(result)

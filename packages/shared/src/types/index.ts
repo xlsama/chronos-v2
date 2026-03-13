@@ -5,3 +5,4 @@ export type * from "./project";
 export type * from "./project-document";
 export type * from "./project-service";
 export type * from "./skill";
+export type * from "./tool-approval";

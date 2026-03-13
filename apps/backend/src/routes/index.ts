@@ -8,6 +8,7 @@ import { serviceMapContextRoutes } from './service-map-context'
 import { jobRoutes } from './jobs'
 import { chatRoutes } from './chat'
 import { notificationSettingsRoutes } from './notification-settings'
+import { queueRoutes } from './queues'
 
 export const apiRoutes = new Hono()
   .route('/api/incidents', incidentRoutes)
@@ -18,6 +19,7 @@ export const apiRoutes = new Hono()
   .route('/api/jobs', jobRoutes)
   .route('/api/chat', chatRoutes)
   .route('/api/notification-settings', notificationSettingsRoutes)
+  .route('/api/queues', queueRoutes)
   .route('/api', uploadRoutes)
 
 export type AppType = typeof apiRoutes

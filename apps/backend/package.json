@@ -28,6 +28,7 @@
     "@mastra/rag": "^2.1.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "ai": "^6.0.116",
+    "bullmq": "^5.71.0",
     "csv-parse": "^6.1.0",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",

@@ -13,6 +13,7 @@ import { initVectorStore } from "./db/vector-store";
 import { ensureDataRootsSync } from "./lib/file-storage";
 import { startCronJobs } from "./cron/index";
 import { ensureGlobalProject } from "./services/project.service";
+import { startWorkers, stopWorkers } from "./lib/worker-manager";
 
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 const dataDir = path.resolve(env.DATA_DIR);
@@ -86,6 +87,20 @@ ensureGlobalProject().catch((err) => {
 });
 
 startCronJobs();
+
+// Start BullMQ workers
+startWorkers().catch((err) => {
+  logger.error(err, "Failed to start workers");
+});
+
+// Graceful shutdown
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, async () => {
+    logger.info(`Received ${signal}, shutting down...`);
+    await stopWorkers();
+    process.exit(0);
+  });
+}
 
 // Start server
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {

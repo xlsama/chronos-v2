@@ -29,6 +29,13 @@
       "when": 1773366344752,
       "tag": "0003_red_red_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773379818020,
+      "tag": "0004_chief_master_chief",
+      "breakpoints": true
     }
   ]
 }
