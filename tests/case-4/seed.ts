@@ -7,7 +7,6 @@ import {
   waitForKnowledgeReady,
   createSkill,
 } from '../helpers/chronos-api'
-import { writeSkillConfig } from '../helpers/skill-config'
 
 const MYSQL_HOST = process.env.MYSQL_HOST ?? '127.0.0.1'
 const MYSQL_PORT = Number(process.env.MYSQL_PORT ?? 33306)
@@ -18,6 +17,11 @@ const MYSQL_DATABASE = 'shop_service'
 const SKILL_MARKDOWN = `---
 name: "MySQL Data Diagnosis"
 description: "诊断和分析 MySQL 数据库中的数据异常、配置错误和性能问题"
+mcpServers:
+  - mysql
+applicableServiceTypes:
+  - mysql
+riskLevel: read-only
 ---
 
 # MySQL 数据诊断方法论
@@ -224,11 +228,6 @@ export async function seed(): Promise<SeedResult> {
   console.log('[5/5] 创建 MySQL Data Diagnosis Skill...')
   const skill = await createSkill(SKILL_MARKDOWN)
   console.log(`  ✓ Skill 已创建: ${skill.slug}`)
-
-  writeSkillConfig(skill.slug, {
-    mcpServers: ['mysql'],
-    applicableServiceTypes: ['mysql'],
-  })
 
   return {
     projectId: project.id,

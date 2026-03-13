@@ -6,7 +6,6 @@ import {
   waitForKnowledgeReady,
   createSkill,
 } from '../helpers/chronos-api'
-import { writeSkillConfig } from '../helpers/skill-config'
 
 const PUSHGATEWAY_HOST = process.env.PUSHGATEWAY_HOST ?? '127.0.0.1'
 const PUSHGATEWAY_PORT = Number(process.env.PUSHGATEWAY_PORT ?? 39091)
@@ -16,6 +15,11 @@ const PROMETHEUS_PORT = Number(process.env.PROMETHEUS_PORT ?? 39090)
 const SKILL_MARKDOWN = `---
 name: "Prometheus Metrics Analysis"
 description: "通过 Prometheus 指标分析微服务健康状态，诊断服务异常、内存泄漏、频繁重启等问题"
+mcpServers:
+  - prometheus
+applicableServiceTypes:
+  - prometheus
+riskLevel: read-only
 ---
 
 # Prometheus 指标分析诊断方法论
@@ -163,11 +167,6 @@ container_memory_limit_bytes{service="user-service",pod="user-service-3a4b5c-q9w
   console.log('[5/5] 创建 Prometheus Metrics Analysis Skill...')
   const skill = await createSkill(SKILL_MARKDOWN)
   console.log(`  ✓ Skill 已创建: ${skill.slug}`)
-
-  writeSkillConfig(skill.slug, {
-    mcpServers: ['prometheus'],
-    applicableServiceTypes: ['prometheus'],
-  })
 
   return {
     projectId: project.id,

@@ -7,52 +7,28 @@ export interface SkillRecord {
   name: string
   slug: string
   description?: string
+  mcpServers?: string[]
+  applicableServiceTypes?: string[]
+  riskLevel?: string
   markdown: string
 }
 
 async function readSkill(slug: string): Promise<SkillRecord | null> {
   const skillDir = path.join(getSkillsRoot(), slug)
   const markdownPath = path.join(skillDir, 'skill.md')
-  const configPath = path.join(skillDir, 'skill.config.json')
 
   try {
     const raw = await fs.readFile(markdownPath, 'utf-8')
     const { data: frontmatter } = matter(raw)
 
-    if (frontmatter.name) {
-      return {
-        name: frontmatter.name,
-        slug,
-        description: frontmatter.description,
-        markdown: raw,
-      }
-    }
-
-    // Fallback: no frontmatter but has skill.config.json (old format)
-    try {
-      const configText = await fs.readFile(configPath, 'utf-8')
-      const config = JSON.parse(configText)
-      // Reconstruct with frontmatter prepended
-      const fm = [
-        '---',
-        `name: "${config.name}"`,
-        ...(config.description ? [`description: "${config.description}"`] : []),
-        '---',
-        '',
-      ].join('\n')
-      return {
-        name: config.name,
-        slug,
-        description: config.description,
-        markdown: fm + raw,
-      }
-    } catch {
-      // No config either, use slug as name
-      return {
-        name: slug,
-        slug,
-        markdown: raw,
-      }
+    return {
+      name: frontmatter.name || slug,
+      slug,
+      description: frontmatter.description,
+      mcpServers: frontmatter.mcpServers,
+      applicableServiceTypes: frontmatter.applicableServiceTypes,
+      riskLevel: frontmatter.riskLevel,
+      markdown: raw,
     }
   } catch {
     return null
@@ -87,6 +63,9 @@ export const skillCatalogService = {
       name,
       slug,
       description: frontmatter.description,
+      mcpServers: frontmatter.mcpServers,
+      applicableServiceTypes: frontmatter.applicableServiceTypes,
+      riskLevel: frontmatter.riskLevel,
       markdown: input.markdown,
     })
   },
@@ -100,6 +79,9 @@ export const skillCatalogService = {
       name: frontmatter.name || existing.name,
       slug,
       description: frontmatter.description ?? existing.description,
+      mcpServers: frontmatter.mcpServers ?? existing.mcpServers,
+      applicableServiceTypes: frontmatter.applicableServiceTypes ?? existing.applicableServiceTypes,
+      riskLevel: frontmatter.riskLevel ?? existing.riskLevel,
       markdown: input.markdown,
     })
   },

@@ -1,13 +1,14 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 
 const SKILLS_ROOT = join(import.meta.dirname, '../../apps/backend/data/skills')
 
-export function writeSkillConfig(skillSlug: string, config: object): void {
-  const dir = join(SKILLS_ROOT, skillSlug)
-  mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, 'skill.config.json'), JSON.stringify(config, null, 2))
-  console.log(`  [skill] config written: ${dir}/skill.config.json`)
+/**
+ * @deprecated Skill config is now stored in skill.md frontmatter.
+ * Use the createSkill API with mcpServers/applicableServiceTypes in frontmatter instead.
+ */
+export function writeSkillConfig(_skillSlug: string, _config: object): void {
+  // No-op: config is now embedded in skill.md frontmatter
 }
 
 export function removeSkillConfig(skillSlug: string): void {

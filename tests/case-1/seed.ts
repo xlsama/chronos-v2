@@ -7,7 +7,6 @@ import {
   waitForKnowledgeReady,
   createSkill,
 } from '../helpers/chronos-api'
-import { writeSkillConfig } from '../helpers/skill-config'
 
 const REDIS_HOST = process.env.REDIS_HOST ?? '127.0.0.1'
 const REDIS_PORT = Number(process.env.REDIS_PORT ?? 36379)
@@ -15,6 +14,11 @@ const REDIS_PORT = Number(process.env.REDIS_PORT ?? 36379)
 const SKILL_MARKDOWN = `---
 name: "Redis Cache Diagnosis"
 description: "诊断 Redis 缓存和配置异常，包括限流配置、功能开关、缓存数据完整性问题"
+mcpServers:
+  - redis
+applicableServiceTypes:
+  - redis
+riskLevel: read-only
 ---
 
 # Redis 缓存诊断方法论
@@ -136,11 +140,6 @@ export async function seed(): Promise<SeedResult> {
   console.log('[5/5] 创建 Redis Cache Diagnosis Skill...')
   const skill = await createSkill(SKILL_MARKDOWN)
   console.log(`  ✓ Skill 已创建: ${skill.slug}`)
-
-  writeSkillConfig(skill.slug, {
-    mcpServers: ['redis'],
-    applicableServiceTypes: ['redis'],
-  })
 
   return {
     projectId: project.id,

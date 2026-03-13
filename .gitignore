@@ -42,5 +42,8 @@ __pycache__/
 # Drizzle
 drizzle/meta
 
-# Mastra Memory (LibSQL)
-**/*/data/projects
+# Backend runtime data
+apps/backend/data/*
+!apps/backend/data/skills/
+!apps/backend/data/skills/**
+

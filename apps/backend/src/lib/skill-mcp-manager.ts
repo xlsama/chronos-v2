@@ -1,10 +1,7 @@
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { skillCatalogService } from '../services/skill-catalog.service'
 import { projectServiceCatalog } from '../services/project-service-catalog.service'
-import { getSkillsRoot } from './file-storage'
 import { logger } from './logger'
 
 interface ActiveMcp {
@@ -14,7 +11,275 @@ interface ActiveMcp {
   serverType: string
 }
 
+interface SpawnConfig {
+  command: string
+  args: string[]
+  env: Record<string, string>
+}
+
 const activeMcps = new Map<string, ActiveMcp>()
+
+// ── Spawn Config Registry ──────────────────────────────────────────
+
+type SpawnConfigBuilder = (config: Record<string, unknown>) => SpawnConfig
+
+const spawnRegistry: Record<string, SpawnConfigBuilder> = {
+  // ── Databases ──────────────────────────────────────────────────
+  mysql: (config) => ({
+    command: 'npx',
+    args: ['-y', '@benborla29/mcp-server-mysql'],
+    env: {
+      MYSQL_HOST: String(config.host ?? 'localhost'),
+      MYSQL_PORT: String(config.port ?? 3306),
+      MYSQL_USER: String(config.user ?? config.username ?? ''),
+      MYSQL_PASS: String(config.password ?? ''),
+      MYSQL_DB: String(config.database ?? ''),
+      MYSQL_PASSWORD: String(config.password ?? ''),
+      MYSQL_DATABASE: String(config.database ?? ''),
+    },
+  }),
+
+  postgresql: (config) => {
+    const host = String(config.host ?? 'localhost')
+    const port = String(config.port ?? 5432)
+    const user = String(config.user ?? config.username ?? '')
+    const password = String(config.password ?? '')
+    const database = String(config.database ?? '')
+    const url = `postgresql://${user}:${password}@${host}:${port}/${database}`
+    return {
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-postgres', url],
+      env: {},
+    }
+  },
+
+  mongodb: (config) => {
+    const host = String(config.host ?? 'localhost')
+    const port = String(config.port ?? 27017)
+    const user = config.user ?? config.username
+    const password = config.password
+    const database = config.database ?? ''
+    let connectionString: string
+    if (config.connectionString) {
+      connectionString = String(config.connectionString)
+    } else if (user && password) {
+      connectionString = `mongodb://${user}:${password}@${host}:${port}/${database}`
+    } else {
+      connectionString = `mongodb://${host}:${port}/${database}`
+    }
+    return {
+      command: 'npx',
+      args: ['-y', 'mongodb-mcp-server', '--connectionString', connectionString],
+      env: {},
+    }
+  },
+
+  clickhouse: (config) => ({
+    command: 'uvx',
+    args: ['@clickhouse/mcp-server'],
+    env: {
+      CLICKHOUSE_URL: String(config.url ?? `http://${config.host ?? 'localhost'}:${config.port ?? 8123}`),
+      ...(config.user || config.username ? { CLICKHOUSE_USER: String(config.user ?? config.username) } : {}),
+      ...(config.password ? { CLICKHOUSE_PASSWORD: String(config.password) } : {}),
+    },
+  }),
+
+  // ── Cache / KV ─────────────────────────────────────────────────
+  redis: (config) => {
+    const url = String(config.url ?? `redis://${config.host ?? 'localhost'}:${config.port ?? 6379}`)
+    return {
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-redis', url],
+      env: {},
+    }
+  },
+
+  // ── Search / Log ───────────────────────────────────────────────
+  elasticsearch: (config) => ({
+    command: 'npx',
+    args: ['-y', '@elastic/mcp-server-elasticsearch'],
+    env: {
+      ES_URL: String(config.url ?? ''),
+      ...(config.apiKey ? { ES_API_KEY: String(config.apiKey) } : {}),
+    },
+  }),
+
+  // ── Monitoring ─────────────────────────────────────────────────
+  prometheus: (config) => {
+    const url = String(config.url ?? `http://${config.host ?? 'localhost'}:${config.port ?? 9090}`)
+    return {
+      command: 'npx',
+      args: ['-y', 'prometheus-mcp@latest', 'stdio'],
+      env: { PROMETHEUS_URL: url },
+    }
+  },
+
+  grafana: (config) => ({
+    command: 'npx',
+    args: ['-y', '@leval/mcp-grafana'],
+    env: {
+      GRAFANA_URL: String(config.url ?? ''),
+      ...(config.token ? { GRAFANA_API_KEY: String(config.token) } : {}),
+    },
+  }),
+
+  loki: (config) => ({
+    command: 'npx',
+    args: ['-y', 'simple-loki-mcp'],
+    env: {
+      LOKI_URL: String(config.url ?? ''),
+      ...(config.apiKey ? { LOKI_API_KEY: String(config.apiKey) } : {}),
+    },
+  }),
+
+  sentry: (config) => ({
+    command: 'npx',
+    args: ['-y', '@sentry/mcp-server'],
+    env: {
+      ...(config.token ? { SENTRY_AUTH_TOKEN: String(config.token) } : {}),
+    },
+  }),
+
+  datadog: (config) => ({
+    command: 'npx',
+    args: ['-y', '@winor30/mcp-server-datadog'],
+    env: {
+      DD_API_KEY: String(config.apiKey ?? ''),
+      ...(config.appKey ? { DD_APP_KEY: String(config.appKey) } : {}),
+      DD_SITE: String(config.site ?? 'datadoghq.com'),
+    },
+  }),
+
+  // ── Messaging ──────────────────────────────────────────────────
+  kafka: (config) => ({
+    command: 'npx',
+    args: ['-y', '@confluentinc/mcp-confluent'],
+    env: {
+      ...(config.brokers ? { KAFKA_BOOTSTRAP_SERVERS: String(config.brokers) } : {}),
+      ...(config.apiKey ? { CONFLUENT_CLOUD_API_KEY: String(config.apiKey) } : {}),
+      ...(config.apiSecret ? { CONFLUENT_CLOUD_API_SECRET: String(config.apiSecret) } : {}),
+    },
+  }),
+
+  rabbitmq: (config) => {
+    const host = String(config.host ?? 'localhost')
+    const port = String(config.port ?? 5672)
+    const user = config.user ?? config.username
+    const password = config.password
+    const url = user && password
+      ? `amqp://${user}:${password}@${host}:${port}`
+      : `amqp://${host}:${port}`
+    return {
+      command: 'uvx',
+      args: ['mcp-server-rabbitmq'],
+      env: { RABBITMQ_URL: url },
+    }
+  },
+
+  // ── Container / Orchestration ──────────────────────────────────
+  kubernetes: (config) => {
+    const env: Record<string, string> = {}
+    if (config.kubeconfig) env.KUBECONFIG = String(config.kubeconfig)
+    return {
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-kubernetes'],
+      env,
+    }
+  },
+
+  docker: (config) => ({
+    command: 'npx',
+    args: ['-y', 'mcp-docker-server'],
+    env: {
+      ...(config.socketPath ? { DOCKER_HOST: `unix://${config.socketPath}` } : {}),
+      ...(config.url ? { DOCKER_HOST: String(config.url) } : {}),
+    },
+  }),
+
+  argocd: (config) => ({
+    command: 'npx',
+    args: ['-y', 'argocd-mcp@latest'],
+    env: {
+      ARGOCD_BASE_URL: String(config.url ?? ''),
+      ...(config.token ? { ARGOCD_API_TOKEN: String(config.token) } : {}),
+    },
+  }),
+
+  // ── CI/CD / Workflow ───────────────────────────────────────────
+  airflow: (config) => ({
+    command: 'uvx',
+    args: ['mcp-server-airflow'],
+    env: {
+      AIRFLOW_URL: String(config.url ?? ''),
+      ...(config.username ? { AIRFLOW_USERNAME: String(config.username) } : {}),
+      ...(config.password ? { AIRFLOW_PASSWORD: String(config.password) } : {}),
+    },
+  }),
+
+  // ── API Gateway ────────────────────────────────────────────────
+  kong: (config) => ({
+    command: 'npx',
+    args: ['-y', '@kong/mcp-konnect'],
+    env: {
+      KONNECT_ACCESS_TOKEN: String(config.accessToken ?? ''),
+      KONNECT_REGION: String(config.region ?? 'us'),
+    },
+  }),
+
+  apisix: (config) => {
+    const host = String(config.host ?? 'localhost')
+    const port = String(config.adminApiPort ?? 9180)
+    return {
+      command: 'npx',
+      args: ['-y', 'apisix-mcp'],
+      env: {
+        APISIX_ADMIN_URL: `http://${host}:${port}`,
+        ...(config.adminKey ? { APISIX_ADMIN_KEY: String(config.adminKey) } : {}),
+      },
+    }
+  },
+
+  // ── SSH ────────────────────────────────────────────────────────
+  ssh: (config) => ({
+    command: 'npx',
+    args: ['-y', '@idletoaster/ssh-mcp-server'],
+    env: {
+      SSH_HOST: String(config.host ?? ''),
+      SSH_PORT: String(config.port ?? 22),
+      ...(config.username ? { SSH_USER: String(config.username) } : {}),
+      ...(config.privateKey ? { SSH_PRIVATE_KEY: String(config.privateKey) } : {}),
+    },
+  }),
+}
+
+// postgres alias
+spawnRegistry.postgres = spawnRegistry.postgresql
+
+function buildSpawnConfig(serverType: string, config: Record<string, unknown>): SpawnConfig | null {
+  const builder = spawnRegistry[serverType.toLowerCase()]
+  return builder ? builder(config) : null
+}
+
+// ── MCP Args Normalization ─────────────────────────────────────────
+
+function normalizeMcpArgs(serverType: string, toolName: string, args: Record<string, unknown>) {
+  const normalizedArgs = { ...args }
+  const type = serverType.toLowerCase()
+
+  if (toolName === 'query') {
+    if ((type === 'postgresql' || type === 'postgres') && typeof normalizedArgs.query === 'string' && typeof normalizedArgs.sql !== 'string') {
+      normalizedArgs.sql = normalizedArgs.query
+    }
+
+    if (type === 'mysql' && typeof normalizedArgs.sql === 'string' && typeof normalizedArgs.query !== 'string') {
+      normalizedArgs.query = normalizedArgs.sql
+    }
+  }
+
+  return normalizedArgs
+}
+
+// ── Skill MCP Manager ──────────────────────────────────────────────
 
 export const skillMcpManager = {
   async activate(skillSlug: string, projectId: string): Promise<string[]> {
@@ -27,14 +292,8 @@ export const skillMcpManager = {
     const skill = await skillCatalogService.getBySlug(skillSlug)
     if (!skill) throw new Error(`Skill not found: ${skillSlug}`)
 
-    // Read raw config to get MCP-related fields (not part of simplified SkillRecord)
-    let rawConfig: { mcpServers?: string[]; applicableServiceTypes?: string[] } = {}
-    try {
-      rawConfig = JSON.parse(await readFile(path.join(getSkillsRoot(), skillSlug, 'skill.config.json'), 'utf-8'))
-    } catch { /* ignore */ }
-
-    const mcpServers = rawConfig.mcpServers ?? []
-    const applicableServiceTypes = rawConfig.applicableServiceTypes ?? []
+    const mcpServers = skill.mcpServers ?? []
+    const applicableServiceTypes = skill.applicableServiceTypes ?? []
 
     if (mcpServers.length === 0) throw new Error(`Skill ${skillSlug} has no MCP servers configured`)
 
@@ -140,86 +399,4 @@ export const skillMcpManager = {
       await this.deactivate(slug)
     }
   },
-}
-
-function buildSpawnConfig(serverType: string, config: Record<string, unknown>): { command: string; args: string[]; env: Record<string, string> } | null {
-  const type = serverType.toLowerCase()
-
-  if (type === 'mysql' || type === 'postgresql' || type === 'postgres') {
-    const host = String(config.host ?? 'localhost')
-    const port = String(config.port ?? (type === 'mysql' ? 3306 : 5432))
-    const user = String(config.user ?? config.username ?? '')
-    const password = String(config.password ?? '')
-    const database = String(config.database ?? '')
-
-    if (type === 'mysql') {
-      return {
-        command: 'npx',
-        args: ['-y', '@benborla29/mcp-server-mysql'],
-        env: {
-          MYSQL_HOST: host,
-          MYSQL_PORT: port,
-          MYSQL_USER: user,
-          MYSQL_PASS: password,
-          MYSQL_DB: database,
-          // Keep the alternative names too so existing local setups continue to work.
-          MYSQL_PASSWORD: password,
-          MYSQL_DATABASE: database,
-        },
-      }
-    }
-    const url = `postgresql://${user}:${password}@${host}:${port}/${database}`
-    return {
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-postgres', url],
-      env: {},
-    }
-  }
-
-  if (type === 'prometheus') {
-    const host = String(config.host ?? 'localhost')
-    const port = String(config.port ?? 9090)
-    const url = String(config.url ?? `http://${host}:${port}`)
-    return {
-      command: 'npx',
-      args: ['-y', 'prometheus-mcp@latest', 'stdio'],
-      env: { PROMETHEUS_URL: url },
-    }
-  }
-
-  if (type === 'redis') {
-    const url = String(config.url ?? `redis://${config.host ?? 'localhost'}:${config.port ?? 6379}`)
-    return {
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-redis', url],
-      env: {},
-    }
-  }
-
-  if (type === 'kubernetes') {
-    return {
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-kubernetes'],
-      env: config.kubeconfig ? { KUBECONFIG: String(config.kubeconfig) } : {},
-    }
-  }
-
-  return null
-}
-
-function normalizeMcpArgs(serverType: string, toolName: string, args: Record<string, unknown>) {
-  const normalizedArgs = { ...args }
-  const type = serverType.toLowerCase()
-
-  if (toolName === 'query') {
-    if ((type === 'postgresql' || type === 'postgres') && typeof normalizedArgs.query === 'string' && typeof normalizedArgs.sql !== 'string') {
-      normalizedArgs.sql = normalizedArgs.query
-    }
-
-    if (type === 'mysql' && typeof normalizedArgs.sql === 'string' && typeof normalizedArgs.query !== 'string') {
-      normalizedArgs.query = normalizedArgs.sql
-    }
-  }
-
-  return normalizedArgs
 }

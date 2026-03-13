@@ -7,7 +7,6 @@ import {
   waitForKnowledgeReady,
   createSkill,
 } from '../helpers/chronos-api'
-import { writeSkillConfig } from '../helpers/skill-config'
 
 const PG_HOST = process.env.PG_HOST ?? '127.0.0.1'
 const PG_PORT = Number(process.env.PG_PORT ?? 35432)
@@ -18,6 +17,11 @@ const PG_DATABASE = 'analytics_service'
 const SKILL_MARKDOWN = `---
 name: "PostgreSQL Ops Diagnosis"
 description: "诊断 PostgreSQL 数据库中的运维问题，包括定时任务、数据一致性和配置异常"
+mcpServers:
+  - postgresql
+applicableServiceTypes:
+  - postgresql
+riskLevel: read-only
 ---
 
 # PostgreSQL 运维诊断方法论
@@ -212,11 +216,6 @@ export async function seed(): Promise<SeedResult> {
   console.log('[5/5] 创建 PostgreSQL Ops Diagnosis Skill...')
   const skill = await createSkill(SKILL_MARKDOWN)
   console.log(`  ✓ Skill 已创建: ${skill.slug}`)
-
-  writeSkillConfig(skill.slug, {
-    mcpServers: ['postgresql'],
-    applicableServiceTypes: ['postgresql'],
-  })
 
   return {
     projectId: project.id,
