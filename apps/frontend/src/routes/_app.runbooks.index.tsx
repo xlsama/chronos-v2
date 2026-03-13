@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { ProjectDocument } from "@chronos/shared";
 import { ProjectPicker } from "@/components/ops/project-picker";
 import { StatusBadge } from "@/components/ops/status-badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -123,8 +124,21 @@ function RunbooksPage() {
         className="flex flex-col gap-6"
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
+          <div className="flex items-center gap-3">
             <h1 className="text-xl font-medium tracking-tight">Runbook</h1>
+            <Tabs
+              value={publicationFilter}
+              onValueChange={(value) => {
+                setPublicationFilter(value as "draft" | "published");
+                setCurrentPage(1);
+              }}
+              className="data-[orientation=horizontal]:flex-row gap-0"
+            >
+              <TabsList>
+                <TabsTrigger value="draft">草稿</TabsTrigger>
+                <TabsTrigger value="published">已发布</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 md:justify-end">
@@ -137,28 +151,6 @@ function RunbooksPage() {
               }}
               placeholder="选择项目"
             />
-            <div className="flex items-center gap-1 rounded-lg border p-1">
-              <Button
-                variant={publicationFilter === "draft" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setPublicationFilter("draft");
-                  setCurrentPage(1);
-                }}
-              >
-                草稿
-              </Button>
-              <Button
-                variant={publicationFilter === "published" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setPublicationFilter("published");
-                  setCurrentPage(1);
-                }}
-              >
-                已发布
-              </Button>
-            </div>
             <Button
               onClick={() => void handleCreateRunbook()}
               disabled={!activeProjectId || createRunbook.isPending}

@@ -1,13 +1,14 @@
-import { embed, embedMany } from 'ai'
-import { ModelRouterEmbeddingModel } from '@mastra/core/llm'
+import { ofetch } from 'ofetch'
 import { env } from '../env'
 
-export const embeddingModel = new ModelRouterEmbeddingModel({
-  providerId: 'dashscope',
-  modelId: env.EMBEDDING_MODEL,
-  url: env.OPENAI_BASE_URL!,
-  apiKey: env.OPENAI_API_KEY,
-})
+interface DashScopeEmbeddingResponse {
+  output?: {
+    embeddings?: Array<{
+      embedding: number[]
+      text_index: number
+    }>
+  }
+}
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
@@ -18,11 +19,8 @@ function throwIfAborted(signal?: AbortSignal) {
 }
 
 export async function embedText(text: string): Promise<number[]> {
-  const { embedding } = await embed({
-    model: embeddingModel,
-    value: text,
-  })
-  return embedding
+  const embeddings = await requestEmbeddings([text], 'query')
+  return embeddings[0] ?? []
 }
 
 export async function embedTexts(texts: string[], options: { signal?: AbortSignal } = {}): Promise<number[][]> {
@@ -34,13 +32,38 @@ export async function embedTexts(texts: string[], options: { signal?: AbortSigna
   for (let i = 0; i < texts.length; i += batchSize) {
     throwIfAborted(options.signal)
     const batch = texts.slice(i, i + batchSize)
-    const { embeddings } = await embedMany({
-      model: embeddingModel,
-      values: batch,
-    })
+    const embeddings = await requestEmbeddings(batch, 'document')
     throwIfAborted(options.signal)
     allEmbeddings.push(...embeddings)
   }
 
   return allEmbeddings
+}
+
+async function requestEmbeddings(
+  texts: string[],
+  textType: 'query' | 'document',
+): Promise<number[][]> {
+  const response = await ofetch<DashScopeEmbeddingResponse>(env.EMBEDDING_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+    },
+    body: {
+      model: env.EMBEDDING_MODEL,
+      input: {
+        texts,
+      },
+      parameters: {
+        text_type: textType,
+        dimension: env.EMBEDDING_DIMENSIONS,
+      },
+    },
+  })
+
+  const items = response.output?.embeddings ?? []
+  return items
+    .slice()
+    .sort((a, b) => a.text_index - b.text_index)
+    .map((item) => item.embedding)
 }

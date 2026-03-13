@@ -7,7 +7,6 @@ export type IncidentStatus =
   | "resolved"
   | "closed";
 
-export type ProcessingMode = "automatic" | "semi_automatic";
 
 // ── Message ─────────────────────────────────────────────────
 export type MessageRole = "system" | "user" | "assistant";

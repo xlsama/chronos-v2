@@ -279,6 +279,8 @@ export function ChatPanel({
                       entry.message === visibleMessages[visibleMessages.length - 1] &&
                       entry.message.role === "assistant"
                     }
+                    incidentId={incidentId}
+                    projectId={incident?.projectId}
                   />
                 ) : (
                   <IncidentTimelineEvent

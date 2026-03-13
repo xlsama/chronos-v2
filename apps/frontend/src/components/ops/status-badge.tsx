@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 export const statusLabelMap: Record<string, string> = {
   new: '新建',
@@ -24,11 +25,6 @@ export const statusLabelMap: Record<string, string> = {
   expired: '已过期',
   connected: '已连接',
   disconnected: '未连接',
-}
-
-export const processingModeLabelMap: Record<string, string> = {
-  automatic: '自动',
-  semi_automatic: '半自动',
 }
 
 export const sourceLabelMap: Record<string, string> = {
@@ -62,10 +58,19 @@ const statusMap: Record<string, string> = {
   disconnected: 'bg-zinc-500/15 text-zinc-400',
 }
 
-export function StatusBadge(props: { value: string; label?: string }) {
-  return (
+export function StatusBadge(props: { value: string; label?: string; tooltip?: string }) {
+  const badge = (
     <Badge className={`border-transparent ${statusMap[props.value] ?? 'bg-muted text-foreground'}`}>
       {props.label ?? statusLabelMap[props.value] ?? props.value.replaceAll('_', ' ')}
     </Badge>
+  )
+
+  if (!props.tooltip) return badge
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{badge}</TooltipTrigger>
+      <TooltipContent>{props.tooltip}</TooltipContent>
+    </Tooltip>
   )
 }

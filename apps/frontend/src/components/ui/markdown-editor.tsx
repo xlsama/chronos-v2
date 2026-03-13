@@ -1,5 +1,6 @@
 import CodeMirror, { type ReactCodeMirrorProps } from '@uiw/react-codemirror'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
+import { yamlFrontmatter } from '@codemirror/lang-yaml'
 import { languages } from '@codemirror/language-data'
 import { EditorView } from '@codemirror/view'
 import { cn } from '@/lib/utils'
@@ -43,7 +44,9 @@ const baseTheme = EditorView.theme({
 })
 
 const extensions = [
-  markdown({ base: markdownLanguage, codeLanguages: languages }),
+  yamlFrontmatter({
+    content: markdown({ base: markdownLanguage, codeLanguages: languages }),
+  }),
   EditorView.lineWrapping,
   baseTheme,
 ]

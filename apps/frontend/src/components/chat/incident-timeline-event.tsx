@@ -72,7 +72,7 @@ function renderContent(props: {
 
   switch (item.kind) {
     case "incident":
-      const sourceLabel = item.incident.source === "manual" ? "Manual trigger" : "Inbound incident";
+      const sourceLabel = item.incident.source === "manual" ? "手动触发" : "告警触发";
 
       return (
         <div className="space-y-3">
@@ -80,8 +80,8 @@ function renderContent(props: {
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-foreground">
                 {item.incident.source === "manual"
-                  ? "Operator started this investigation"
-                  : item.incident.summary || "Incident investigation"}
+                  ? "运维人员发起了此调查"
+                  : item.incident.summary || "事件调查"}
               </h3>
               <p className="text-sm leading-7 text-muted-foreground">
                 {item.incident.source === "manual"
@@ -107,7 +107,7 @@ function renderContent(props: {
           {item.incident.attachments?.length ? (
             <div className="flex items-center gap-3 rounded-[22px] border border-dashed border-border/80 bg-background/50 px-3 py-2">
               <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Attachments
+                附件
               </span>
               <AttachmentThumbnails attachments={item.incident.attachments} />
             </div>
@@ -119,7 +119,7 @@ function renderContent(props: {
       return (
         <div className="space-y-3">
           <div>
-            <h3 className="text-base font-semibold text-foreground">Analysis snapshot</h3>
+            <h3 className="text-base font-semibold text-foreground">分析快照</h3>
             <p className="text-sm text-muted-foreground">当前事件上持久化的结构化分析结果。</p>
           </div>
           <JsonBlock value={item.analysis} />
@@ -131,13 +131,13 @@ function renderContent(props: {
         <div className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="text-base font-semibold text-foreground">Final summary draft</h3>
+              <h3 className="text-base font-semibold text-foreground">最终总结草稿</h3>
               <p className="text-sm text-muted-foreground">确认后可保存到 incident history。</p>
             </div>
             {onSaveSummary ? (
               <Button size="sm" onClick={onSaveSummary} disabled={summaryPending}>
                 <Save className="size-4" />
-                Save to history
+                保存到历史
               </Button>
             ) : null}
           </div>
@@ -152,13 +152,13 @@ function renderContent(props: {
             <div>
               <h3 className="text-base font-semibold text-foreground">{item.entry.title}</h3>
               <p className="text-sm text-muted-foreground">
-                {item.entry.description ?? item.entry.fileName ?? "Related incident history"}
+                {item.entry.description ?? item.entry.fileName ?? "相关事件历史"}
               </p>
             </div>
             <Clock3 className="size-4 text-muted-foreground" />
           </div>
           <p className="text-sm leading-7 text-muted-foreground">
-            {(item.entry.content ?? "").slice(0, 320) || "No preview available."}
+            {(item.entry.content ?? "").slice(0, 320) || "暂无预览内容"}
           </p>
         </div>
       );
@@ -169,8 +169,8 @@ function getEventMeta(item: IncidentTimelineEventItem) {
   switch (item.kind) {
     case "incident":
       return {
-        label: item.incident.source === "manual" ? "Manual trigger" : "Incident",
-        fallback: item.incident.source === "manual" ? "M" : "I",
+        label: item.incident.source === "manual" ? "手动触发" : "事件",
+        fallback: item.incident.source === "manual" ? "手" : "事",
         avatarClassName:
           "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-200",
         badgeClassName: "bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200",
@@ -179,8 +179,8 @@ function getEventMeta(item: IncidentTimelineEventItem) {
       };
     case "analysis":
       return {
-        label: "Analysis",
-        fallback: "A",
+        label: "分析",
+        fallback: "析",
         avatarClassName:
           "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200",
         badgeClassName: "bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-200",
@@ -188,8 +188,8 @@ function getEventMeta(item: IncidentTimelineEventItem) {
       };
     case "summary":
       return {
-        label: "Summary",
-        fallback: "S",
+        label: "总结",
+        fallback: "结",
         avatarClassName:
           "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200",
         badgeClassName:
@@ -199,8 +199,8 @@ function getEventMeta(item: IncidentTimelineEventItem) {
       };
     case "history":
       return {
-        label: "History",
-        fallback: "H",
+        label: "历史",
+        fallback: "史",
         avatarClassName:
           "border-zinc-200 bg-zinc-50 text-zinc-800 dark:border-zinc-400/20 dark:bg-zinc-500/10 dark:text-zinc-200",
         badgeClassName: "bg-zinc-100 text-zinc-900 dark:bg-zinc-500/15 dark:text-zinc-200",

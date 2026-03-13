@@ -129,7 +129,7 @@ function RunbookDetailPage() {
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="runbook 标题"
-            className="h-auto border-0 bg-transparent px-0 text-2xl font-medium tracking-tight shadow-none focus-visible:ring-0"
+            className="h-auto border-0 bg-transparent dark:bg-transparent px-0 text-3xl font-medium tracking-tight shadow-none focus-visible:ring-0"
           />
 
           <MarkdownEditor

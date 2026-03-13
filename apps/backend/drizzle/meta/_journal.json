@@ -22,6 +22,13 @@
       "when": 1773307725085,
       "tag": "0002_chubby_madame_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773366344752,
+      "tag": "0003_red_red_skull",
+      "breakpoints": true
     }
   ]
 }

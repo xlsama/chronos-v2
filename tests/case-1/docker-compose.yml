@@ -1,0 +1,12 @@
+services:
+  case1-redis:
+    image: redis:7
+    container_name: case1-redis
+    ports:
+      - "36379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s

@@ -12,7 +12,6 @@ export type CreateIncidentInput = {
   source?: 'manual' | 'webhook'
   summary?: string | null
   status?: IncidentStatusValue
-  processingMode?: 'automatic' | 'semi_automatic' | null
   analysis?: Record<string, unknown> | null
   selectedSkills?: string[]
   finalSummaryDraft?: string | null
@@ -22,7 +21,6 @@ export type CreateIncidentInput = {
 export type UpdateIncidentInput = {
   projectId?: string | null
   status?: IncidentStatusValue
-  processingMode?: 'automatic' | 'semi_automatic' | null
   threadId?: string
   summary?: string | null
   analysis?: Record<string, unknown> | null

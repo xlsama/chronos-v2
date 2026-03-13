@@ -1,3 +1,4 @@
+import '@/lib/dayjs'
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { StrictMode } from 'react'

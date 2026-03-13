@@ -2,21 +2,26 @@ import type { UIMessage } from "ai";
 import dayjs from "dayjs";
 import { Message, MessageAvatar } from "@/components/ui/message";
 import { cn } from "@/lib/utils";
+import { ChatMessageActions } from "./chat-message-actions";
 import { ChatMessagePart } from "./chat-message-part";
 import { getMessageText } from "./chat-utils";
 
 export function ChatMessage({
   message,
   isStreaming,
+  incidentId,
+  projectId,
 }: {
   message: UIMessage;
   isStreaming?: boolean;
+  incidentId?: string;
+  projectId?: string | null;
 }) {
   const isUser = message.role === "user";
   const timestamp = message.createdAt ? dayjs(message.createdAt).format("YYYY-MM-DD HH:mm") : null;
 
   return (
-    <Message className="items-start">
+    <Message className="group/message items-start">
       <MessageAvatar
         src=""
         alt={message.role}
@@ -30,7 +35,7 @@ export function ChatMessage({
       />
       <div className="flex min-w-0 max-w-[88%] flex-1 flex-col gap-2 pb-2">
         <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          <span>{isUser ? "You" : "Agent"}</span>
+          <span>{isUser ? "用户" : "助手"}</span>
           {timestamp ? (
             <>
               <span className="h-1 w-1 rounded-full bg-border" />
@@ -51,6 +56,13 @@ export function ChatMessage({
               ))}
             </div>
           </div>
+        )}
+
+        {!isUser && !isStreaming && (
+          <ChatMessageActions
+            message={message}
+            incidentId={incidentId}
+          />
         )}
       </div>
     </Message>

@@ -1,4 +1,4 @@
-import type { IncidentStatus, MessageRole, ProcessingMode } from "./enums";
+import type { IncidentStatus, MessageRole } from "./enums";
 import type { ProjectDocument } from "./project-document";
 import type { Project } from "./project";
 
@@ -17,7 +17,6 @@ export interface Incident {
   attachments: Attachment[] | null;
   source: string | null;
   status: IncidentStatus;
-  processingMode: ProcessingMode | null;
   threadId: string | null;
   analysis?: Record<string, unknown> | null;
   selectedSkills?: string[];

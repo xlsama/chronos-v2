@@ -1,12 +1,13 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { Link } from '@tanstack/react-router'
-import dayjs from 'dayjs'
+import dayjs from '@/lib/dayjs'
 import { MessageCircle, CircleStop } from 'lucide-react'
 import type { Incident } from '@chronos/shared'
 import { AlertCell } from '@/components/ops/alert-cell'
-import { StatusBadge, processingModeLabelMap, sourceLabelMap } from '@/components/ops/status-badge'
+import { StatusBadge, sourceLabelMap } from '@/components/ops/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,24 +86,21 @@ export const incidentColumns: ColumnDef<Incident, unknown>[] = [
     size: 100,
   },
   {
-    id: 'mode',
-    header: '模式',
-    cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {(row.original.processingMode && processingModeLabelMap[row.original.processingMode]) ?? row.original.processingMode ?? '-'}
-      </span>
-    ),
-    size: 100,
-  },
-  {
     id: 'createdAt',
     header: '创建时间',
     cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {dayjs(row.original.createdAt).format('YYYY-MM-DD HH:mm:ss')}
-      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-muted-foreground cursor-default">
+            {dayjs(row.original.createdAt).fromNow()}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {dayjs(row.original.createdAt).format('YYYY-MM-DD HH:mm:ss')}
+        </TooltipContent>
+      </Tooltip>
     ),
-    size: 180,
+    size: 120,
   },
   {
     id: 'actions',

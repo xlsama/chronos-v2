@@ -1,0 +1,17 @@
+services:
+  case2-mysql:
+    image: mysql:8.0
+    container_name: case2-mysql
+    ports:
+      - "33307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: promotion_service
+      MYSQL_USER: promotion
+      MYSQL_PASSWORD: promo123
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s

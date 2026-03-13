@@ -53,6 +53,8 @@ export const chatRoutes = new Hono()
           projectName = project?.name
         }
         context = {
+          automationMode: 'interactive',
+          incidentId: incident.id,
           incidentContent: incident.content,
           incidentSummary: incident.summary ?? undefined,
           analysis: incident.analysis as Record<string, unknown> | undefined,

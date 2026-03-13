@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
-import { incidentSourceEnum, incidentStatusEnum, processingModeEnum } from './enums'
+import { incidentSourceEnum, incidentStatusEnum } from './enums'
 import { projects } from './projects'
 
 export const incidents = pgTable('incidents', {
@@ -10,7 +10,6 @@ export const incidents = pgTable('incidents', {
   attachments: jsonb('attachments').$type<{ type: 'image' | 'file'; url: string; name: string; mimeType: string }[]>(),
   source: incidentSourceEnum('source').default('manual').notNull(),
   status: incidentStatusEnum('status').default('new').notNull(),
-  processingMode: processingModeEnum('processing_mode'),
   threadId: text('thread_id'),
   analysis: jsonb('analysis').$type<Record<string, unknown>>(),
   selectedSkills: text('selected_skills').array().default([]).notNull(),

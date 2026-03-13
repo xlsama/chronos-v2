@@ -47,7 +47,6 @@ export const webhookRoutes = new Hono()
       source: 'webhook',
       metadata: input.sourceMetadata ?? {},
       status: 'triaging',
-      processingMode: 'automatic',
     })
 
     logger.info(
@@ -66,7 +65,6 @@ export const webhookRoutes = new Hono()
       source: 'webhook',
       metadata: input.sourceMetadata ?? {},
       status: 'triaging',
-      processingMode: 'automatic',
     })
 
     logger.info(

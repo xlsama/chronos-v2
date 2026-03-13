@@ -10,58 +10,125 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { FileUpload, FileUploadContent, FileUploadTrigger } from '@/components/ui/file-upload'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import { PromptInput, PromptInputAction, PromptInputActions, PromptInputTextarea } from '@/components/ui/prompt-input'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { opsQueries, useCreateIncident } from '@/lib/queries/ops'
 
+const PAGE_SIZE = 10
+
 export const Route = createFileRoute('/_app/inbox/')({
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(opsQueries.projectList()),
-    context.queryClient.ensureQueryData(opsQueries.incidents({ limit: 30 })),
+    context.queryClient.ensureQueryData(opsQueries.incidents({ limit: PAGE_SIZE, offset: 0 })),
   ]),
   component: InboxPage,
 })
 
 function InboxPage() {
   useSuspenseQuery(opsQueries.projectList())
-  const { data } = useQuery(opsQueries.incidents({ limit: 30 }))
+  const [currentPage, setCurrentPage] = useState(1)
+  const { data } = useQuery(opsQueries.incidents({ limit: PAGE_SIZE, offset: (currentPage - 1) * PAGE_SIZE }))
   const incidents = data?.data ?? []
+  const totalPages = Math.ceil((data?.total ?? 0) / PAGE_SIZE)
+  const pageItems = getPaginationItems(currentPage, totalPages)
 
   const [open, setOpen] = useState(false)
   const createIncident = useCreateIncident()
 
   return (
-    <div className="min-h-full bg-background px-4 py-4 md:px-8 md:py-6">
+    <div className="flex h-full flex-col bg-background px-4 py-4 md:px-8 md:py-6">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, ease: 'easeOut' }}
-        className="flex flex-col gap-6"
+        className="flex h-full flex-col"
       >
-        <div className="flex items-center justify-between">
+        <div className="mb-6 flex shrink-0 items-center justify-between">
           <h1 className="text-xl font-medium tracking-tight">收件箱</h1>
           <Button onClick={() => setOpen(true)}>
             <Plus className="size-4" />
             新建事件
           </Button>
         </div>
-        <DataTable
-          columns={incidentColumns}
-          data={incidents}
-          emptyState={
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Inbox className="size-5" />
-                </EmptyMedia>
-                <EmptyTitle>暂无事件</EmptyTitle>
-              </EmptyHeader>
-              <EmptyContent>
-                <Button onClick={() => setOpen(true)}>新建事件</Button>
-              </EmptyContent>
-            </Empty>
-          }
-        />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <DataTable
+            columns={incidentColumns}
+            data={incidents}
+            emptyState={
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Inbox className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>暂无事件</EmptyTitle>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button onClick={() => setOpen(true)}>新建事件</Button>
+                </EmptyContent>
+              </Empty>
+            }
+          />
+        </div>
+
+        <div className="shrink-0 pt-4">
+          {totalPages > 1 ? (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      if (currentPage > 1) setCurrentPage((page) => page - 1)
+                    }}
+                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : undefined}
+                  />
+                </PaginationItem>
+
+                {pageItems.map((item, index) => (
+                  <PaginationItem key={`${item}-${index}`}>
+                    {item === 'ellipsis' ? (
+                      <PaginationEllipsis />
+                    ) : (
+                      <PaginationLink
+                        href="#"
+                        isActive={item === currentPage}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          setCurrentPage(item)
+                        }}
+                      >
+                        {item}
+                      </PaginationLink>
+                    )}
+                  </PaginationItem>
+                ))}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      if (currentPage < totalPages) setCurrentPage((page) => page + 1)
+                    }}
+                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : undefined}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">第 {currentPage} 页 / 共 {totalPages || 1} 页</p>
+          )}
+        </div>
       </motion.div>
 
       <IncidentDialog
@@ -156,4 +223,28 @@ function IncidentDialog(props: {
       </DialogContent>
     </Dialog>
   )
+}
+
+function getPaginationItems(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, 'ellipsis', totalPages] as const
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, 'ellipsis', totalPages - 3, totalPages - 2, totalPages - 1, totalPages] as const
+  }
+
+  return [
+    1,
+    'ellipsis',
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    'ellipsis',
+    totalPages,
+  ] as const
 }

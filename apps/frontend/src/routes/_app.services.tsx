@@ -6,7 +6,6 @@ import { ProjectPicker } from '@/components/ops/project-picker'
 import { ServicesLayoutProvider } from '@/contexts/services-layout-context'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { JsonBlock } from '@/components/ops/json-block'
-import { OpsSection } from '@/components/ops/page-shell'
 import { opsQueries } from '@/lib/queries/ops'
 
 export const Route = createFileRoute('/_app/services')({
@@ -53,6 +52,7 @@ function ServicesLayout() {
           </Tabs>
         </ServicesLayoutProvider>
       </motion.div>
+      <div className="h-8 shrink-0" />
     </div>
   )
 }
@@ -64,8 +64,9 @@ function ServiceMapTab(props: { projectId?: string }) {
   })
 
   return (
-    <OpsSection title="服务拓扑" description="查看当前项目的服务拓扑和依赖关系。">
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">当前项目的服务拓扑和依赖关系</p>
       <JsonBlock value={serviceMapContext ?? { graph: { nodes: [], edges: [] } }} />
-    </OpsSection>
+    </div>
   )
 }

@@ -11,6 +11,7 @@ interface ActiveMcp {
   client: Client
   transport: StdioClientTransport
   tools: string[]
+  serverType: string
 }
 
 const activeMcps = new Map<string, ActiveMcp>()
@@ -19,6 +20,7 @@ export const skillMcpManager = {
   async activate(skillSlug: string, projectId: string): Promise<string[]> {
     // If already active, return existing tools
     if (activeMcps.has(skillSlug)) {
+      logger.info({ skillSlug, projectId }, 'Reusing active MCP server')
       return activeMcps.get(skillSlug)!.tools
     }
 
@@ -56,6 +58,20 @@ export const skillMcpManager = {
       throw new Error(`Unsupported MCP server type: ${serverType}`)
     }
 
+    logger.info(
+      {
+        skillSlug,
+        projectId,
+        serverType,
+        serviceId: matchedService.id,
+        serviceType: matchedService.type,
+        host: matchedService.config.host ?? matchedService.config.url ?? null,
+        port: matchedService.config.port ?? null,
+        database: matchedService.config.database ?? null,
+      },
+      'Activating MCP server'
+    )
+
     const mergedEnv: Record<string, string> = {}
     for (const [k, v] of Object.entries(process.env)) {
       if (v !== undefined) mergedEnv[k] = v
@@ -75,7 +91,7 @@ export const skillMcpManager = {
       const { tools: mcpTools } = await client.listTools()
       const toolNames = mcpTools.map((t) => `${skillSlug}_${t.name}`)
 
-      activeMcps.set(skillSlug, { client, transport, tools: toolNames })
+      activeMcps.set(skillSlug, { client, transport, tools: toolNames, serverType })
       logger.info({ skillSlug, tools: toolNames }, 'MCP server activated')
       return toolNames
     } catch (error) {
@@ -96,7 +112,9 @@ export const skillMcpManager = {
     if (!active) throw new Error(`MCP server not active for skill: ${skillSlug}. Call activateSkillMcp first.`)
 
     try {
-      const result = await active.client.callTool({ name: mcpToolName, arguments: args })
+      const normalizedArgs = normalizeMcpArgs(active.serverType, mcpToolName, args)
+      const result = await active.client.callTool({ name: mcpToolName, arguments: normalizedArgs })
+      logger.info({ toolName, args: normalizedArgs }, 'MCP tool execution succeeded')
       return result
     } catch (error) {
       logger.error({ err: error, toolName, args }, 'MCP tool execution failed')
@@ -138,7 +156,16 @@ function buildSpawnConfig(serverType: string, config: Record<string, unknown>): 
       return {
         command: 'npx',
         args: ['-y', '@benborla29/mcp-server-mysql'],
-        env: { MYSQL_HOST: host, MYSQL_PORT: port, MYSQL_USER: user, MYSQL_PASSWORD: password, MYSQL_DATABASE: database },
+        env: {
+          MYSQL_HOST: host,
+          MYSQL_PORT: port,
+          MYSQL_USER: user,
+          MYSQL_PASS: password,
+          MYSQL_DB: database,
+          // Keep the alternative names too so existing local setups continue to work.
+          MYSQL_PASSWORD: password,
+          MYSQL_DATABASE: database,
+        },
       }
     }
     const url = `postgresql://${user}:${password}@${host}:${port}/${database}`
@@ -146,6 +173,17 @@ function buildSpawnConfig(serverType: string, config: Record<string, unknown>): 
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-postgres', url],
       env: {},
+    }
+  }
+
+  if (type === 'prometheus') {
+    const host = String(config.host ?? 'localhost')
+    const port = String(config.port ?? 9090)
+    const url = String(config.url ?? `http://${host}:${port}`)
+    return {
+      command: 'npx',
+      args: ['-y', 'prometheus-mcp@latest', 'stdio'],
+      env: { PROMETHEUS_URL: url },
     }
   }
 
@@ -167,4 +205,21 @@ function buildSpawnConfig(serverType: string, config: Record<string, unknown>): 
   }
 
   return null
+}
+
+function normalizeMcpArgs(serverType: string, toolName: string, args: Record<string, unknown>) {
+  const normalizedArgs = { ...args }
+  const type = serverType.toLowerCase()
+
+  if (toolName === 'query') {
+    if ((type === 'postgresql' || type === 'postgres') && typeof normalizedArgs.query === 'string' && typeof normalizedArgs.sql !== 'string') {
+      normalizedArgs.sql = normalizedArgs.query
+    }
+
+    if (type === 'mysql' && typeof normalizedArgs.sql === 'string' && typeof normalizedArgs.query !== 'string') {
+      normalizedArgs.query = normalizedArgs.sql
+    }
+  }
+
+  return normalizedArgs
 }

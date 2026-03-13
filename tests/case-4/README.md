@@ -29,7 +29,7 @@
 ### 前置条件
 
 - Docker 已安装并运行
-- Chronos 后端已启动（默认 http://localhost:3001）
+- Chronos 后端已启动（默认 http://localhost:8000）
 - MySQL 客户端可用（`mysql` 命令行工具）
 - `jq` 已安装
 
@@ -55,7 +55,7 @@ bash cleanup.sh
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `CHRONOS_API_URL` | `http://localhost:3001` | Chronos 后端地址 |
+| `CHRONOS_API_URL` | `http://localhost:8000` | Chronos 后端地址 |
 | `MYSQL_HOST` | `127.0.0.1` | MySQL 主机 |
 | `MYSQL_PORT` | `33306` | MySQL 端口 |
 | `MAX_WAIT` | `300` | 等待 Agent 处理的最大秒数 |

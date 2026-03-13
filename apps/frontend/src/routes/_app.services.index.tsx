@@ -1,49 +1,27 @@
 import { useState } from 'react'
-import { useForm } from '@tanstack/react-form'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Plus, RefreshCcw, Search, Trash2, Waypoints } from 'lucide-react'
-import type { ProjectService } from '@chronos/shared'
-import { z } from 'zod'
 import { ServiceCategorySidebar } from '@/components/ops/service-category-sidebar'
 import { ServiceIcon } from '@/components/ops/service-icon'
 import { StatusBadge } from '@/components/ops/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { JsonBlock } from '@/components/ops/json-block'
 import { useServicesLayout } from '@/contexts/services-layout-context'
-import { opsQueries, useDeleteService, useTestService, useUpdateService } from '@/lib/queries/ops'
+import { opsQueries, useDeleteService, useTestService } from '@/lib/queries/ops'
 import { SERVICE_CATEGORIES, SERVICE_TYPE_META, type ServiceCategory } from '@/lib/constants/service-types'
 
 export const Route = createFileRoute('/_app/services/')({
   component: ServicesIndexPage,
 })
 
-const editServiceSchema = z.object({
-  name: z.string().trim().min(1, '请输入服务名称'),
-  config: z.string().trim().refine((value) => {
-    if (!value) return true
-
-    try {
-      JSON.parse(value)
-      return true
-    } catch {
-      return false
-    }
-  }, '请输入合法的 JSON'),
-})
-
 function ServicesIndexPage() {
   const { activeProjectId } = useServicesLayout()
   const [category, setCategory] = useState<string | undefined>()
   const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState<ProjectService | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
 
   const { data: services = [] } = useQuery({
     ...opsQueries.projectServices(activeProjectId ?? ''),
@@ -52,7 +30,6 @@ function ServicesIndexPage() {
 
   const deleteService = useDeleteService()
   const testService = useTestService()
-  const updateService = useUpdateService()
 
   const filtered = services.filter((s) => {
     if (category) {
@@ -112,8 +89,8 @@ function ServicesIndexPage() {
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {filtered.map((service) => (
-              <Card key={service.id}>
-                <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <Card key={service.id} className="h-72">
+                <CardHeader className="flex flex-row items-start justify-between gap-4 shrink-0">
                   <div className="flex items-center gap-3">
                     <ServiceIcon type={service.type} className="size-8" />
                     <div>
@@ -124,16 +101,15 @@ function ServicesIndexPage() {
                       </CardDescription>
                     </div>
                   </div>
-                  <StatusBadge value={service.status} />
+                  <StatusBadge value={service.status} tooltip={service.healthSummary} />
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {service.healthSummary ? (
-                    <span className="text-sm text-muted-foreground">{service.healthSummary}</span>
-                  ) : null}
-                  <JsonBlock value={service.config} />
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => { setEditing(service); setEditOpen(true) }}>
-                      编辑
+                <CardContent className="flex flex-col flex-1 min-h-0 gap-4">
+                  <JsonBlock value={service.config} className="flex-1 min-h-0 overflow-y-auto" />
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/services/$id" params={{ id: service.id }}>
+                        编辑
+                      </Link>
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => testService.mutate(service.id)}>
                       <RefreshCcw data-icon="inline-start" className="size-4" />
@@ -150,121 +126,6 @@ function ServicesIndexPage() {
           </div>
         )}
       </div>
-
-      <EditServiceDialog
-        key={editing?.id ?? 'edit'}
-        open={editOpen}
-        service={editing}
-        pending={updateService.isPending}
-        onOpenChange={(open) => {
-          setEditOpen(open)
-          if (!open) setEditing(null)
-        }}
-        onSubmit={async (payload) => {
-          if (!editing) return
-          const parsedConfig = payload.config.trim() ? JSON.parse(payload.config) as Record<string, unknown> : {}
-          await updateService.mutateAsync({
-            id: editing.id,
-            data: {
-              name: payload.name,
-              config: parsedConfig,
-            },
-          })
-          setEditOpen(false)
-          setEditing(null)
-        }}
-      />
     </div>
-  )
-}
-
-function EditServiceDialog(props: {
-  open: boolean
-  service: ProjectService | null
-  pending: boolean
-  onOpenChange: (open: boolean) => void
-  onSubmit: (payload: { name: string; config: string }) => Promise<void>
-}) {
-  const form = useForm({
-    defaultValues: {
-      name: props.service?.name ?? '',
-      config: JSON.stringify(props.service?.config ?? {}, null, 2),
-    },
-    validators: { onSubmit: editServiceSchema },
-    onSubmit: async ({ value }) => {
-      await props.onSubmit({
-        name: value.name.trim(),
-        config: value.config,
-      })
-    },
-  })
-
-  return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>编辑服务</DialogTitle>
-          <DialogDescription>更新服务名称和连接配置。</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            form.handleSubmit()
-          }}
-        >
-          <FieldGroup>
-            <form.Field
-              name="name"
-              children={(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
-
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel>名称</FieldLabel>
-                    <FieldContent>
-                      <Input
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
-                        aria-invalid={isInvalid}
-                      />
-                      {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            />
-            <form.Field
-              name="config"
-              children={(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
-
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel>配置 JSON</FieldLabel>
-                    <FieldContent>
-                      <Textarea
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
-                        aria-invalid={isInvalid}
-                        rows={12}
-                        className="font-mono text-xs"
-                      />
-                      {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            />
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>取消</Button>
-              <Button type="submit" disabled={props.pending}>保存</Button>
-            </div>
-          </FieldGroup>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }

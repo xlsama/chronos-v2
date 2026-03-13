@@ -168,6 +168,11 @@ export const projectRoutes = new Hono()
     if (!data) throw new AppError(404, 'Document not found')
     return c.json({ data })
   })
+  .get('/services/:serviceId', async (c) => {
+    const data = await projectServiceCatalog.getById(c.req.param('serviceId'))
+    if (!data) throw new AppError(404, 'Service not found')
+    return c.json({ data })
+  })
   .put('/services/:serviceId', zValidator('json', serviceSchema.partial()), async (c) => {
     const data = await projectServiceCatalog.update(c.req.param('serviceId'), c.req.valid('json'))
     if (!data) throw new AppError(404, 'Service not found')

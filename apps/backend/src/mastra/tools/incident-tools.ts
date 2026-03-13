@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { incidentService } from '../../services/incident.service'
+import { logger } from '../../lib/logger'
 
 export const updateIncidentStatus = createTool({
   id: 'updateIncidentStatus',
@@ -21,8 +22,16 @@ export const updateIncidentStatus = createTool({
         status: input.status,
         ...(input.resolutionNotes ? { resolutionNotes: input.resolutionNotes } : {}),
       })
+      logger.info(
+        { incidentId: input.incidentId, status: input.status, success: Boolean(incident) },
+        '[Incident] status update requested by agent'
+      )
       return { success: true, incident }
     } catch (error) {
+      logger.error(
+        { err: error, incidentId: input.incidentId, status: input.status },
+        '[Incident] status update requested by agent failed'
+      )
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   },

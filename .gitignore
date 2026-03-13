@@ -43,4 +43,4 @@ __pycache__/
 drizzle/meta
 
 # Mastra Memory (LibSQL)
-data/
+**/*/data/projects

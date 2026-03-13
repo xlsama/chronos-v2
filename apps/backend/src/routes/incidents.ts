@@ -56,7 +56,6 @@ export const incidentRoutes = new Hono()
         source: "manual",
         metadata: input.metadata ?? {},
         status: "triaging",
-        processingMode: "automatic",
       });
 
       logger.info(
@@ -145,4 +144,37 @@ export const incidentRoutes = new Hono()
     });
 
     return c.json({ data: document }, 201);
-  });
+  })
+  .post(
+    "/:id/archive-to-history",
+    zValidator(
+      "json",
+      z.object({
+        content: z.string().min(1),
+        messageId: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      const incident = await incidentService.getById(c.req.param("id"));
+      if (!incident) throw new AppError(404, "Incident not found");
+      if (!incident.projectId)
+        throw new AppError(400, "Incident has no associated project");
+
+      const input = c.req.valid("json");
+      const document = await projectDocumentService.createMarkdownDocument({
+        projectId: incident.projectId,
+        kind: "incident_history",
+        title: `${incident.summary ?? "incident"}-${incident.id.slice(0, 8)}`,
+        content: input.content,
+        source: "agent",
+        createdBy: "user",
+        metadata: {
+          incidentId: incident.id,
+          incidentSummary: incident.summary,
+          ...(input.messageId ? { sourceMessageId: input.messageId } : {}),
+        },
+      });
+
+      return c.json({ data: document }, 201);
+    },
+  );

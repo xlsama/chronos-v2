@@ -88,6 +88,13 @@ export const opsQueries = {
         client.api.projects[':projectId'].services.$get({ param: { projectId } }),
       ),
     }),
+  service: (serviceId: string) =>
+    queryOptions({
+      queryKey: ['ops', 'services', serviceId] as const,
+      queryFn: () => unwrap<{ data: ProjectService }>(
+        client.api.projects.services[':serviceId'].$get({ param: { serviceId } }),
+      ),
+    }),
   serviceMapContext: (projectId: string) =>
     queryOptions({
       queryKey: ['ops', 'projects', projectId, 'service-map-context'] as const,
@@ -275,8 +282,9 @@ export function useUpdateService() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<{ name: string; type: ProjectService['type']; description: string; config: Record<string, unknown>; metadata: Record<string, unknown> }> }) =>
       unwrap<{ data: ProjectService }>(client.api.projects.services[':serviceId'].$put({ param: { serviceId: id }, json: data })),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'services'] })
+      queryClient.invalidateQueries({ queryKey: ['ops', 'services', variables.id] })
       queryClient.invalidateQueries({ queryKey: ['ops', 'projects'] })
     },
   })
@@ -287,8 +295,9 @@ export function useDeleteService() {
   return useMutation({
     mutationFn: (id: string) =>
       unwrap<{ data: ProjectService }>(client.api.projects.services[':serviceId'].$delete({ param: { serviceId: id } })),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'services'] })
+      queryClient.invalidateQueries({ queryKey: ['ops', 'services', id] })
       queryClient.invalidateQueries({ queryKey: ['ops', 'projects'] })
     },
   })
@@ -300,8 +309,9 @@ export function useTestService() {
     meta: { skipGlobalErrorToast: true },
     mutationFn: (id: string) =>
       unwrap<{ data: ProjectService }>(client.api.projects.services[':serviceId'].test.$post({ param: { serviceId: id } })),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'services'] })
+      queryClient.invalidateQueries({ queryKey: ['ops', 'services', id] })
       queryClient.invalidateQueries({ queryKey: ['ops', 'projects'] })
     },
   })
@@ -346,6 +356,29 @@ export function useCreateIncident() {
     mutationFn: (data: { content: string; projectId?: string | null; attachments?: Incident['attachments']; metadata?: Record<string, unknown> }) =>
       unwrap<{ data: Incident }>(client.api.incidents.$post({ json: data })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'incidents'] }),
+  })
+}
+
+export function useArchiveToHistory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ incidentId, content, messageId }: {
+      incidentId: string
+      content: string
+      messageId?: string
+    }) => {
+      const res = await fetch(`/api/incidents/${incidentId}/archive-to-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, messageId }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? `API error ${res.status}`)
+      return (await res.json() as { data: ProjectDocument }).data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['ops', 'incidents', variables.incidentId] })
+      queryClient.invalidateQueries({ queryKey: ['ops', 'documents', 'incident_history'] })
+    },
   })
 }
 

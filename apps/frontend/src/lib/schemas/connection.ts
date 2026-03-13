@@ -158,6 +158,19 @@ export function createConnectionFormSchema(type: ConnectionType) {
   })
 }
 
+export function parseConnectionConfig(
+  config: Record<string, unknown>,
+  type: ConnectionType,
+): ConnectionFormValues {
+  const fields = connectionConfigFields[type] ?? []
+  return {
+    name: '',
+    ...Object.fromEntries(
+      fields.map((field) => [field.key, String(config[field.key] ?? '')]),
+    ),
+  }
+}
+
 export function buildConnectionConfig(values: ConnectionFormValues, type: ConnectionType) {
   return Object.fromEntries(
     (connectionConfigFields[type] ?? [])

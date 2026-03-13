@@ -42,7 +42,14 @@ export const projectServiceCatalog = {
       metadata: input.metadata ?? {},
     }).returning()
 
-    return decodeService(row)
+    const result = await testConnection(input.type, input.config)
+    const [checkedRow] = await db.update(projectServices).set({
+      status: result.success ? 'connected' : 'error',
+      healthSummary: result.message ?? (result.success ? 'Connection OK' : 'Connection failed'),
+      lastCheckedAt: new Date(),
+    }).where(eq(projectServices.id, row.id)).returning()
+
+    return decodeService(checkedRow ?? row)
   },
 
   async update(id: string, input: {

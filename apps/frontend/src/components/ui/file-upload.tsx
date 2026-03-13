@@ -3,17 +3,17 @@ import {
   Children,
   cloneElement,
   createContext,
-  useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react"
 import { createPortal } from "react-dom"
+import { useDropzone } from "react-dropzone"
 
 type FileUploadContextValue = {
-  isDragging: boolean
-  inputRef: React.RefObject<HTMLInputElement | null>
+  isDragActive: boolean
+  openFilePicker: () => void
+  onFilesAdded: (files: File[]) => void
   multiple?: boolean
   disabled?: boolean
 }
@@ -35,86 +35,46 @@ function FileUpload({
   accept,
   disabled = false,
 }: FileUploadProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const dragCounter = useRef(0)
-
-  const handleFiles = useCallback(
-    (files: FileList) => {
-      const newFiles = Array.from(files)
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    onDrop: (acceptedFiles) => {
       if (multiple) {
-        onFilesAdded(newFiles)
+        onFilesAdded(acceptedFiles)
       } else {
-        onFilesAdded(newFiles.slice(0, 1))
+        onFilesAdded(acceptedFiles.slice(0, 1))
       }
     },
-    [multiple, onFilesAdded]
-  )
-
-  useEffect(() => {
-    const handleDrag = (e: DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-
-    const handleDragIn = (e: DragEvent) => {
-      handleDrag(e)
-      dragCounter.current++
-      if (e.dataTransfer?.items.length) setIsDragging(true)
-    }
-
-    const handleDragOut = (e: DragEvent) => {
-      handleDrag(e)
-      dragCounter.current--
-      if (dragCounter.current === 0) setIsDragging(false)
-    }
-
-    const handleDrop = (e: DragEvent) => {
-      handleDrag(e)
-      setIsDragging(false)
-      dragCounter.current = 0
-      if (e.dataTransfer?.files.length) {
-        handleFiles(e.dataTransfer.files)
-      }
-    }
-
-    window.addEventListener("dragenter", handleDragIn)
-    window.addEventListener("dragleave", handleDragOut)
-    window.addEventListener("dragover", handleDrag)
-    window.addEventListener("drop", handleDrop)
-
-    return () => {
-      window.removeEventListener("dragenter", handleDragIn)
-      window.removeEventListener("dragleave", handleDragOut)
-      window.removeEventListener("dragover", handleDrag)
-      window.removeEventListener("drop", handleDrop)
-    }
-  }, [handleFiles, onFilesAdded, multiple])
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length) {
-      handleFiles(e.target.files)
-      e.target.value = ""
-    }
-  }
+    multiple,
+    noClick: true,
+    noKeyboard: true,
+    disabled,
+    ...(accept ? { accept: parseAccept(accept) } : {}),
+  })
 
   return (
     <FileUploadContext.Provider
-      value={{ isDragging, inputRef, multiple, disabled }}
+      value={{ isDragActive, openFilePicker: open, onFilesAdded, multiple, disabled }}
     >
-      <input
-        type="file"
-        ref={inputRef}
-        onChange={handleFileSelect}
-        className="hidden"
-        multiple={multiple}
-        accept={accept}
-        aria-hidden
-        disabled={disabled}
-      />
-      {children}
+      <div {...getRootProps()} className="contents">
+        <input {...getInputProps()} />
+        {children}
+      </div>
     </FileUploadContext.Provider>
   )
+}
+
+/** Convert "image/*,.pdf" style accept string to react-dropzone's Accept object */
+function parseAccept(accept: string): Record<string, string[]> {
+  const result: Record<string, string[]> = {}
+  for (const part of accept.split(",")) {
+    const trimmed = part.trim()
+    if (trimmed.startsWith(".")) {
+      const mime = "application/octet-stream"
+      result[mime] = [...(result[mime] ?? []), trimmed]
+    } else {
+      result[trimmed] = []
+    }
+  }
+  return result
 }
 
 export type FileUploadTriggerProps =
@@ -129,7 +89,7 @@ function FileUploadTrigger({
   ...props
 }: FileUploadTriggerProps) {
   const context = useContext(FileUploadContext)
-  const handleClick = () => context?.inputRef.current?.click()
+  const handleClick = () => context?.openFilePicker()
 
   if (asChild) {
     const child = Children.only(children) as React.ReactElement<
@@ -170,7 +130,7 @@ function FileUploadContent({ className, ...props }: FileUploadContentProps) {
     return () => setMounted(false)
   }, [])
 
-  if (!context?.isDragging || !mounted || context?.disabled) {
+  if (!context?.isDragActive || !mounted || context?.disabled) {
     return null
   }
 
@@ -181,6 +141,14 @@ function FileUploadContent({ className, ...props }: FileUploadContentProps) {
         "animate-in fade-in-0 slide-in-from-bottom-10 zoom-in-90 duration-150",
         className
       )}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault()
+        if (e.dataTransfer?.files.length) {
+          const files = Array.from(e.dataTransfer.files)
+          context.onFilesAdded(context.multiple ? files : files.slice(0, 1))
+        }
+      }}
       {...props}
     />
   )

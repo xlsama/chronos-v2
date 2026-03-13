@@ -4,6 +4,8 @@ import { Memory } from "@mastra/memory";
 import { env } from "../../env";
 import {
   updateIncidentStatus,
+  searchKnowledgeBase,
+  getKnowledgeDocument,
   listSkills,
   loadSkill,
   activateSkillMcp,
@@ -13,6 +15,10 @@ import {
   getServiceDetails,
   getServiceMap,
   saveIncidentHistory,
+  searchRunbooks,
+  getRunbook,
+  searchIncidentHistory,
+  getIncidentHistoryDetail,
   createRunbook,
 } from "../tools";
 import { knowledgeAgent } from "./knowledge-agent";
@@ -24,6 +30,8 @@ import { mastra } from "../index";
 const openai = createOpenAI({ apiKey: env.OPENAI_API_KEY, baseURL: env.OPENAI_BASE_URL });
 
 export function createSupervisorAgent(context?: {
+  automationMode?: 'background' | 'interactive';
+  incidentId?: string;
   incidentContent?: string;
   incidentSummary?: string;
   analysis?: Record<string, unknown>;
@@ -36,20 +44,42 @@ export function createSupervisorAgent(context?: {
     name: "Supervisor Agent",
     instructions: buildSupervisorPrompt(context),
     model: openai.chat(env.OPENAI_MODEL),
-    tools: {
-      updateIncidentStatus,
-      listSkills,
-      loadSkill,
-      activateSkillMcp,
-      executeMcpTool,
-      deactivateSkillMcp,
-      listProjectServices,
-      getServiceDetails,
-      getServiceMap,
-      saveIncidentHistory,
-      createRunbook,
-    },
-    agents: { knowledgeAgent, runbookAgent, incidentHistoryAgent },
+    tools: context?.automationMode === 'background'
+      ? {
+          updateIncidentStatus,
+          listSkills,
+          loadSkill,
+          activateSkillMcp,
+          executeMcpTool,
+          deactivateSkillMcp,
+          listProjectServices,
+          getServiceDetails,
+          getServiceMap,
+          saveIncidentHistory,
+          createRunbook,
+        }
+      : {
+          updateIncidentStatus,
+          searchKnowledgeBase,
+          getKnowledgeDocument,
+          searchRunbooks,
+          getRunbook,
+          searchIncidentHistory,
+          getIncidentHistoryDetail,
+          listSkills,
+          loadSkill,
+          activateSkillMcp,
+          executeMcpTool,
+          deactivateSkillMcp,
+          listProjectServices,
+          getServiceDetails,
+          getServiceMap,
+          saveIncidentHistory,
+          createRunbook,
+        },
+    ...(context?.automationMode === 'background'
+      ? {}
+      : { agents: { knowledgeAgent, runbookAgent, incidentHistoryAgent } }),
     memory: new Memory({ storage: mastra.getStorage() }),
   });
 }
