@@ -1,9 +1,11 @@
 import { Hono } from 'hono'
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai'
 import { toAISdkStream } from '@mastra/ai-sdk'
+import { type SummaryToolTrace } from '../lib/final-summary'
 import { logger } from '../lib/logger'
 import { abortAgent } from '../lib/agent-runner'
 import { publishChatEvent, getSubscriber, chatChannel } from '../lib/redis'
+import { finalSummaryService } from '../services/final-summary.service'
 import { messageService } from '../services/message.service'
 import { incidentService } from '../services/incident.service'
 import { projectService } from '../services/project.service'
@@ -69,6 +71,7 @@ export const chatRoutes = new Hono()
     const agent = createSupervisorAgent(context)
 
     logger.info({ threadId, incidentId }, '[Agent] supervisor started')
+    const toolTrace: SummaryToolTrace[] = []
 
     const response = await agent.stream(messageText, {
       memory: {
@@ -77,7 +80,14 @@ export const chatRoutes = new Hono()
       },
       maxSteps: 50,
       onStepFinish: (event) => {
-        const toolNames = event.toolCalls?.map((tc) => tc.payload.toolName) ?? []
+        const calls = event.toolCalls ?? []
+        const toolNames = calls.map((tc) => tc.payload.toolName)
+        for (const call of calls) {
+          toolTrace.push({
+            toolName: call.payload.toolName,
+            args: call.payload.args as Record<string, unknown> | undefined,
+          })
+        }
         if (toolNames.length > 0) {
           logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
         }
@@ -130,6 +140,17 @@ export const chatRoutes = new Hono()
           })
 
           logger.info({ threadId, incidentId }, '[Agent] supervisor response saved')
+
+          if (incidentId) {
+            try {
+              await finalSummaryService.ensureForIncident({ incidentId, threadId, toolTrace })
+            } catch (summaryError) {
+              logger.error(
+                { err: summaryError, threadId, incidentId },
+                '[Summary] failed to generate final summary after interactive response',
+              )
+            }
+          }
 
           await publishChatEvent(threadId, 'message', {
             id: responseMessage.id,

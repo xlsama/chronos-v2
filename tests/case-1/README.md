@@ -26,11 +26,11 @@ pnpm test:case-1
 
 ## 预期 Agent 流程
 
-1. 列出项目服务，识别 Redis 服务与其 metadata 中的排查入口。
-2. 列出 Skills，加载内置 `redis-cache-diagnosis`。
-3. 激活 Redis MCP，枚举 `ratelimit:config:*` 与 `errorlog:*`。
-4. 发现多个业务 endpoint 的 `limit=0`，并用 `/api/health` 作为正常基线。
-5. 输出根因，保存 incident history，并关闭事件。
+1. 列出项目服务，确认 Redis 是 API 网关运行时存储。
+2. 列出 Skills，加载通用 `redis-cache-diagnosis`。
+3. 激活 Redis MCP，自主发现相关键空间和异常样本。
+4. 结合多个业务 endpoint 的 429 现象与 Redis 运行态证据定位根因。
+5. 输出结论，保存 incident history，并关闭事件。
 
 ## 验证项
 

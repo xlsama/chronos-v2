@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import type { IncidentDetail } from "@chronos/shared";
@@ -31,6 +31,7 @@ interface ChatPanelProps {
   incident?: IncidentDetail;
   onSaveSummary?: () => void;
   summaryPending?: boolean;
+  summarySaved?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -54,11 +55,13 @@ export function ChatPanel({
   incident,
   onSaveSummary,
   summaryPending = false,
+  summarySaved = false,
   className,
   style,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [backgroundStreaming, setBackgroundStreaming] = useState(false);
+  const hadInteractiveRunRef = useRef(false);
   const queryClient = useQueryClient();
   const { items, addFiles, removeFile, getAttachments, reset, isUploading } = useFileUpload();
 
@@ -97,6 +100,23 @@ export function ChatPanel({
   const isStreaming = status === "streaming";
   const isLoading = status === "submitted" || isStreaming;
 
+  useEffect(() => {
+    if (status === "submitted" || status === "streaming") {
+      hadInteractiveRunRef.current = true;
+      return;
+    }
+
+    if (!hadInteractiveRunRef.current) {
+      return;
+    }
+
+    hadInteractiveRunRef.current = false;
+    queryClient.invalidateQueries({ queryKey: ["chat-messages", threadId] });
+    if (incidentId) {
+      queryClient.invalidateQueries({ queryKey: ["ops", "incidents", incidentId] });
+    }
+  }, [incidentId, queryClient, status, threadId]);
+
   // SSE subscription to track background agent state
   const onStreamStart = useCallback(() => setBackgroundStreaming(true), []);
   const onStreamChunk = useCallback(() => {
@@ -105,7 +125,10 @@ export function ChatPanel({
   const onStreamEnd = useCallback(() => {
     setBackgroundStreaming(false);
     queryClient.invalidateQueries({ queryKey: ["chat-messages", threadId] });
-  }, [queryClient, threadId]);
+    if (incidentId) {
+      queryClient.invalidateQueries({ queryKey: ["ops", "incidents", incidentId] });
+    }
+  }, [incidentId, queryClient, threadId]);
   const onStreamAborted = useCallback(() => setBackgroundStreaming(false), []);
   const onStreamError = useCallback(() => setBackgroundStreaming(false), []);
 
@@ -279,14 +302,13 @@ export function ChatPanel({
                       entry.message === visibleMessages[visibleMessages.length - 1] &&
                       entry.message.role === "assistant"
                     }
-                    incidentId={incidentId}
-                    projectId={incident?.projectId}
                   />
                 ) : (
                   <IncidentTimelineEvent
                     item={entry.item}
                     onSaveSummary={onSaveSummary}
                     summaryPending={summaryPending}
+                    summarySaved={summarySaved}
                   />
                 )}
               </div>

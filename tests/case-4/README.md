@@ -26,11 +26,11 @@ pnpm test:case-4
 
 ## 预期 Agent 流程
 
-1. 列出项目服务，识别 MySQL 服务与 metadata 中的关键表。
-2. 加载内置 `mysql-data-diagnosis` 并激活 MySQL MCP。
-3. 查询 `products.price <= 0`，确认异常集中在“数码配件”分类。
-4. 查询 `orders.total <= 0` 与 `app_errors`，确认业务影响链。
-5. 输出根因，保存 incident history，并关闭事件。
+1. 列出项目服务，确认 MySQL 承载商品与订单链路数据。
+2. 加载通用 `mysql-data-diagnosis` 并激活 MySQL MCP。
+3. 先做 schema 发现，再定位异常数据集中在哪类商品和哪段交易链路。
+4. 结合商品、订单和错误记录判断影响范围与根因。
+5. 输出结论，保存 incident history，并关闭事件。
 
 ## 验证项
 

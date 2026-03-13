@@ -4,7 +4,9 @@ import { dockerComposeUp, dockerComposeDown } from '../helpers/docker'
 import {
   sendAlert,
   waitForIncidentResolution,
+  waitForIncidentFinalSummary,
   getFullText,
+  saveIncidentSummary,
   getIncidentHistory,
 } from '../helpers/chronos-api'
 import { seed, type SeedResult } from './seed'
@@ -44,7 +46,7 @@ describe('Case 2: MySQL 优惠券过期日期异常导致核销失败', () => {
 - FLASH20260301 批次: 正常
 - 已收到用户投诉，CRM 系统记录了相关 complaint
 
-请立即排查 MySQL 中优惠券的过期日期配置是否正常。`
+请立即排查 MySQL 中优惠券相关数据和核销链路是否正常。`
 
     const incident = await sendAlert(alertContent, meta.projectId)
     const threadId = `incident-${incident.id}`
@@ -55,6 +57,7 @@ describe('Case 2: MySQL 优惠券过期日期异常导致核销失败', () => {
 
     // 3. Get full agent text
     const fullText = await getFullText(threadId)
+    const finalSummary = await waitForIncidentFinalSummary(incident.id)
 
     // 4. Assertions
     // 4a. Incident resolved
@@ -69,7 +72,11 @@ describe('Case 2: MySQL 优惠券过期日期异常导致核销失败', () => {
     // 4d. Agent used MySQL MCP
     expect(fullText).toMatch(/mysql|mcp|activat/i)
 
-    // 4e. Incident history was generated
+    // 4e. Final summary draft was generated
+    expect(finalSummary).toMatch(/根因|排查过程|关键证据/i)
+
+    // 4f. Incident history is created only after saving the summary
+    await saveIncidentSummary(incident.id)
     const history = await getIncidentHistory(meta.projectId)
     expect(history.length).toBeGreaterThan(0)
   })

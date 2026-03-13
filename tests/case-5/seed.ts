@@ -129,7 +129,7 @@ export async function seed(): Promise<SeedResult> {
   const service = await addService(project.id, {
     name: '分析平台 PostgreSQL',
     type: 'postgresql',
-    description: '分析平台主数据库，排查入口集中在 scheduled_jobs、daily_reports、data_sources、app_errors。',
+    description: '分析平台主数据库，承载任务调度、报表结果和数据源同步状态。',
     config: {
       host: PG_HOST,
       port: PG_PORT,
@@ -138,15 +138,6 @@ export async function seed(): Promise<SeedResult> {
       password: PG_PASSWORD,
     },
     metadata: {
-      preferredSkillSlug: 'postgresql-ops-diagnosis',
-      keyTables: ['scheduled_jobs', 'daily_reports', 'data_sources', 'app_errors'],
-      criticalJob: 'generate_daily_report',
-      diagnosticChecks: [
-        '先确认 latest report_date',
-        '再查 generate_daily_report 的 is_enabled / status / last_run_at',
-        '再看 app_errors 中的 disabled / stale data 线索',
-        '最后确认 data_sources 同步是否正常',
-      ],
       upstreamServices: ['dashboard-api', 'bi-gateway'],
       downstreamDataConsumers: ['BI dashboards', 'department reports'],
     },

@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { isIncidentFinalSummarySaved } from "@/lib/final-summary";
 import { getProjectDisplayName } from "@/lib/project-display";
 import { opsQueries, useSaveIncidentSummary } from "@/lib/queries/ops";
 
@@ -18,6 +18,7 @@ function IncidentDetailPage() {
   const { id } = Route.useParams();
   const { data: incident } = useSuspenseQuery(opsQueries.incidentDetail(id));
   const saveSummary = useSaveIncidentSummary();
+  const summarySaved = isIncidentFinalSummarySaved(incident);
 
   const threadId = incident.threadId ?? `incident-${incident.id}`;
   const sourceLabel = incident.source === "manual" ? "Manual" : "Inbound";
@@ -42,16 +43,6 @@ function IncidentDetailPage() {
           <span className="text-xs text-muted-foreground">
             {dayjs(incident.createdAt).format("YYYY-MM-DD HH:mm")}
           </span>
-          {incident.finalSummaryDraft && incident.status !== "resolved" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={saveSummary.isPending}
-              onClick={() => saveSummary.mutate(incident.id)}
-            >
-              {saveSummary.isPending ? "Saving..." : "Save summary"}
-            </Button>
-          ) : null}
         </div>
       </div>
 
@@ -60,11 +51,12 @@ function IncidentDetailPage() {
         incidentId={incident.id}
         incident={incident}
         onSaveSummary={
-          incident.finalSummaryDraft && incident.status !== "resolved"
+          incident.finalSummaryDraft && incident.projectId && !summarySaved
             ? () => saveSummary.mutate(incident.id)
             : undefined
         }
         summaryPending={saveSummary.isPending}
+        summarySaved={summarySaved}
         className="min-h-0 flex-1"
       />
     </div>

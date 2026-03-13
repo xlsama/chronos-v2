@@ -21,11 +21,13 @@ export function IncidentTimelineEvent(props: {
   item: IncidentTimelineEventItem;
   onSaveSummary?: () => void;
   summaryPending?: boolean;
+  summarySaved?: boolean;
 }) {
   const {
     item,
     onSaveSummary,
     summaryPending = false,
+    summarySaved = false,
   } = props;
 
   const meta = getEventMeta(item);
@@ -57,6 +59,7 @@ export function IncidentTimelineEvent(props: {
             item,
             onSaveSummary,
             summaryPending,
+            summarySaved,
           })}
         </div>
       </div>
@@ -68,8 +71,9 @@ function renderContent(props: {
   item: IncidentTimelineEventItem;
   onSaveSummary?: () => void;
   summaryPending: boolean;
+  summarySaved: boolean;
 }) {
-  const { item, onSaveSummary, summaryPending } = props;
+  const { item, onSaveSummary, summaryPending, summarySaved } = props;
 
   switch (item.kind) {
     case "incident":
@@ -132,15 +136,19 @@ function renderContent(props: {
         <div className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="text-base font-semibold text-foreground">最终总结草稿</h3>
-              <p className="text-sm text-muted-foreground">确认后可保存到 incident history。</p>
+              <h3 className="text-base font-semibold text-foreground">最终报告</h3>
+              <p className="text-sm text-muted-foreground">
+                解决后自动生成的结构化 Markdown 报告，可手动保存到 incident history。
+              </p>
             </div>
-            {onSaveSummary ? (
-              <Button size="sm" onClick={onSaveSummary} disabled={summaryPending}>
-                <Save className="size-4" />
-                保存到历史
-              </Button>
-            ) : null}
+            <Button
+              size="sm"
+              onClick={onSaveSummary}
+              disabled={!onSaveSummary || summaryPending || summarySaved}
+            >
+              <Save className="size-4" />
+              {summaryPending ? "保存中..." : summarySaved ? "已添加" : "添加到记忆"}
+            </Button>
           </div>
           <Markdown className="prose prose-sm max-w-none text-sm">{item.summary}</Markdown>
         </div>

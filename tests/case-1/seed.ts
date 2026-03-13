@@ -59,23 +59,14 @@ export async function seed(): Promise<SeedResult> {
   const service = await addService(project.id, {
     name: 'API 网关 Redis',
     type: 'redis',
-    description: 'API 网关限流配置 Redis，保存 ratelimit 配置、功能开关和网关错误日志。',
+    description: 'API 网关依赖的 Redis 运行时存储，承载网关配置与相关状态数据。',
     config: {
       host: REDIS_HOST,
       port: REDIS_PORT,
     },
     metadata: {
-      preferredSkillSlug: 'redis-cache-diagnosis',
-      keyPatterns: ['ratelimit:config:*', 'errorlog:*', 'feature:*'],
-      normalThresholds: {
-        '/api/orders': 1000,
-        '/api/products': 2000,
-        '/api/users': 500,
-        '/api/health': 10000,
-      },
-      primarySignal: '当 limit=0 时，对应 endpoint 会 100% 返回 429',
       upstreamServices: ['api-gateway', 'alert-manager'],
-      downstreamImpact: ['order-service', 'product-service', 'user-service'],
+      downstreamServices: ['order-service', 'product-service', 'user-service'],
     },
   })
   console.log(`  ✓ Redis 服务已添加: ${service.id}`)

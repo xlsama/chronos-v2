@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process'
 
 export function dockerComposeUp(cwd: string): void {
   console.log(`  [docker] starting containers in ${cwd}...`)
-  execSync('docker compose up -d --wait', { cwd, stdio: 'inherit', timeout: 120_000 })
+  execSync('docker compose up -d --wait', { cwd, stdio: 'inherit', timeout: 300_000 })
   console.log('  [docker] containers ready')
 }
 

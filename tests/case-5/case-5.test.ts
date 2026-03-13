@@ -4,7 +4,9 @@ import { dockerComposeUp, dockerComposeDown } from '../helpers/docker'
 import {
   sendAlert,
   waitForIncidentResolution,
+  waitForIncidentFinalSummary,
   getFullText,
+  saveIncidentSummary,
   getIncidentHistory,
 } from '../helpers/chronos-api'
 import { seed, type SeedResult } from './seed'
@@ -43,7 +45,7 @@ bi-gateway 在刷新报表时未找到近期数据。
 - 业务决策参考数据过期
 - 多个部门已提交工单反馈数据异常
 
-请排查报表生成定时任务是否正常运行，确认数据缺失原因。`
+请排查报表生成链路和相关任务状态是否正常，确认数据缺失原因。`
 
     const incident = await sendAlert(alertContent, meta.projectId)
     const threadId = `incident-${incident.id}`
@@ -54,6 +56,7 @@ bi-gateway 在刷新报表时未找到近期数据。
 
     // 3. Get full agent text
     const fullText = await getFullText(threadId)
+    const finalSummary = await waitForIncidentFinalSummary(incident.id)
 
     // 4. Assertions
     // 4a. Incident resolved
@@ -65,7 +68,11 @@ bi-gateway 在刷新报表时未找到近期数据。
     // 4c. Agent used PostgreSQL MCP
     expect(fullText).toMatch(/postgresql|postgres|mcp|activat/i)
 
-    // 4d. Incident history was generated
+    // 4d. Final summary draft was generated
+    expect(finalSummary).toMatch(/根因|排查过程|关键证据/i)
+
+    // 4e. Incident history is created only after saving the summary
+    await saveIncidentSummary(incident.id)
     const history = await getIncidentHistory(meta.projectId)
     expect(history.length).toBeGreaterThan(0)
   })

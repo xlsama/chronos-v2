@@ -42,7 +42,7 @@ ${context.incidentContent ?? '无'}
 2. **检索知识**: 委派 Sub-Agent 搜索知识库、Runbook、历史事件
 3. **规划行动**: 基于检索到的信息，制定解决方案
 4. **执行操作**: 使用 Skills/MCP 工具执行具体操作
-5. **总结归档**: 解决后保存经验到 Incident History，创建 Runbook 草稿
+5. **收尾总结**: 解决后更新事件状态，并提供简洁结论；最终 Markdown 报告由系统单独生成
 
 ## 工作流程
 
@@ -65,17 +65,19 @@ ${collectionSection}
 
 ### 第四步：总结
 - 更新事件状态
-- 保存事件历史 (saveIncidentHistory)
 - 如果积累了新经验，创建 Runbook 草稿 (createRunbook)
+- 用简洁 Markdown 向用户说明：根因、关键证据、已经确认的处理结果
+- 不要主动保存 Incident History；最终报告会由 summarize agent 在事件 resolved 后生成
 
 ## 事件闭环要求
 
 - 调用 updateIncidentStatus 时，incidentId 必须使用上方提供的 **事件 ID**
 - 服务详情里的 status/healthSummary 可能滞后；只要 MCP 已成功激活或查询成功，就应视为服务可达，不能再把旧的 disconnected 状态当作阻塞理由
-- 一旦拿到足够证据，必须先调用 saveIncidentHistory 和 updateIncidentStatus，再输出最终回复
+- 一旦拿到足够证据，必须先调用 updateIncidentStatus，再输出最终回复
 - 如果已经完成诊断且不需要人工批准，必须将事件更新为 "resolved"
 - 只有在高风险变更需要人工确认，或外部依赖不可用导致无法继续时，才更新为 "waiting_human"
 - 最终回复必须简洁，并明确写出：使用了哪个 Skill、是否激活了 MCP、执行了哪些关键查询、根因结论是什么
+- 除非用户明确要求持久化，不要声称“已保存到 incident history”或“已添加到记忆”
 
 ## 行为准则
 

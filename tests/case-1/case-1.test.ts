@@ -4,7 +4,9 @@ import { dockerComposeUp, dockerComposeDown } from '../helpers/docker'
 import {
   sendAlert,
   waitForIncidentResolution,
+  waitForIncidentFinalSummary,
   getFullText,
+  saveIncidentSummary,
   getIncidentHistory,
 } from '../helpers/chronos-api'
 import { seed, type SeedResult } from './seed'
@@ -36,7 +38,7 @@ describe('Case 1: Redis 限流配置异常导致 API 全面 429', () => {
 告警描述:
 近 30 分钟内，API 网关对 /api/orders、/api/products、/api/users 三个核心 endpoint 返回 429 Too Many Requests 的比例超过 95%。
 但实际请求量远低于历史正常水平，且 /api/health 正常响应。
-errorlog 中显示 limit=0，疑似限流配置被错误重置。
+错误日志显示限流器相关配置可能异常。
 
 影响范围:
 - /api/orders: 100% 请求被拒 (429)
@@ -44,7 +46,7 @@ errorlog 中显示 limit=0，疑似限流配置被错误重置。
 - /api/users: 100% 请求被拒 (429)
 - /api/health: 正常
 
-请立即排查 Redis 中的限流配置是否正常。`
+请立即排查 Redis 中的限流与网关运行态数据是否正常。`
 
     const incident = await sendAlert(alertContent, meta.projectId)
     const threadId = `incident-${incident.id}`
@@ -55,6 +57,7 @@ errorlog 中显示 limit=0，疑似限流配置被错误重置。
 
     // 3. Get full agent text
     const fullText = await getFullText(threadId)
+    const finalSummary = await waitForIncidentFinalSummary(incident.id)
 
     // 4. Assertions
     // 4a. Incident resolved
@@ -69,7 +72,11 @@ errorlog 中显示 limit=0，疑似限流配置被错误重置。
     // 4d. Agent used Redis MCP
     expect(fullText).toMatch(/redis|mcp|activat/i)
 
-    // 4e. Incident history was generated
+    // 4e. Final summary draft was generated
+    expect(finalSummary).toMatch(/根因|排查过程|关键证据/i)
+
+    // 4f. Incident history is created only after saving the summary
+    await saveIncidentSummary(incident.id)
     const history = await getIncidentHistory(meta.projectId)
     expect(history.length).toBeGreaterThan(0)
   })

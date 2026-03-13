@@ -26,11 +26,11 @@ pnpm test:case-5
 
 ## 预期 Agent 流程
 
-1. 列出项目服务，识别 PostgreSQL 服务与 metadata 中的关键表和关键任务。
-2. 加载内置 `postgresql-ops-diagnosis` 并激活 PostgreSQL MCP。
-3. 查询 `daily_reports`，确认最近 3 天无新数据。
-4. 查询 `scheduled_jobs` 和 `app_errors`，确认 `generate_daily_report` 被禁用。
-5. 排除 `data_sources` 同步问题后给出根因，保存 incident history，并关闭事件。
+1. 列出项目服务，确认 PostgreSQL 承载调度、报表和同步状态数据。
+2. 加载通用 `postgresql-ops-diagnosis` 并激活 PostgreSQL MCP。
+3. 先发现相关 schema 和系统状态，再定位报表停滞发生在哪一层。
+4. 结合报表结果、调度状态和同步状态形成证据链。
+5. 输出结论，保存 incident history，并关闭事件。
 
 ## 验证项
 

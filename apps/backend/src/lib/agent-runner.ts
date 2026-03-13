@@ -1,8 +1,9 @@
 import { toAISdkStream } from '@mastra/ai-sdk'
 import { createSupervisorAgent } from '../mastra/agents/supervisor-agent'
 import { skillMcpManager } from './skill-mcp-manager'
+import { type SummaryToolTrace } from './final-summary'
 import { messageService } from '../services/message.service'
-import { projectDocumentService } from '../services/project-document.service'
+import { finalSummaryService } from '../services/final-summary.service'
 import { projectServiceCatalog } from '../services/project-service-catalog.service'
 import { incidentService } from '../services/incident.service'
 import { publishChatEvent } from './redis'
@@ -10,11 +11,6 @@ import { logger } from './logger'
 
 // Active background agent registry
 const activeAgents = new Map<string, AbortController>()
-
-type ToolTrace = {
-  toolName: string
-  args?: Record<string, unknown>
-}
 
 export function abortAgent(threadId: string): boolean {
   const controller = activeAgents.get(threadId)
@@ -79,7 +75,7 @@ export async function runAgentInBackground(
   const controller = new AbortController()
   activeAgents.set(threadId, controller)
   const startTime = Date.now()
-  const toolTrace: ToolTrace[] = []
+  const toolTrace: SummaryToolTrace[] = []
 
   try {
     const context: Parameters<typeof createSupervisorAgent>[0] = {
@@ -158,6 +154,14 @@ export async function runAgentInBackground(
     })
 
     await finalizeBackgroundIncidentIfNeeded({ threadId, incident, text, toolTrace })
+    try {
+      await finalSummaryService.ensureForIncident({ incidentId: incident.id, threadId, toolTrace })
+    } catch (summaryError) {
+      logger.error(
+        { err: summaryError, threadId, incidentId: incident.id },
+        '[Summary] failed to generate final summary after background run',
+      )
+    }
 
     logger.info(
       { threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` },
@@ -188,7 +192,7 @@ async function finalizeBackgroundIncidentIfNeeded(options: {
   threadId: string
   incident: { id: string; content: string; projectId: string | null; summary?: string | null }
   text: string
-  toolTrace: ToolTrace[]
+  toolTrace: SummaryToolTrace[]
 }) {
   const { threadId, incident, text, toolTrace } = options
   if (!incident.projectId) return
@@ -204,37 +208,11 @@ async function finalizeBackgroundIncidentIfNeeded(options: {
   const services = await projectServiceCatalog.list(incident.projectId)
   const primaryService = services[0]
   const serviceLabel = formatServiceLabel(primaryService?.type)
-  const queryList = mcpQueries.slice(0, 6)
   const resolutionTitle = incident.summary ?? `Background diagnosis ${incident.id.slice(0, 8)}`
-  const summaryText = buildFallbackSummary(serviceLabel, text, queryList)
-
-  await messageService.save({
-    threadId,
-    incidentId: incident.id,
-    role: 'assistant',
-    content: summaryText,
-  })
-
-  await projectDocumentService.createMarkdownDocument({
-    projectId: incident.projectId,
-    kind: 'incident_history',
-    title: resolutionTitle,
-    content: [
-      '# Background Incident Diagnosis',
-      '',
-      summaryText,
-      '',
-      '## Original Incident',
-      incident.content,
-    ].join('\n'),
-    tags: primaryService?.type ? [primaryService.type, 'auto-diagnosis'] : ['auto-diagnosis'],
-    source: 'agent',
-    createdBy: 'agent',
-  })
 
   await incidentService.update(incident.id, {
     status: 'resolved',
-    resolutionNotes: `Auto-resolved after background diagnosis using ${serviceLabel}.`,
+    resolutionNotes: buildResolutionNotes(serviceLabel, text, mcpQueries.slice(0, 6)),
     summary: resolutionTitle,
   })
 
@@ -244,7 +222,7 @@ async function finalizeBackgroundIncidentIfNeeded(options: {
   )
 }
 
-function extractExecutedQueries(toolTrace: ToolTrace[]): string[] {
+function extractExecutedQueries(toolTrace: SummaryToolTrace[]): string[] {
   const queries: string[] = []
   for (const trace of toolTrace) {
     if (trace.toolName !== 'executeMcpTool') continue
@@ -267,11 +245,11 @@ function formatServiceLabel(serviceType?: string | null): string {
   return serviceType ? `${serviceType} MCP` : 'MCP'
 }
 
-function buildFallbackSummary(serviceLabel: string, text: string, queries: string[]): string {
+function buildResolutionNotes(serviceLabel: string, text: string, queries: string[]): string {
   const trimmedText = text.trim()
   const queryLines = queries.length > 0
     ? queries.map((query) => `- ${query}`).join('\n')
-    : '- No MCP queries captured'
+    : '- 无可用查询记录'
 
   return [
     '后台自动收尾：',
@@ -279,6 +257,6 @@ function buildFallbackSummary(serviceLabel: string, text: string, queries: strin
     '- 已确认并记录关键查询：',
     queryLines,
     trimmedText ? `- Agent 原始结论摘要：${trimmedText}` : '',
-    '- 事件已自动保存到 incident_history，并更新为 resolved。',
+    '- 事件已更新为 resolved，最终报告待用户确认后可添加到记忆。',
   ].filter(Boolean).join('\n')
 }

@@ -2,6 +2,20 @@ import type { IncidentStatus, MessageRole } from "./enums";
 import type { ProjectDocument } from "./project-document";
 import type { Project } from "./project";
 
+export type IncidentFinalSummaryStatus = "generated" | "saved";
+
+export interface IncidentFinalSummaryMetadata {
+  status: IncidentFinalSummaryStatus;
+  generatedAt: string;
+  savedAt?: string;
+  documentId?: string;
+  source: "summarize-agent";
+}
+
+export interface IncidentMetadata extends Record<string, unknown> {
+  finalSummary?: IncidentFinalSummaryMetadata;
+}
+
 export interface Attachment {
   type: "image" | "file";
   url: string;
@@ -22,7 +36,7 @@ export interface Incident {
   selectedSkills?: string[];
   finalSummaryDraft?: string | null;
   resolutionNotes?: string | null;
-  metadata?: Record<string, unknown>;
+  metadata?: IncidentMetadata;
   createdAt: string;
   updatedAt: string;
 }

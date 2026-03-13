@@ -161,7 +161,7 @@ export async function seed(): Promise<SeedResult> {
   const service = await addService(project.id, {
     name: '促销服务 MySQL',
     type: 'mysql',
-    description: '优惠券促销服务数据库，保存批次、优惠券明细、核销日志和应用错误日志。',
+    description: '优惠券促销服务主数据库，承载活动批次、券明细和交易相关记录。',
     config: {
       host: MYSQL_HOST,
       port: MYSQL_PORT,
@@ -170,14 +170,6 @@ export async function seed(): Promise<SeedResult> {
       database: MYSQL_DATABASE,
     },
     metadata: {
-      preferredSkillSlug: 'mysql-data-diagnosis',
-      keyTables: ['coupon_batches', 'coupons', 'redemption_logs', 'app_errors'],
-      suspiciousBatchCode: 'SPRING2026',
-      diagnosticChecks: [
-        '对比 coupon_batches.expire_date 与 coupons.expire_date',
-        '筛选 failure_reason = coupon_expired',
-        '按 created_at / attempted_at 排序追踪时间线',
-      ],
       upstreamServices: ['order-service', 'payment-service', 'crm-service'],
       downstreamServices: ['notification-service', 'analytics-service'],
     },

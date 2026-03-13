@@ -1,10 +1,12 @@
 import { useCallback, useState } from 'react'
+import type { IncidentStatus } from '@chronos/shared'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Inbox, Plus } from 'lucide-react'
 import { motion } from 'motion/react'
 import { DataTable } from '@/components/data-table/data-table'
 import { incidentColumns } from '@/components/ops/incident-columns'
+import { statusLabelMap } from '@/components/ops/status-badge'
 import { AttachmentPreview } from '@/components/ui/attachment-preview'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -20,8 +22,11 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import { PromptInput, PromptInputAction, PromptInputActions, PromptInputTextarea } from '@/components/ui/prompt-input'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { opsQueries, useCreateIncident } from '@/lib/queries/ops'
+
+const INCIDENT_STATUSES: IncidentStatus[] = ['triaging', 'in_progress', 'waiting_human', 'resolved', 'closed']
 
 const PAGE_SIZE = 10
 
@@ -36,7 +41,12 @@ export const Route = createFileRoute('/_app/inbox/')({
 function InboxPage() {
   useSuspenseQuery(opsQueries.projectList())
   const [currentPage, setCurrentPage] = useState(1)
-  const { data } = useQuery(opsQueries.incidents({ limit: PAGE_SIZE, offset: (currentPage - 1) * PAGE_SIZE }))
+  const [statusFilter, setStatusFilter] = useState<'all' | IncidentStatus>('all')
+  const { data } = useQuery(opsQueries.incidents({
+    limit: PAGE_SIZE,
+    offset: (currentPage - 1) * PAGE_SIZE,
+    ...(statusFilter !== 'all' && { status: statusFilter }),
+  }))
   const incidents = data?.data ?? []
   const totalPages = Math.ceil((data?.total ?? 0) / PAGE_SIZE)
   const pageItems = getPaginationItems(currentPage, totalPages)
@@ -59,6 +69,23 @@ function InboxPage() {
             新建事件
           </Button>
         </div>
+        <Tabs
+          value={statusFilter}
+          onValueChange={(value) => {
+            setStatusFilter(value as 'all' | IncidentStatus)
+            setCurrentPage(1)
+          }}
+          className="mb-4 shrink-0"
+        >
+          <TabsList>
+            <TabsTrigger value="all">全部</TabsTrigger>
+            {INCIDENT_STATUSES.map((status) => (
+              <TabsTrigger key={status} value={status}>
+                {statusLabelMap[status]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         <div className="min-h-0 flex-1 overflow-auto">
           <DataTable
             columns={incidentColumns}

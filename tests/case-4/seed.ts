@@ -139,7 +139,7 @@ export async function seed(): Promise<SeedResult> {
   const service = await addService(project.id, {
     name: '商品服务 MySQL',
     type: 'mysql',
-    description: '商品服务生产数据库，排查入口集中在 categories、products、orders、app_errors 四张表。',
+    description: '商品服务主数据库，承载分类、商品和订单等核心交易数据。',
     config: {
       host: MYSQL_HOST,
       port: MYSQL_PORT,
@@ -148,15 +148,6 @@ export async function seed(): Promise<SeedResult> {
       password: MYSQL_PASSWORD,
     },
     metadata: {
-      preferredSkillSlug: 'mysql-data-diagnosis',
-      keyTables: ['categories', 'products', 'orders', 'app_errors'],
-      suspiciousCategory: '数码配件',
-      diagnosticChecks: [
-        '先查 products.price <= 0',
-        '再关联 categories.name',
-        '再查 orders.total <= 0',
-        '最后按时间查看 app_errors',
-      ],
       upstreamServices: ['admin-console', 'price-monitor'],
       downstreamServices: ['order-service', 'checkout-service'],
     },

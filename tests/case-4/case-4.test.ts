@@ -4,7 +4,9 @@ import { dockerComposeUp, dockerComposeDown } from '../helpers/docker'
 import {
   sendAlert,
   waitForIncidentResolution,
+  waitForIncidentFinalSummary,
   getFullText,
+  saveIncidentSummary,
   getIncidentHistory,
 } from '../helpers/chronos-api'
 import { seed, type SeedResult } from './seed'
@@ -36,14 +38,14 @@ describe('Case 4: MySQL 商品价格异常导致零元订单', () => {
 告警描述:
 近 30 分钟内，订单服务检测到多笔零元订单（total = 0），订单校验失败率飙升至 40%。
 checkout-service 报告支付网关拒绝了多笔金额为 0 的交易请求。
-price-monitor 检测到数码配件分类下多个商品价格为 0。
+price-monitor 检测到数码配件分类存在明显价格异常。
 
 影响范围:
 - 4 笔订单创建失败（订单号: ORD-20260312-007 ~ 010）
 - 支付网关拒绝率上升
 - 前端用户看到商品价格显示为 ¥0.00
 
-请立即排查商品数据库中的价格数据是否正常。`
+请立即排查商品数据库中的价格与订单相关数据是否正常。`
 
     const incident = await sendAlert(alertContent, meta.projectId)
     const threadId = `incident-${incident.id}`
@@ -54,6 +56,7 @@ price-monitor 检测到数码配件分类下多个商品价格为 0。
 
     // 3. Get full agent text
     const fullText = await getFullText(threadId)
+    const finalSummary = await waitForIncidentFinalSummary(incident.id)
 
     // 4. Assertions
     // 4a. Incident resolved
@@ -65,7 +68,11 @@ price-monitor 检测到数码配件分类下多个商品价格为 0。
     // 4c. Agent used MySQL MCP
     expect(fullText).toMatch(/mysql|mcp|activat/i)
 
-    // 4d. Incident history was generated
+    // 4d. Final summary draft was generated
+    expect(finalSummary).toMatch(/根因|排查过程|关键证据/i)
+
+    // 4e. Incident history is created only after saving the summary
+    await saveIncidentSummary(incident.id)
     const history = await getIncidentHistory(meta.projectId)
     expect(history.length).toBeGreaterThan(0)
   })

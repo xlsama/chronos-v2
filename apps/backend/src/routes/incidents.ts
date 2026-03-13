@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod/v4";
 import { AppError } from "../lib/errors";
+import { getFinalSummaryMetadata, mergeFinalSummaryMetadata } from "../lib/final-summary";
 import { publishChatEvent } from "../lib/redis";
 import { runAgentInBackground } from "../lib/agent-runner";
 import { incidentService } from "../services/incident.service";
@@ -125,6 +126,14 @@ export const incidentRoutes = new Hono()
     if (!incident.projectId) throw new AppError(400, "Incident has no resolved project");
     if (!incident.finalSummaryDraft) throw new AppError(400, "Incident has no summary draft");
 
+    const summaryMeta = getFinalSummaryMetadata(incident.metadata);
+    if (summaryMeta?.documentId) {
+      const existingDocument = await projectDocumentService.getById(summaryMeta.documentId);
+      if (existingDocument) {
+        return c.json({ data: existingDocument });
+      }
+    }
+
     const document = await projectDocumentService.createMarkdownDocument({
       projectId: incident.projectId,
       kind: "incident_history",
@@ -135,12 +144,22 @@ export const incidentRoutes = new Hono()
       metadata: {
         incidentId: incident.id,
         incidentSummary: incident.summary,
+        finalSummarySource: "summarize-agent",
       },
     });
+
+    const now = new Date().toISOString();
 
     await incidentService.update(incident.id, {
       status: "resolved",
       resolutionNotes: `Saved to incident history: ${document.title}`,
+      metadata: mergeFinalSummaryMetadata(incident.metadata, {
+        status: "saved",
+        generatedAt: summaryMeta?.generatedAt ?? now,
+        savedAt: now,
+        documentId: document.id,
+        source: "summarize-agent",
+      }),
     });
 
     return c.json({ data: document }, 201);

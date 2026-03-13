@@ -15,7 +15,6 @@ import {
   listProjectServices,
   getServiceDetails,
   getServiceMap,
-  saveIncidentHistory,
   searchRunbooks,
   getRunbook,
   searchIncidentHistory,
@@ -57,7 +56,6 @@ export function createSupervisorAgent(context?: {
           listProjectServices,
           getServiceDetails,
           getServiceMap,
-          saveIncidentHistory,
           createRunbook,
         }
       : {
@@ -77,7 +75,6 @@ export function createSupervisorAgent(context?: {
           listProjectServices,
           getServiceDetails,
           getServiceMap,
-          saveIncidentHistory,
           createRunbook,
         },
     ...(context?.automationMode === 'background'

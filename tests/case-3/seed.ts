@@ -107,27 +107,12 @@ container_memory_limit_bytes{service="user-service",pod="user-service-3a4b5c-q9w
   const service = await addService(project.id, {
     name: 'Prometheus 监控',
     type: 'prometheus',
-    description: '微服务平台监控系统，负责暴露请求量、服务可用性、重启次数和容器资源使用指标。',
+    description: '微服务平台的 Prometheus 监控入口，覆盖支付、订单、用户等核心服务的运行指标。',
     config: {
       host: PROMETHEUS_HOST,
       port: PROMETHEUS_PORT,
     },
     metadata: {
-      preferredSkillSlug: 'prometheus-metrics-analysis',
-      keyMetrics: [
-        'http_requests_total',
-        'service_up',
-        'pod_restart_count',
-        'container_memory_usage_bytes',
-        'container_memory_limit_bytes',
-      ],
-      diagnosisOrder: [
-        '先找错误率最高的服务',
-        '再看 service_up',
-        '再看 pod_restart_count',
-        '最后核对内存 usage / limit',
-      ],
-      primaryService: 'payment-service',
       upstreamServices: ['api-gateway', 'order-service'],
       downstreamServices: ['bank-gateway'],
     },

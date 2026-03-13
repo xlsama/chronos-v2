@@ -124,7 +124,7 @@ export async function sendAlert(content: string, projectId: string) {
 // ── Incidents ──
 
 export async function getIncident(id: string) {
-  const resp = await request<{ data: { id: string; status: string; [k: string]: unknown } }>(`/api/incidents/${id}`)
+  const resp = await request<{ data: { id: string; status: string; finalSummaryDraft?: string | null; [k: string]: unknown } }>(`/api/incidents/${id}`)
   return resp.data
 }
 
@@ -145,13 +145,54 @@ export async function waitForIncidentResolution(incidentId: string, timeoutMs = 
   throw new Error(`Incident ${incidentId} not resolved after ${timeoutMs}ms (last: ${lastStatus})`)
 }
 
+export async function waitForIncidentFinalSummary(incidentId: string, timeoutMs = 120_000): Promise<string> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const incident = await getIncident(incidentId)
+    if (typeof incident.finalSummaryDraft === 'string' && incident.finalSummaryDraft.trim()) {
+      return incident.finalSummaryDraft
+    }
+    await new Promise((r) => setTimeout(r, 3000))
+  }
+  throw new Error(`Incident ${incidentId} final summary not generated after ${timeoutMs}ms`)
+}
+
+export async function saveIncidentSummary(incidentId: string) {
+  const resp = await request<{ data: { id: string } }>(`/api/incidents/${incidentId}/save-summary`, {
+    method: 'POST',
+  })
+  return resp.data
+}
+
 // ── Messages ──
 
 export async function getMessages(threadId: string) {
   return request<Array<{ role: string; parts?: Array<{ type: string; text?: string }> }>>(`/api/chat/${threadId}/messages`)
 }
 
-export async function getFullText(threadId: string): Promise<string> {
+export async function getFullText(threadId: string, timeoutMs = 20_000): Promise<string> {
+  const start = Date.now()
+
+  while (Date.now() - start < timeoutMs) {
+    const messages = await getMessages(threadId)
+    const assistantText = messages
+      .filter((m) => m.role === 'assistant')
+      .flatMap((m) => m.parts ?? [])
+      .filter((p) => p.type === 'text' && p.text)
+      .map((p) => p.text!)
+      .join(' ')
+
+    if (assistantText.trim()) {
+      return messages
+        .flatMap((m) => m.parts ?? [])
+        .filter((p) => p.type === 'text' && p.text)
+        .map((p) => p.text!)
+        .join(' ')
+    }
+
+    await new Promise((r) => setTimeout(r, 1000))
+  }
+
   const messages = await getMessages(threadId)
   return messages
     .flatMap((m) => m.parts ?? [])

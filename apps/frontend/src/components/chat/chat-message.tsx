@@ -9,13 +9,9 @@ import { getMessageText } from "./chat-utils";
 export function ChatMessage({
   message,
   isStreaming,
-  incidentId,
-  projectId,
 }: {
   message: UIMessage;
   isStreaming?: boolean;
-  incidentId?: string;
-  projectId?: string | null;
 }) {
   const isUser = message.role === "user";
   const timestamp = message.createdAt ? dayjs(message.createdAt).format("YYYY-MM-DD HH:mm") : null;
@@ -57,13 +53,7 @@ export function ChatMessage({
             </div>
           </div>
         )}
-
-        {!isUser && !isStreaming && (
-          <ChatMessageActions
-            message={message}
-            incidentId={incidentId}
-          />
-        )}
+        {!isUser && !isStreaming && <ChatMessageActions message={message} />}
       </div>
     </Message>
   );
