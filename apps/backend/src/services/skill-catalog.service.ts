@@ -3,6 +3,8 @@ import path from 'node:path'
 import matter from 'gray-matter'
 import { getSkillsRoot, slugifySegment } from '../lib/file-storage'
 
+const SKILL_MARKDOWN_FILE = 'SKILL.md'
+
 export interface SkillRecord {
   name: string
   slug: string
@@ -15,7 +17,7 @@ export interface SkillRecord {
 
 async function readSkill(slug: string): Promise<SkillRecord | null> {
   const skillDir = path.join(getSkillsRoot(), slug)
-  const markdownPath = path.join(skillDir, 'skill.md')
+  const markdownPath = path.join(skillDir, SKILL_MARKDOWN_FILE)
 
   try {
     const raw = await fs.readFile(markdownPath, 'utf-8')
@@ -38,7 +40,7 @@ async function readSkill(slug: string): Promise<SkillRecord | null> {
 async function writeSkill(record: SkillRecord) {
   const skillDir = path.join(getSkillsRoot(), record.slug)
   await fs.mkdir(skillDir, { recursive: true })
-  await fs.writeFile(path.join(skillDir, 'skill.md'), record.markdown, 'utf-8')
+  await fs.writeFile(path.join(skillDir, SKILL_MARKDOWN_FILE), record.markdown, 'utf-8')
   return record
 }
 

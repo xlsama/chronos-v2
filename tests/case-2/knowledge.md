@@ -15,6 +15,22 @@
 - **Notification Service**：优惠券即将过期时发送提醒
 - **Analytics Service**：上报优惠券使用统计
 
+## 故障影响链与关键约束
+
+故障在这条链路上传播：
+
+1. 运营配置 `coupon_batches`
+2. 系统按批次生成 `coupons`
+3. 用户下单时由 Order Service / Payment Service 调用核销
+4. 核销失败会写入 `redemption_logs`
+5. 投诉和异常聚合会在 CRM / `app_errors` 中体现
+
+重点约束：
+
+- 批次级 `coupon_batches.expire_date` 定义活动的理论有效期
+- 券级 `coupons.expire_date` 正常应与所属批次一致，至少不应早于当前日期
+- 当批次仍有效但券级 `expire_date` 已落到过去，说明是单券数据被错误污染，而不是活动整体过期
+
 ## 数据库表结构
 
 ### coupon_batches（优惠券批次表）
@@ -105,3 +121,4 @@
 - 正常情况下，优惠券的 `expire_date` 应与所属批次的 `expire_date` 一致
 - 当优惠券的 `expire_date` 早于当前日期，而批次的 `expire_date` 是未来日期时，说明优惠券级别的日期被错误修改
 - 重点关注 `expire_date = '2025-01-01'` 这类明显异常的过去日期
+- 如果 `failure_reason='coupon_expired'` 主要集中在单一批次，而其他批次正常，优先怀疑该批次相关的批量更新或数据迁移

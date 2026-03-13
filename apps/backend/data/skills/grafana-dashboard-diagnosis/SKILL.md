@@ -1,11 +1,10 @@
 ---
 name: "Grafana 仪表板诊断"
-description: "通过 Grafana 和 Prometheus 数据源查询指标，诊断服务性能问题、异常告警和资源使用"
+description: "通过 Grafana 仪表板和其数据源代理查询指标，诊断服务性能问题、异常告警和资源使用。仅在项目中存在 Grafana 服务时使用本技能。"
 mcpServers:
   - grafana
 applicableServiceTypes:
   - grafana
-  - prometheus
 riskLevel: read-only
 ---
 

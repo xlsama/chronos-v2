@@ -4,6 +4,14 @@
 
 商品服务（Shop Service）是电商平台的核心微服务之一，负责管理商品信息、分类、库存和订单数据。该服务使用 MySQL 8.0 作为主数据库，数据库名称为 `shop_service`。所有商品和订单相关的业务逻辑均依赖该数据库中的数据完整性和正确性。
 
+## 服务影响链
+
+- **上游**：运营后台、价格同步脚本、price-monitor
+- **核心存储**：`categories`、`products`、`orders`
+- **下游**：order-service、checkout-service、支付网关、前端商品展示
+
+当 `products.price` 被批量改错时，最先出现异常的是商品展示价格和下单金额，随后会在 `orders.total` 和支付网关拒绝日志中体现出来。
+
 ## 数据库表结构
 
 ### categories 表（商品分类）
@@ -71,6 +79,13 @@
 ### 批量 SQL 操作风险
 
 在执行 `UPDATE products SET price = ...` 这类批量修改时，如果 WHERE 条件不当（例如漏写条件或条件过宽），可能会影响非目标商品。建议在执行前先用 `SELECT COUNT(*)` 确认影响行数，并在事务中操作以便回滚。
+
+### 分类级批量污染的识别信号
+
+- 多条异常商品集中在同一 `category_id`
+- 该分类之外的商品价格保持正常
+- `orders` 中的异常订单只关联该分类下的商品
+- `app_errors` 会同时出现 `price-monitor`、`order-service`、`checkout-service` 的串联报错
 
 ### 订单状态异常
 

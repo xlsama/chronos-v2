@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Save, Trash2 } from "lucide-react";
-import { motion } from "motion/react";
 import { toast } from "sonner";
+import { MarkdownEditorPageShell } from "@/components/ops/markdown-editor-page-shell";
 import { StatusBadge } from "@/components/ops/status-badge";
 import {
   AlertDialog,
@@ -76,72 +76,77 @@ function RunbookDetailPage() {
 
   return (
     <>
-      <div className="flex min-h-full flex-col bg-background px-4 py-4 md:px-8 md:py-6">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.32, ease: "easeOut" }}
-          className="flex flex-1 flex-col gap-4"
-        >
-          <div className="flex items-center justify-between">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/runbooks">Runbook</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{projectName}</BreadcrumbPage>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{documentTitle}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+      <MarkdownEditorPageShell
+        header={
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+              <div className="space-y-3">
+                <Breadcrumb>
+                  <BreadcrumbList>
+                    <BreadcrumbItem>
+                      <BreadcrumbLink asChild>
+                        <Link to="/runbooks">Runbook</Link>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>{projectName}</BreadcrumbPage>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>{documentTitle}</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </BreadcrumbList>
+                </Breadcrumb>
 
-            <div className="flex items-center gap-2">
-              <StatusBadge
-                value={publicationStatus}
-                label={getRunbookStatusLabel(publicationStatus)}
-              />
-              <Button
-                variant="outline"
-                disabled={deleteDocument.isPending}
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                <Trash2 data-icon="inline-start" className="size-4" />
-                删除
-              </Button>
-              <Button
-                onClick={() => void handleSave()}
-                disabled={updateDocument.isPending || documentTitle.length === 0}
-              >
-                <Save data-icon="inline-start" className="size-4" />
-                保存
-              </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge
+                    value={publicationStatus}
+                    label={getRunbookStatusLabel(publicationStatus)}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    当前内容会在编辑区内独立滚动，顶部操作保持可见。
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                <Button
+                  variant="outline"
+                  disabled={deleteDocument.isPending}
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 data-icon="inline-start" className="size-4" />
+                  删除
+                </Button>
+                <Button
+                  onClick={() => void handleSave()}
+                  disabled={updateDocument.isPending || documentTitle.length === 0}
+                >
+                  <Save data-icon="inline-start" className="size-4" />
+                  保存
+                </Button>
+              </div>
             </div>
+
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="runbook 标题"
+              className="h-auto border-0 bg-transparent dark:bg-transparent px-0 text-3xl font-medium tracking-tight shadow-none focus-visible:ring-0"
+            />
           </div>
-
-          <Input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="runbook 标题"
-            className="h-auto border-0 bg-transparent dark:bg-transparent px-0 text-3xl font-medium tracking-tight shadow-none focus-visible:ring-0"
-          />
-
-          <MarkdownEditor
-            value={content}
-            onChange={setContent}
-            resetKey={id}
-            minHeight="calc(100vh - 240px)"
-            className="flex-1"
-            placeholder="编写 runbook 的步骤、约束、回滚说明和验证命令。"
-          />
-        </motion.div>
-      </div>
+        }
+      >
+        <MarkdownEditor
+          value={content}
+          onChange={setContent}
+          resetKey={id}
+          fullHeight
+          className="flex-1"
+          placeholder="编写 runbook 的步骤、约束、回滚说明和验证命令。"
+        />
+      </MarkdownEditorPageShell>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

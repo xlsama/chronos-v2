@@ -4,6 +4,20 @@
 
 API 网关（API Gateway）是平台流量入口，负责请求路由、身份验证和**限流（Rate Limiting）**。限流配置存储在 Redis 中，网关在处理每个请求时实时读取 Redis 限流配置来决定是否放行。
 
+## 服务链路与正常基线
+
+- **上游**：客户端请求、发布脚本、alert-manager
+- **核心组件**：api-gateway 读取 Redis 中的限流配置与错误日志
+- **下游影响**：`/api/orders`、`/api/products`、`/api/users` 的业务流量会被直接拦截
+
+正常情况下：
+- `/api/orders` 的 `limit` 应为 `1000`
+- `/api/products` 的 `limit` 应为 `2000`
+- `/api/users` 的 `limit` 应为 `500`
+- `/api/health` 保持高阈值，通常可作为正常基线
+
+如果 `/api/health` 正常而多个业务 endpoint 同时 429，优先怀疑业务 endpoint 的限流配置，而不是 Redis 整体不可用。
+
 ## Redis 键命名规范
 
 ### 限流配置键
@@ -57,6 +71,12 @@ ratelimit:config:/api/health    → {"limit": 10000, "window": 60}
 - 部署脚本错误地将限流配置的 `limit` 重置为 0
 - 配置回滚不完整，导致部分 endpoint 配置丢失
 - 手动操作 Redis 时误写入了错误值
+
+### 诊断入口提示
+
+- 第一跳优先查看 `ratelimit:config:*`
+- 第二跳查看 `errorlog:*`，确认异常时间线和影响范围
+- 如果限流配置正常，再看 `feature:*` 是否存在误开的全局开关
 
 ### 维护模式误开启
 

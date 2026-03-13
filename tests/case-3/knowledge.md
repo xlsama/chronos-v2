@@ -32,6 +32,17 @@ API Gateway
 2. API Gateway 返回 500/503 给客户端
 3. 影响所有需要支付的业务场景（下单、续费、充值等）
 
+## 最小指标诊断顺序
+
+为了避免在监控场景里做无效查询，建议按以下顺序观察：
+
+1. `http_requests_total`：先确认哪个服务的 500 占比最高
+2. `service_up`：确认该服务当前是否不可用
+3. `pod_restart_count`：判断是否存在持续重启
+4. `container_memory_usage_bytes` / `container_memory_limit_bytes`：判断是否资源打满
+
+如果同一个服务在以上四类指标上同时异常，通常已经足够形成较强的根因判断，不需要再大范围搜索无关服务。
+
 ## Prometheus 监控指标说明
 
 ### 请求指标
@@ -103,3 +114,5 @@ API Gateway
 2. 确认异常服务的资源使用情况（内存、重启次数）
 3. 根据服务依赖关系，判断是上游还是下游导致的问题
 4. 正常服务的指标可以作为基线对照
+
+`order-service` 和 `user-service` 在这个场景里主要承担基线对照作用；如果它们指标稳定而 `payment-service` 明显异常，应优先锁定支付服务本身。

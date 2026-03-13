@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Save } from 'lucide-react'
-import { motion } from 'motion/react'
 import { toast } from 'sonner'
+import { MarkdownEditorPageShell } from '@/components/ops/markdown-editor-page-shell'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -38,42 +38,44 @@ function SkillCreatePage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-background px-4 py-4 md:px-8 md:py-6">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.32, ease: 'easeOut' }}
-        className="flex flex-1 flex-col gap-4"
-      >
-        <div className="flex items-center justify-between">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/skills">Skills</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>新建</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+    <MarkdownEditorPageShell
+      header={
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-2">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
+                      <Link to="/skills">Skills</Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>新建</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+              <p className="text-sm text-muted-foreground">
+                先在 frontmatter 中填写 `name` 和 `description`，再继续编写 Skill 内容。
+              </p>
+            </div>
 
-          <Button onClick={handleSave} disabled={createSkill.isPending}>
-            <Save data-icon="inline-start" className="size-4" />
-            创建
-          </Button>
+            <Button onClick={handleSave} disabled={createSkill.isPending}>
+              <Save data-icon="inline-start" className="size-4" />
+              创建
+            </Button>
+          </div>
         </div>
-
-        <MarkdownEditor
-          value={markdown}
-          onChange={setMarkdown}
-          placeholder="在 frontmatter 中填写 name 和 description，下方编写 Skill 内容"
-          minHeight="calc(100vh - 180px)"
-          className="flex-1"
-        />
-      </motion.div>
-    </div>
+      }
+    >
+      <MarkdownEditor
+        value={markdown}
+        onChange={setMarkdown}
+        placeholder="在 frontmatter 中填写 name 和 description，下方编写 Skill 内容"
+        fullHeight
+        className="flex-1"
+      />
+    </MarkdownEditorPageShell>
   )
 }

@@ -31,6 +31,7 @@ export async function addService(projectId: string, input: {
   type: string
   description?: string
   config: Record<string, unknown>
+  metadata?: Record<string, unknown>
 }) {
   const resp = await request<{ data: { id: string } }>(`/api/projects/${projectId}/services`, {
     method: 'POST',
@@ -90,6 +91,23 @@ export async function createSkill(markdown: string) {
 
 export async function deleteSkill(slug: string) {
   await fetch(`${API_URL}/api/skills/${slug}`, { method: 'DELETE' }).catch(() => {})
+}
+
+// ── Runbooks ──
+
+export async function createRunbook(projectId: string, input: {
+  title: string
+  content: string
+  tags?: string[]
+  description?: string
+  publicationStatus?: 'active' | 'draft' | 'published' | 'archived'
+}) {
+  const resp = await request<{ data: { id: string } }>(`/api/projects/${projectId}/runbooks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  return resp.data
 }
 
 // ── Alerts ──

@@ -43,6 +43,22 @@ const baseTheme = EditorView.theme({
   },
 })
 
+const fullHeightTheme = EditorView.theme({
+  '&': {
+    height: '100%',
+  },
+  '.cm-editor': {
+    height: '100%',
+  },
+  '.cm-scroller': {
+    overflow: 'auto',
+  },
+  '.cm-content': {
+    minHeight: '100%',
+    paddingBottom: '72px',
+  },
+})
+
 const extensions = [
   yamlFrontmatter({
     content: markdown({ base: markdownLanguage, codeLanguages: languages }),
@@ -59,6 +75,7 @@ export type MarkdownEditorProps = {
   readOnly?: boolean
   disabled?: boolean
   minHeight?: number | string
+  fullHeight?: boolean
   className?: string
 }
 
@@ -70,10 +87,12 @@ export function MarkdownEditor({
   readOnly = false,
   disabled = false,
   minHeight = 320,
+  fullHeight = false,
   className,
 }: MarkdownEditorProps) {
   const editable = !readOnly && !disabled
   const minH = typeof minHeight === 'number' ? `${minHeight}px` : minHeight
+  const editorExtensions = fullHeight ? [...extensions, fullHeightTheme] : extensions
 
   const basicSetup: ReactCodeMirrorProps['basicSetup'] = {
     lineNumbers: false,
@@ -90,6 +109,7 @@ export function MarkdownEditor({
     <div
       className={cn(
         'overflow-hidden rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow]',
+        fullHeight && 'flex min-h-0 flex-1 flex-col',
         editable && 'focus-within:border-ring',
         disabled && 'pointer-events-none opacity-50',
         className,
@@ -99,12 +119,14 @@ export function MarkdownEditor({
         key={resetKey}
         value={value}
         onChange={onChange}
-        extensions={extensions}
+        extensions={editorExtensions}
         placeholder={placeholder}
         editable={editable}
         readOnly={!editable}
         basicSetup={basicSetup}
-        style={{ minHeight: minH }}
+        className={cn(fullHeight && 'h-full')}
+        height={fullHeight ? '100%' : undefined}
+        style={fullHeight ? undefined : { minHeight: minH }}
         theme="none"
       />
     </div>

@@ -2,7 +2,7 @@
 
 ## 场景
 
-API 网关使用 Redis 存储限流配置。部署脚本误将所有 `ratelimit:config:*` 的 `limit` 设为 0，导致 /api/orders、/api/products、/api/users 三个核心 endpoint 100% 返回 429 Too Many Requests。
+API 网关使用 Redis 存储限流配置。部署脚本误将多个 `ratelimit:config:*` 的 `limit` 设为 `0`，导致 `/api/orders`、`/api/products`、`/api/users` 大面积返回 `429 Too Many Requests`。
 
 ## 架构
 
@@ -11,53 +11,26 @@ API 网关使用 Redis 存储限流配置。部署脚本误将所有 `ratelimit:
 | case1-redis (36379) | 模拟生产 Redis 7（限流配置 + 错误日志） |
 | Chronos Backend | AI Agent 分析平台 |
 
-### Redis 数据
+### 复用的内置 Skill
 
-- `ratelimit:config:/api/orders` — `{"limit":0,"window":60}`（应为 1000）
-- `ratelimit:config:/api/products` — `{"limit":0,"window":60}`（应为 2000）
-- `ratelimit:config:/api/users` — `{"limit":0,"window":60}`（应为 500）
-- `ratelimit:config:/api/health` — `{"limit":10000,"window":60}`（正常）
-- `feature:maintenance_mode` — `disabled`
-- `errorlog:1~5` — 429 错误日志
-
-### 使用的 Skill
-
-**Redis Cache Diagnosis** (`redis-cache-diagnosis`)
+- `redis-cache-diagnosis`
 - MCP Server: `@modelcontextprotocol/server-redis`
-- 适用服务类型: `redis`
+- 本 case 的 `seed.ts` 不会再创建私有 skill；Agent 直接复用仓库内置通用 skill
 
 ## 运行方式
-
-### Vitest（推荐）
 
 ```bash
 # 前提：后端已运行 (pnpm dev:backend)
 pnpm test:case-1
 ```
 
-### 环境变量
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `CHRONOS_API_URL` | `http://localhost:8000` | Chronos 后端地址 |
-| `REDIS_HOST` | `127.0.0.1` | Redis 主机 |
-| `REDIS_PORT` | `36379` | Redis 端口 |
-
 ## 预期 Agent 流程
 
-1. 搜索知识库 → 找到 API 网关限流架构文档
-2. 列出 Skills → 找到 Redis Cache Diagnosis
-3. 加载 Skill → 读取诊断方法论
-4. 列出项目服务 → 找到 Redis 连接
-5. 激活 MCP → 启动 Redis MCP Server
-6. `list pattern="ratelimit:config:*"` → 枚举限流配置键
-7. `get key="ratelimit:config:/api/orders"` → 发现 limit=0
-8. `get` 其他配置键 → 确认多个 endpoint limit=0
-9. `list pattern="errorlog:*"` + `get` → 读取错误日志
-10. 分析根因：限流配置 limit 被错误设为 0
-11. 更新 Incident 状态为 resolved
-12. 保存事件历史
-13. 关闭 MCP
+1. 列出项目服务，识别 Redis 服务与其 metadata 中的排查入口。
+2. 列出 Skills，加载内置 `redis-cache-diagnosis`。
+3. 激活 Redis MCP，枚举 `ratelimit:config:*` 与 `errorlog:*`。
+4. 发现多个业务 endpoint 的 `limit=0`，并用 `/api/health` 作为正常基线。
+5. 输出根因，保存 incident history，并关闭事件。
 
 ## 验证项
 
@@ -71,7 +44,6 @@ pnpm test:case-1
 
 ## 故障排查
 
-- **MCP 激活失败**: 检查 `data/skills/redis-cache-diagnosis/skill.config.json` 是否存在
-- **知识库无结果**: 检查文档状态是否为 `ready`
-- **Agent 超时**: 检查后端日志 `pnpm dev:backend`
+- **内置 Skill 未出现**: 检查 [SKILL.md](/Users/xlsama/w/chronos-v2/apps/backend/data/skills/redis-cache-diagnosis/SKILL.md)
+- **Agent 超时**: 查看后端日志 `pnpm dev:backend`
 - **Redis 连接失败**: 确认容器健康 `docker exec case1-redis redis-cli ping`
