@@ -86,10 +86,14 @@ export const createRunbook = createTool({
   }),
   execute: async (input) => {
     const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, projectId: input.projectId, title: input.title }, '[Tool:createRunbook] invoked')
+    const projectId = await resolveProjectId(input.projectId)
+    logger.info({ ...ctx, projectId, title: input.title }, '[Tool:createRunbook] invoked')
+    if (projectId !== input.projectId) {
+      logger.warn({ ...ctx, inputProjectId: input.projectId, resolvedProjectId: projectId }, '[Tool:createRunbook] corrected projectId from incident context')
+    }
     try {
       const doc = await projectDocumentService.createMarkdownDocument({
-        projectId: input.projectId,
+        projectId,
         kind: 'runbook',
         title: input.title,
         content: input.content,
