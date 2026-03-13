@@ -40,7 +40,7 @@ const statusMap: Record<string, string> = {
   waiting_human: 'bg-rose-500/15 text-rose-500',
   resolved: 'bg-emerald-500/15 text-emerald-500',
   summarizing: 'bg-sky-500/15 text-sky-500',
-  completed: 'bg-slate-500/15 text-slate-500',
+  completed: 'bg-slate-400/10 text-slate-400 dark:bg-slate-400/15 dark:text-slate-300',
   pending: 'bg-amber-500/15 text-amber-500',
   processing: 'bg-sky-500/15 text-sky-500',
   ready: 'bg-emerald-500/15 text-emerald-500',
