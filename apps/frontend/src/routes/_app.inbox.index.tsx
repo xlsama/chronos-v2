@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import type { IncidentStatus } from '@chronos/shared'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Inbox, Plus } from 'lucide-react'
+import { Check, Inbox, Mic, Plus, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import { DataTable } from '@/components/data-table/data-table'
 import { incidentColumns } from '@/components/ops/incident-columns'
@@ -24,6 +24,8 @@ import {
 import { PromptInput, PromptInputAction, PromptInputActions, PromptInputTextarea } from '@/components/ui/prompt-input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useFileUpload } from '@/hooks/use-file-upload'
+import { useVoiceInput } from '@/hooks/use-voice-input'
+import { VoiceRecordingOverlay } from '@/components/ui/voice-recording-overlay'
 import { opsQueries, useCreateIncident } from '@/lib/queries/ops'
 
 const INCIDENT_STATUSES: IncidentStatus[] = ['triaging', 'in_progress', 'waiting_human', 'resolved', 'closed']
@@ -182,6 +184,8 @@ function IncidentDialog(props: {
 }) {
   const [content, setContent] = useState('')
   const { items, addFiles, removeFile, getAttachments, reset, isUploading } = useFileUpload()
+  const voice = useVoiceInput()
+  const isVoiceActive = voice.state !== 'idle'
 
   const handleCreate = useCallback(() => {
     if (!content.trim() || isUploading) return
@@ -202,6 +206,11 @@ function IncidentDialog(props: {
     [addFiles],
   )
 
+  const handleVoiceConfirm = useCallback(async () => {
+    const text = await voice.confirmRecording()
+    if (text) setContent((prev) => (prev ? `${prev} ${text}` : text))
+  }, [voice])
+
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -218,11 +227,15 @@ function IncidentDialog(props: {
                 ))}
               </div>
             )}
-            <PromptInputTextarea
-              className="min-h-[112px]"
-              placeholder="粘贴日志、告警、错误信息或截图..."
-              onPaste={handlePaste}
-            />
+            {isVoiceActive ? (
+              <VoiceRecordingOverlay state={voice.state} duration={voice.duration} analyser={voice.analyser} />
+            ) : (
+              <PromptInputTextarea
+                className="min-h-[112px]"
+                placeholder="粘贴日志、告警、错误信息或截图..."
+                onPaste={handlePaste}
+              />
+            )}
             <PromptInputActions className="justify-between px-2 pb-2">
               <PromptInputAction tooltip="上传文件">
                 <FileUploadTrigger asChild>
@@ -231,13 +244,55 @@ function IncidentDialog(props: {
                   </Button>
                 </FileUploadTrigger>
               </PromptInputAction>
-              <Button
-                size="sm"
-                onClick={handleCreate}
-                disabled={!content.trim() || props.pending || isUploading}
-              >
-                创建
-              </Button>
+              <div className="flex items-center gap-1">
+                {isVoiceActive ? (
+                  <>
+                    <PromptInputAction tooltip="取消录音">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-full"
+                        onClick={voice.cancelRecording}
+                        disabled={voice.state === 'processing'}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </PromptInputAction>
+                    <PromptInputAction tooltip="确认转写">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-full"
+                        onClick={handleVoiceConfirm}
+                        disabled={voice.state === 'processing'}
+                      >
+                        <Check className="size-4" />
+                      </Button>
+                    </PromptInputAction>
+                  </>
+                ) : (
+                  <>
+                    <PromptInputAction tooltip="语音输入">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-full"
+                        onClick={voice.startRecording}
+                        disabled={isUploading}
+                      >
+                        <Mic className="size-4" />
+                      </Button>
+                    </PromptInputAction>
+                    <Button
+                      size="sm"
+                      onClick={handleCreate}
+                      disabled={!content.trim() || props.pending || isUploading}
+                    >
+                      创建
+                    </Button>
+                  </>
+                )}
+              </div>
             </PromptInputActions>
           </PromptInput>
           <FileUploadContent>

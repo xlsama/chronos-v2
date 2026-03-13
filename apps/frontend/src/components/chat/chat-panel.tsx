@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import type { IncidentDetail, ApprovalRequiredEvent } from "@chronos/shared";
 import { DefaultChatTransport } from "ai";
-import { Bot, Plus, Send, Square } from "lucide-react";
+import { Bot, Check, Mic, Plus, Send, Square, X } from "lucide-react";
 import { AttachmentPreview } from "@/components/ui/attachment-preview";
 import {
   ChatContainerRoot,
@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/prompt-input";
 import { Button } from "@/components/ui/button";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 import { useChatSubscription } from "@/hooks/use-chat-subscription";
+import { VoiceRecordingOverlay } from "@/components/ui/voice-recording-overlay";
 import { cn } from "@/lib/utils";
 import { ChatMessage } from "./chat-message";
 import { getMessageText } from "./chat-utils";
@@ -70,6 +72,7 @@ export function ChatPanel({
   const hadInteractiveRunRef = useRef(false);
   const queryClient = useQueryClient();
   const { items, addFiles, removeFile, getAttachments, reset, isUploading } = useFileUpload();
+  const voice = useVoiceInput();
 
   // Load initial messages from server
   const { data: initialMessages } = useQuery({
@@ -350,6 +353,13 @@ export function ChatPanel({
     [addFiles],
   );
 
+  const handleVoiceConfirm = useCallback(async () => {
+    const text = await voice.confirmRecording();
+    if (text) setInput((prev) => (prev ? `${prev} ${text}` : text));
+  }, [voice]);
+
+  const isVoiceActive = voice.state !== 'idle';
+
   // Filter approvals that have pending status for rendering before "Agent is working"
   const pendingApprovals = approvals.filter((a) => a.status === "pending");
 
@@ -449,14 +459,18 @@ export function ChatPanel({
                   ))}
                 </div>
               ) : null}
-              <PromptInputTextarea
-                placeholder={
-                  incident?.source === "manual"
-                    ? "补充调查指令，或告诉 Agent 下一步该看什么..."
-                    : "追加调查上下文，推动 Agent 继续处理..."
-                }
-                onPaste={handlePaste}
-              />
+              {isVoiceActive ? (
+                <VoiceRecordingOverlay state={voice.state} duration={voice.duration} analyser={voice.analyser} />
+              ) : (
+                <PromptInputTextarea
+                  placeholder={
+                    incident?.source === "manual"
+                      ? "补充调查指令，或告诉 Agent 下一步该看什么..."
+                      : "追加调查上下文，推动 Agent 继续处理..."
+                  }
+                  onPaste={handlePaste}
+                />
+              )}
               <PromptInputActions className="justify-between px-2 pb-2">
                 <PromptInputAction tooltip="上传文件">
                   <FileUploadTrigger asChild>
@@ -465,30 +479,70 @@ export function ChatPanel({
                     </Button>
                   </FileUploadTrigger>
                 </PromptInputAction>
-                {isAgentActive ? (
-                  <PromptInputAction tooltip="停止">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 rounded-full"
-                      onClick={handleStop}
-                    >
-                      <Square className="size-4" />
-                    </Button>
-                  </PromptInputAction>
-                ) : (
-                  <PromptInputAction tooltip="发送">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn("size-8 rounded-full", isUploading && "opacity-60")}
-                      onClick={handleSubmit}
-                      disabled={!input.trim() || isUploading}
-                    >
-                      <Send className="size-4" />
-                    </Button>
-                  </PromptInputAction>
-                )}
+                <div className="flex items-center gap-1">
+                  {isVoiceActive ? (
+                    <>
+                      <PromptInputAction tooltip="取消录音">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 rounded-full"
+                          onClick={voice.cancelRecording}
+                          disabled={voice.state === 'processing'}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </PromptInputAction>
+                      <PromptInputAction tooltip="确认转写">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 rounded-full"
+                          onClick={handleVoiceConfirm}
+                          disabled={voice.state === 'processing'}
+                        >
+                          <Check className="size-4" />
+                        </Button>
+                      </PromptInputAction>
+                    </>
+                  ) : isAgentActive ? (
+                    <PromptInputAction tooltip="停止">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-full"
+                        onClick={handleStop}
+                      >
+                        <Square className="size-4" />
+                      </Button>
+                    </PromptInputAction>
+                  ) : (
+                    <>
+                      <PromptInputAction tooltip="语音输入">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 rounded-full"
+                          onClick={voice.startRecording}
+                          disabled={isAgentActive || isUploading}
+                        >
+                          <Mic className="size-4" />
+                        </Button>
+                      </PromptInputAction>
+                      <PromptInputAction tooltip="发送">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn("size-8 rounded-full", isUploading && "opacity-60")}
+                          onClick={handleSubmit}
+                          disabled={!input.trim() || isUploading}
+                        >
+                          <Send className="size-4" />
+                        </Button>
+                      </PromptInputAction>
+                    </>
+                  )}
+                </div>
               </PromptInputActions>
             </PromptInput>
             <FileUploadContent>

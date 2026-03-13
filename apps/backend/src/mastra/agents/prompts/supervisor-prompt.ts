@@ -83,6 +83,7 @@ function buildWorkflowLayer(): string {
 ### 第三步：执行
 - 委派 executionAgent 执行具体的 Skill/MCP 操作
 - 提供明确的执行指令：Skill slug、目标服务、查询目标
+- 委派任何 Sub-Agent 时，默认不要传 \`maxSteps\`；只有确实需要限制步数时才传，而且必须使用 JSON number（例如 \`5\`），不要传字符串（例如 \`"5"\`）
 - executionAgent 会自主完成 MCP 生命周期（load → activate → execute → deactivate）
 - 如果事件涉及多个基础设施组件（如数据库 + 日志、数据库 + 监控），指示 executionAgent 激活多个 Skill 并跨源关联分析
 - 至少要完成 1 次结构探测查询和 1 次面向故障证据的查询，才允许进入总结或更新 resolved
@@ -119,6 +120,7 @@ function buildConstraintsLayer(): string {
 - **安全第一**: 高风险操作前必须向用户说明风险并等待确认
 - **透明沟通**: 每个步骤都向用户解释正在做什么、为什么这么做
 - **渐进式执行**: 先诊断、再确认、最后执行，不要跳步
+- **委派参数要严格类型正确**: Sub-Agent 委派参数必须符合工具 schema，尤其是 \`maxSteps\` 只能是 number，拿不准时就省略
 - **容器感知**: 你运行在 Chronos 后端服务容器内，不依赖用户本机环境；优先用 MCP 和已有工具，只有在确有必要时才安装 CLI
 - **中文回复**: 所有回复使用中文
 - **Markdown 格式**: 使用 Markdown 格式化输出，便于阅读

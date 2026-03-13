@@ -11,6 +11,7 @@ const PUSHGATEWAY_HOST = process.env.PUSHGATEWAY_HOST ?? '127.0.0.1'
 const PUSHGATEWAY_PORT = Number(process.env.PUSHGATEWAY_PORT ?? 39091)
 const PROMETHEUS_HOST = process.env.PROMETHEUS_HOST ?? '127.0.0.1'
 const PROMETHEUS_PORT = Number(process.env.PROMETHEUS_PORT ?? 39090)
+const SERVICE_HOST = process.env.SERVICE_HOST ?? PROMETHEUS_HOST
 
 const LIGHT_RUNBOOK = `# Prometheus 服务异常快速排查
 
@@ -109,7 +110,7 @@ container_memory_limit_bytes{service="user-service",pod="user-service-3a4b5c-q9w
     type: 'prometheus',
     description: '微服务平台的 Prometheus 监控入口，覆盖支付、订单、用户等核心服务的运行指标。',
     config: {
-      host: PROMETHEUS_HOST,
+      host: SERVICE_HOST,
       port: PROMETHEUS_PORT,
     },
     metadata: {

@@ -9,6 +9,7 @@ import {
 
 const PG_HOST = process.env.PG_HOST ?? '127.0.0.1'
 const PG_PORT = Number(process.env.PG_PORT ?? 35432)
+const SERVICE_HOST = process.env.SERVICE_HOST ?? PG_HOST
 const PG_USER = 'analytics'
 const PG_PASSWORD = 'analytics123'
 const PG_DATABASE = 'analytics_service'
@@ -131,7 +132,7 @@ export async function seed(): Promise<SeedResult> {
     type: 'postgresql',
     description: '分析平台主数据库，承载任务调度、报表结果和数据源同步状态。',
     config: {
-      host: PG_HOST,
+      host: SERVICE_HOST,
       port: PG_PORT,
       database: PG_DATABASE,
       username: PG_USER,

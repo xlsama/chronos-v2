@@ -9,6 +9,7 @@ import { connectMySqlWithRetry } from '../helpers/mysql'
 
 const MYSQL_HOST = process.env.MYSQL_HOST ?? '127.0.0.1'
 const MYSQL_PORT = Number(process.env.MYSQL_PORT ?? 33306)
+const SERVICE_HOST = process.env.SERVICE_HOST ?? MYSQL_HOST
 const MYSQL_USER = 'root'
 const MYSQL_PASSWORD = 'root123'
 const MYSQL_DATABASE = 'shop_service'
@@ -141,7 +142,7 @@ export async function seed(): Promise<SeedResult> {
     type: 'mysql',
     description: '商品服务主数据库，承载分类、商品和订单等核心交易数据。',
     config: {
-      host: MYSQL_HOST,
+      host: SERVICE_HOST,
       port: MYSQL_PORT,
       database: MYSQL_DATABASE,
       user: MYSQL_USER,

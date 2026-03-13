@@ -4,7 +4,7 @@ import { skillMcpManager } from '../../lib/skill-mcp-manager'
 import { skillCatalogService } from '../../services/skill-catalog.service'
 import { checkApproval } from '../../lib/approval-interceptor'
 import { logger, truncate } from '../../lib/logger'
-import { agentContextStorage } from '../../lib/agent-context'
+import { agentContextStorage, resolveProjectId } from '../../lib/agent-context'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -97,7 +97,13 @@ export const activateSkillMcp = createTool({
     const ctx = agentContextStorage.getStore()
     logger.info({ ...ctx, skillSlug: input.skillSlug, projectId: input.projectId }, '[Tool:activateSkillMcp] invoked')
     try {
-      const tools = await skillMcpManager.activate(input.skillSlug, input.projectId)
+      // Resolve projectId from incident context to guard against LLM passing wrong ID (e.g. serviceId)
+      const projectId = await resolveProjectId(input.projectId) ?? input.projectId
+      if (projectId !== input.projectId) {
+        logger.warn({ ...ctx, inputProjectId: input.projectId, resolvedProjectId: projectId }, '[Tool:activateSkillMcp] corrected projectId from incident context')
+      }
+
+      const tools = await skillMcpManager.activate(input.skillSlug, projectId)
       logger.info({ ...ctx, skillSlug: input.skillSlug, toolCount: tools.length, toolNames: tools.map((t) => t.name) }, '[Tool:activateSkillMcp] activated')
       return { success: true, activatedTools: tools }
     } catch (error) {

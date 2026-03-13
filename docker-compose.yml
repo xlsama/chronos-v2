@@ -29,8 +29,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-      target: build
-    working_dir: /app/apps/backend
+      target: production
     command: pnpm db:push
     environment:
       DATABASE_URL: postgresql://chronos:chronos@postgres:5432/chronos
@@ -44,15 +43,19 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
       target: production
+    ports:
+      - "8000:8000"
     env_file: apps/backend/.env
     environment:
       # Override infra URLs to use Docker service names
       DATABASE_URL: postgresql://chronos:chronos@postgres:5432/chronos
       REDIS_URL: redis://redis:6379
       NODE_ENV: production
+      LOG_LEVEL: debug
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/app/data
-      - ./uploads:/app/uploads
+      - ./uploads:/app/apps/backend/uploads
     depends_on:
       db-push:
         condition: service_completed_successfully

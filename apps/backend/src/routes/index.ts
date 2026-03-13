@@ -9,6 +9,7 @@ import { jobRoutes } from './jobs'
 import { chatRoutes } from './chat'
 import { notificationSettingsRoutes } from './notification-settings'
 import { queueRoutes } from './queues'
+import { speechToTextRoutes } from './speech-to-text'
 
 export const apiRoutes = new Hono()
   .route('/api/incidents', incidentRoutes)
@@ -21,5 +22,6 @@ export const apiRoutes = new Hono()
   .route('/api/notification-settings', notificationSettingsRoutes)
   .route('/api/queues', queueRoutes)
   .route('/api', uploadRoutes)
+  .route('/api', speechToTextRoutes)
 
 export type AppType = typeof apiRoutes

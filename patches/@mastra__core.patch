@@ -1,0 +1,13 @@
+diff --git a/dist/chunk-HWDSIVFC.js b/dist/chunk-HWDSIVFC.js
+index 665b30b062ca1728f4e34d4f115275e495232d66..7dda7b9c63d52d627928e6d94d058316bcc560cb 100644
+--- a/dist/chunk-HWDSIVFC.js
++++ b/dist/chunk-HWDSIVFC.js
+@@ -20829,7 +20829,7 @@ ${errorMessages}`,
+           instructions: z.string().nullish().describe(
+             "Additional instructions to append to the agent instructions. Only provide if you have specific guidance beyond what the agent already knows. Leave empty in most cases."
+           ),
+-          maxSteps: z.number().min(3).nullish().describe("Maximum number of execution steps for the sub-agent")
++          maxSteps: z.preprocess((v) => v === '' || v == null ? undefined : Number(v), z.number().min(3).nullish()).describe("Maximum number of execution steps for the sub-agent")
+           // using minimum of 3 to ensure if the agent has a tool call, the llm gets executed again after the tool call step, using the tool call result
+           // to return a proper llm response
+         });

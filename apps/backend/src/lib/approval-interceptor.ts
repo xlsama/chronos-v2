@@ -34,6 +34,15 @@ export async function checkApproval(
     return { action: 'proceed' }
   }
 
+  // 后台模式自动审批（无人在线，阻塞等待无意义）
+  if (agentCtx.isBackground) {
+    logger.info(
+      { toolName, riskLevel: policy.riskLevel, reason: policy.reason },
+      '[Approval] auto-approved (background mode)',
+    )
+    return { action: 'proceed' }
+  }
+
   const approval = await toolApprovalService.create({
     threadId: agentCtx.threadId,
     incidentId: agentCtx.incidentId,

@@ -13,7 +13,7 @@ import { agentContextStorage } from '../lib/agent-context'
 import { redisConnection, type AgentBackgroundJobData } from '../lib/queues'
 import { registerActiveAgent, removeActiveAgent, getActiveAgent } from '../lib/agent-runner'
 
-const ATTEMPT_TIMEOUT_MS = 120_000
+const ATTEMPT_TIMEOUT_MS = 240_000
 const MAX_ATTEMPTS = 2
 
 async function processAgentJob(job: Job<AgentBackgroundJobData>) {
@@ -37,6 +37,7 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       const attemptToolTrace: SummaryToolTrace[] = []
+      let attemptTraceRecorded = false
       const agent = await createSupervisorAgent(context)
       const timeoutSignal = AbortSignal.timeout(ATTEMPT_TIMEOUT_MS)
       const abortSignal = AbortSignal.any([controller.signal, timeoutSignal])
@@ -51,7 +52,7 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
         }
 
         const response = await agentContextStorage.run(
-          { threadId, incidentId: incident.id },
+          { threadId, incidentId: incident.id, isBackground: true },
           () => agent.stream(
             `请分析以下事件并提出解决方案：\n\n${incident.content}`,
             {
@@ -118,6 +119,7 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
         const rawText = await response.text
         const text = resolveAssistantText(rawText, attemptToolTrace)
         toolTrace.push(...attemptToolTrace)
+        attemptTraceRecorded = true
 
         const shouldRetry = shouldRetryBackgroundAttempt(text, attemptToolTrace)
         logger.debug(
@@ -173,7 +175,56 @@ async function processAgentJob(job: Job<AgentBackgroundJobData>) {
           continue
         }
       } finally {
+        if (!attemptTraceRecorded) {
+          toolTrace.push(...attemptToolTrace)
+        }
         await deactivateTrackedSkills(attemptToolTrace)
+      }
+    }
+
+    // Post-loop: all attempts exhausted without successful return
+    // Try to finalize the incident with whatever evidence we collected
+    if (toolTrace.length > 0) {
+      const fallbackText = [
+        '## 后台诊断记录',
+        '',
+        '后台诊断所有尝试均未成功完成，以下为已收集的证据。',
+        '',
+        resolveAssistantText('', toolTrace),
+      ].join('\n')
+
+      try {
+        await messageService.save({
+          threadId,
+          incidentId: incident.id,
+          role: 'assistant',
+          content: fallbackText,
+        })
+      } catch (messageError) {
+        logger.warn(
+          { err: messageError, incidentId: incident.id, threadId },
+          '[Agent] failed to persist fallback background diagnosis message',
+        )
+      }
+
+      try {
+        await finalizeBackgroundIncidentIfNeeded({
+          threadId,
+          incident,
+          text: fallbackText,
+          toolTrace,
+        })
+      } catch (finalizeErr) {
+        logger.warn({ err: finalizeErr, incidentId: incident.id }, '[Agent] post-loop finalization failed')
+      }
+
+      try {
+        await finalSummaryService.ensureForIncident({ incidentId: incident.id, threadId, toolTrace })
+      } catch (summaryError) {
+        logger.error(
+          { err: summaryError, threadId, incidentId: incident.id },
+          '[Summary] failed to generate final summary after post-loop finalization',
+        )
       }
     }
   } catch (error) {

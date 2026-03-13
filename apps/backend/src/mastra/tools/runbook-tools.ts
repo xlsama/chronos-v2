@@ -3,15 +3,15 @@ import { z } from 'zod'
 import { projectDocumentService } from '../../services/project-document.service'
 import { projectService } from '../../services/project.service'
 import { logger, truncate } from '../../lib/logger'
-import { agentContextStorage } from '../../lib/agent-context'
+import { agentContextStorage, resolveProjectId } from '../../lib/agent-context'
 
 export const searchRunbooks = createTool({
   id: 'searchRunbooks',
   description: '搜索已发布的 Runbook（操作手册），包括项目 Runbook 和全局 Runbook。返回最相关的 Runbook 片段。',
   inputSchema: z.object({
     query: z.string().describe('搜索查询'),
-    projectId: z.string().uuid().optional().describe('项目 UUID（可选，不传则搜索全局）'),
-    limit: z.number().optional().default(3).describe('返回结果数量'),
+    projectId: z.string().optional().describe('项目 UUID（可选，自动从事件上下文推导）'),
+    limit: z.coerce.number().optional().default(3).describe('返回结果数量'),
   }),
   outputSchema: z.object({
     results: z.array(z.object({
@@ -24,10 +24,11 @@ export const searchRunbooks = createTool({
   }),
   execute: async (input) => {
     const ctx = agentContextStorage.getStore()
-    logger.info({ ...ctx, query: truncate(input.query, 200), projectId: input.projectId, limit: input.limit }, '[Tool:searchRunbooks] invoked')
+    const projectId = await resolveProjectId(input.projectId)
+    logger.info({ ...ctx, query: truncate(input.query, 200), projectId, limit: input.limit }, '[Tool:searchRunbooks] invoked')
     const results = await projectDocumentService.search(input.query, {
       kind: 'runbook',
-      projectId: input.projectId,
+      projectId,
       publicationStatuses: ['published'],
       limit: input.limit,
     })

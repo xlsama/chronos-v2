@@ -9,6 +9,7 @@ import {
 
 const REDIS_HOST = process.env.REDIS_HOST ?? '127.0.0.1'
 const REDIS_PORT = Number(process.env.REDIS_PORT ?? 36379)
+const SERVICE_HOST = process.env.SERVICE_HOST ?? REDIS_HOST
 
 export interface SeedResult {
   projectId: string
@@ -61,7 +62,7 @@ export async function seed(): Promise<SeedResult> {
     type: 'redis',
     description: 'API 网关依赖的 Redis 运行时存储，承载网关配置与相关状态数据。',
     config: {
-      host: REDIS_HOST,
+      host: SERVICE_HOST,
       port: REDIS_PORT,
     },
     metadata: {

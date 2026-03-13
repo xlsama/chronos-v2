@@ -80,12 +80,18 @@ export const toolApprovalService = {
     return approval
   },
 
-  async waitForResolution(approvalId: string): Promise<'approve' | 'decline'> {
+  async waitForResolution(approvalId: string, timeoutMs = 300_000): Promise<'approve' | 'decline'> {
     return new Promise((resolve, reject) => {
       const sub = getSubscriber()
       const channel = approvalChannel(approvalId)
 
-      const onMessage = (_ch: string, msg: string) => {
+      const timer = setTimeout(() => {
+        cleanup()
+        reject(new Error(`Approval wait timed out after ${timeoutMs}ms (approvalId=${approvalId})`))
+      }, timeoutMs)
+
+      const onMessage = (receivedChannel: string, msg: string) => {
+        if (receivedChannel !== channel) return
         try {
           const parsed = JSON.parse(msg) as { action: 'approve' | 'decline' }
           cleanup()
@@ -97,13 +103,17 @@ export const toolApprovalService = {
       }
 
       const cleanup = () => {
+        clearTimeout(timer)
         sub.removeListener('message', onMessage)
         sub.unsubscribe(channel).catch(() => {})
       }
 
       sub.subscribe(channel).then(() => {
         sub.on('message', onMessage)
-      }).catch(reject)
+      }).catch((err) => {
+        cleanup()
+        reject(err)
+      })
     })
   },
 
