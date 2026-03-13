@@ -11,6 +11,8 @@ import { logger } from './logger'
 
 // Active background agent registry
 const activeAgents = new Map<string, AbortController>()
+const BACKGROUND_ATTEMPT_TIMEOUT_MS = 120_000
+const BACKGROUND_MAX_ATTEMPTS = 2
 
 export function abortAgent(threadId: string): boolean {
   const controller = activeAgents.get(threadId)
@@ -76,6 +78,7 @@ export async function runAgentInBackground(
   activeAgents.set(threadId, controller)
   const startTime = Date.now()
   const toolTrace: SummaryToolTrace[] = []
+  let lastError: unknown = null
 
   try {
     const context: Parameters<typeof createSupervisorAgent>[0] = {
@@ -85,107 +88,149 @@ export async function runAgentInBackground(
       projectId: incident.projectId ?? undefined,
     }
 
-    const agent = createSupervisorAgent(context)
-
     logger.info({ threadId, incidentId: incident.id }, '[Agent] supervisor started (background)')
+    for (let attempt = 1; attempt <= BACKGROUND_MAX_ATTEMPTS; attempt += 1) {
+      const attemptToolTrace: SummaryToolTrace[] = []
+      const agent = createSupervisorAgent(context)
+      const timeoutSignal = AbortSignal.timeout(BACKGROUND_ATTEMPT_TIMEOUT_MS)
+      const abortSignal = AbortSignal.any([controller.signal, timeoutSignal])
+      lastError = null
 
-    const response = await agent.stream(
-      `请分析以下事件并提出解决方案：\n\n${incident.content}`,
-      {
-        memory: { thread: threadId, resource: incident.id },
-        maxSteps: 16,
-        abortSignal: controller.signal,
-        onStepFinish: (event) => {
-          const calls = event.toolCalls ?? []
-          const toolNames = calls.map((tc) => tc.payload.toolName)
-          for (const call of calls) {
-            toolTrace.push({
-              toolName: call.payload.toolName,
-              args: call.payload.args as Record<string, unknown> | undefined,
-            })
-          }
-          if (toolNames.length > 0) {
-            logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
-          }
-        },
-        delegation: {
-          onDelegationStart: ({ primitiveId, primitiveType }) => {
-            logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
+      try {
+        if (attempt > 1) {
+          logger.warn(
+            { threadId, incidentId: incident.id, attempt, maxAttempts: BACKGROUND_MAX_ATTEMPTS },
+            '[Agent] retrying background diagnosis attempt',
+          )
+        }
+
+        const response = await agent.stream(
+          `请分析以下事件并提出解决方案：\n\n${incident.content}`,
+          {
+            memory: { thread: threadId, resource: incident.id },
+            maxSteps: 16,
+            abortSignal,
+            onStepFinish: (event) => {
+              const calls = event.toolCalls ?? []
+              const toolNames = calls.map((tc) => tc.payload.toolName)
+              for (const call of calls) {
+                attemptToolTrace.push({
+                  toolName: call.payload.toolName,
+                  args: call.payload.args as Record<string, unknown> | undefined,
+                })
+              }
+              if (toolNames.length > 0) {
+                logger.info({ threadId, tools: toolNames }, '[Agent] step finished with tool calls')
+              }
+            },
+            delegation: {
+              onDelegationStart: ({ primitiveId, primitiveType }) => {
+                logger.info({ threadId, agentId: primitiveId, type: primitiveType }, '[Agent] delegating to sub-agent')
+              },
+              onDelegationComplete: ({ primitiveId, duration, success, error }) => {
+                logger.info(
+                  { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
+                  '[Agent] sub-agent completed',
+                )
+              },
+            },
           },
-          onDelegationComplete: ({ primitiveId, duration, success, error }) => {
-            logger.info(
-              { threadId, agentId: primitiveId, duration: `${duration}ms`, success, error: error?.message },
-              '[Agent] sub-agent completed',
-            )
-          },
-        },
-      },
-    )
+        )
 
-    const sdkStream = toAISdkStream(response, {
-      from: 'agent',
-      sendReasoning: true,
-      sendSources: true,
-    })
+        const sdkStream = toAISdkStream(response, {
+          from: 'agent',
+          sendReasoning: true,
+          sendSources: true,
+        })
 
-    // Consume stream and broadcast each chunk to Redis
-    const reader = sdkStream.getReader()
-    while (true) {
-      if (controller.signal.aborted) break
-      const { done, value } = await reader.read()
-      if (done) break
-      await publishChatEvent(threadId, 'stream-chunk', value)
+        const reader = sdkStream.getReader()
+        while (true) {
+          if (controller.signal.aborted || timeoutSignal.aborted) break
+          const { done, value } = await reader.read()
+          if (done) break
+          await publishChatEvent(threadId, 'stream-chunk', value)
+        }
+
+        if (controller.signal.aborted) {
+          logger.info({ threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` }, '[Agent] supervisor aborted')
+          await skillMcpManager.deactivateAll()
+          await publishChatEvent(threadId, 'stream-aborted', { threadId })
+          return
+        }
+
+        if (timeoutSignal.aborted) {
+          throw new Error(`Background diagnosis attempt timed out after ${BACKGROUND_ATTEMPT_TIMEOUT_MS}ms`)
+        }
+
+        const rawText = await response.text
+        const text = resolveAssistantText(rawText, attemptToolTrace)
+        toolTrace.push(...attemptToolTrace)
+
+        const shouldRetry = shouldRetryBackgroundAttempt(text, attemptToolTrace)
+        if (shouldRetry && attempt < BACKGROUND_MAX_ATTEMPTS) {
+          logger.warn(
+            { threadId, incidentId: incident.id, attempt, text },
+            '[Agent] background attempt ended without enough progress; retrying',
+          )
+          continue
+        }
+
+        await messageService.save({
+          threadId,
+          incidentId: incident.id,
+          role: 'assistant',
+          content: text,
+        })
+
+        await finalizeBackgroundIncidentIfNeeded({ threadId, incident, text, toolTrace })
+        try {
+          await finalSummaryService.ensureForIncident({ incidentId: incident.id, threadId, toolTrace })
+        } catch (summaryError) {
+          logger.error(
+            { err: summaryError, threadId, incidentId: incident.id },
+            '[Summary] failed to generate final summary after background run',
+          )
+        }
+
+        logger.info(
+          { threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms`, attempt },
+          '[Agent] supervisor completed'
+        )
+
+        await publishChatEvent(threadId, 'stream-end', { threadId })
+        return
+      } catch (error) {
+        lastError = error
+        if (controller.signal.aborted) {
+          logger.info({ threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` }, '[Agent] supervisor aborted')
+          await skillMcpManager.deactivateAll()
+          await publishChatEvent(threadId, 'stream-aborted', { threadId })
+          return
+        }
+
+        if (attempt < BACKGROUND_MAX_ATTEMPTS) {
+          logger.warn(
+            { err: error, threadId, incidentId: incident.id, attempt },
+            '[Agent] background attempt failed; retrying',
+          )
+          continue
+        }
+      } finally {
+        await deactivateTrackedSkills(attemptToolTrace)
+      }
     }
-
-    if (controller.signal.aborted) {
-      logger.info({ threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` }, '[Agent] supervisor aborted')
-      await skillMcpManager.deactivateAll()
-      await publishChatEvent(threadId, 'stream-aborted', { threadId })
-      return
-    }
-
-    // Save complete assistant message
-    const rawText = await response.text
-    const text = resolveAssistantText(rawText, toolTrace)
-    await messageService.save({
-      threadId,
-      incidentId: incident.id,
-      role: 'assistant',
-      content: text,
-    })
-
-    await finalizeBackgroundIncidentIfNeeded({ threadId, incident, text, toolTrace })
-    try {
-      await finalSummaryService.ensureForIncident({ incidentId: incident.id, threadId, toolTrace })
-    } catch (summaryError) {
-      logger.error(
-        { err: summaryError, threadId, incidentId: incident.id },
-        '[Summary] failed to generate final summary after background run',
-      )
-    }
-
-    logger.info(
-      { threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` },
-      '[Agent] supervisor completed'
-    )
-
-    await publishChatEvent(threadId, 'stream-end', { threadId })
   } catch (error) {
-    if (controller.signal.aborted) {
-      logger.info({ threadId, incidentId: incident.id, duration: `${Date.now() - startTime}ms` }, '[Agent] supervisor aborted')
-      await skillMcpManager.deactivateAll()
-      await publishChatEvent(threadId, 'stream-aborted', { threadId })
-      return
-    }
-    logger.error(
-      { err: error, incidentId: incident.id, duration: `${Date.now() - startTime}ms` },
-      '[Agent] supervisor failed'
-    )
-    await publishChatEvent(threadId, 'stream-error', {
-      error: error instanceof Error ? error.message : 'Agent execution failed',
-    })
+    lastError = error
   } finally {
-    await deactivateTrackedSkills(toolTrace)
+    if (lastError) {
+      logger.error(
+        { err: lastError, incidentId: incident.id, duration: `${Date.now() - startTime}ms` },
+        '[Agent] supervisor failed'
+      )
+      await publishChatEvent(threadId, 'stream-error', {
+        error: lastError instanceof Error ? lastError.message : 'Agent execution failed',
+      })
+    }
     activeAgents.delete(threadId)
   }
 }
@@ -280,6 +325,14 @@ function hasConfidentDiagnosis(text: string): boolean {
   }
 
   return /根因|诊断结论|关键查询|关键证据|已确认|异常配置|is_enabled|limit\s*=\s*0|expire_date|price\s*=\s*0|零元|memory|oom|disabled/i.test(normalized)
+}
+
+function shouldRetryBackgroundAttempt(text: string, toolTrace: SummaryToolTrace[]): boolean {
+  const skills = extractActivatedSkills(toolTrace)
+  const queryCount = extractExecutedQueries(toolTrace).length
+  if (skills.length === 0) return false
+  if (queryCount > 0) return false
+  return !hasConfidentDiagnosis(text)
 }
 
 function resolveAssistantText(text: string, toolTrace: SummaryToolTrace[]): string {
