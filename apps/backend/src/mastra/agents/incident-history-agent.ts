@@ -11,6 +11,6 @@ export const incidentHistoryAgent = new Agent({
   name: 'Incident History Agent',
   description: '历史事件搜索 Agent - 搜索类似的过往事件，提供历史解决方案和经验教训',
   instructions: INCIDENT_HISTORY_AGENT_PROMPT,
-  model: openai.chat(env.OPENAI_MODEL_MINI),
+  model: openai.chat(env.OPENAI_MODEL),
   tools: { searchIncidentHistory, getIncidentHistoryDetail },
 })

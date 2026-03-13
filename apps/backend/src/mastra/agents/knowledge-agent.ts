@@ -11,6 +11,6 @@ export const knowledgeAgent = new Agent({
   name: 'Knowledge Agent',
   description: '知识库搜索 Agent - 在项目知识库中搜索与问题相关的文档和技术资料',
   instructions: KNOWLEDGE_AGENT_PROMPT,
-  model: openai.chat(env.OPENAI_MODEL_MINI),
+  model: openai.chat(env.OPENAI_MODEL),
   tools: { searchKnowledgeBase, getKnowledgeDocument },
 })

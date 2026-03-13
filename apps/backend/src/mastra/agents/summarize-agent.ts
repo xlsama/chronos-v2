@@ -10,5 +10,5 @@ export const summarizeAgent = new Agent({
   name: 'Summarize Agent',
   description: '最终报告总结 Agent - 在事件解决后整理结构化 Markdown 总结报告',
   instructions: SUMMARIZE_AGENT_PROMPT,
-  model: openai.chat(env.OPENAI_MODEL_MINI),
+  model: openai.chat(env.OPENAI_MODEL),
 })

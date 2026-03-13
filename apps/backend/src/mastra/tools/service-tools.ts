@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { projectServiceCatalog } from '../../services/project-service-catalog.service'
+import { skillCatalogService } from '../../services/skill-catalog.service'
 import { db } from '../../db'
 import { projectServiceMaps } from '../../db/schema'
 import { eq } from 'drizzle-orm'
@@ -20,10 +21,18 @@ export const listProjectServices = createTool({
       status: z.string(),
       healthSummary: z.string().nullable(),
       metadata: z.record(z.string(), z.unknown()).optional(),
+      recommendedSkills: z.array(z.object({
+        slug: z.string(),
+        name: z.string(),
+        riskLevel: z.string().optional(),
+      })).optional(),
     })),
   }),
   execute: async (input) => {
-    const services = await projectServiceCatalog.list(input.projectId)
+    const [services, skills] = await Promise.all([
+      projectServiceCatalog.list(input.projectId),
+      skillCatalogService.list(),
+    ])
     return {
       services: services.map((s) => ({
         id: s.id,
@@ -33,6 +42,13 @@ export const listProjectServices = createTool({
         status: s.status,
         healthSummary: s.healthSummary,
         metadata: s.metadata,
+        recommendedSkills: skills
+          .filter((skill) => skill.applicableServiceTypes?.includes(s.type))
+          .map((skill) => ({
+            slug: skill.slug,
+            name: skill.name,
+            riskLevel: skill.riskLevel,
+          })),
       })),
     }
   },

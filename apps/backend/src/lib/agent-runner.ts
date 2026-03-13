@@ -145,7 +145,8 @@ export async function runAgentInBackground(
     }
 
     // Save complete assistant message
-    const text = await response.text
+    const rawText = await response.text
+    const text = resolveAssistantText(rawText, toolTrace)
     await messageService.save({
       threadId,
       incidentId: incident.id,
@@ -184,6 +185,7 @@ export async function runAgentInBackground(
       error: error instanceof Error ? error.message : 'Agent execution failed',
     })
   } finally {
+    await deactivateTrackedSkills(toolTrace)
     activeAgents.delete(threadId)
   }
 }
@@ -202,7 +204,8 @@ async function finalizeBackgroundIncidentIfNeeded(options: {
   if (latestIncident.status === 'resolved' || latestIncident.status === 'closed') return
 
   const mcpQueries = extractExecutedQueries(toolTrace)
-  const hasEvidence = mcpQueries.length > 0 || /price\s*=\s*0|zero|disabled|is_enabled|零元/i.test(text)
+  const meaningfulQueries = extractMeaningfulQueries(mcpQueries)
+  const hasEvidence = meaningfulQueries.length > 0 && hasConfidentDiagnosis(text)
   if (!hasEvidence) return
 
   const services = await projectServiceCatalog.list(incident.projectId)
@@ -212,7 +215,7 @@ async function finalizeBackgroundIncidentIfNeeded(options: {
 
   await incidentService.update(incident.id, {
     status: 'resolved',
-    resolutionNotes: buildResolutionNotes(serviceLabel, text, mcpQueries.slice(0, 6)),
+    resolutionNotes: buildResolutionNotes(serviceLabel, text, meaningfulQueries.slice(0, 6)),
     summary: resolutionTitle,
   })
 
@@ -236,6 +239,107 @@ function extractExecutedQueries(toolTrace: SummaryToolTrace[]): string[] {
     }
   }
   return [...new Set(queries)]
+}
+
+function extractMeaningfulQueries(queries: string[]): string[] {
+  return queries.filter((query) => {
+    const normalized = query.trim().toLowerCase()
+    if (!normalized) return false
+
+    const discoveryPatterns = [
+      /^show\s+databases\b/,
+      /^show\s+tables\b/,
+      /^use\s+[\w-]+\s*;\s*show\s+tables\b/,
+      /^select\s+database\s*\(\s*\)\s*;?$/,
+      /^select\s+table_name\s+from\s+information_schema\.tables\b/,
+      /^\*$/,
+    ]
+
+    return !discoveryPatterns.some((pattern) => pattern.test(normalized))
+  })
+}
+
+function hasConfidentDiagnosis(text: string): boolean {
+  const normalized = text.trim()
+  if (!normalized) return false
+
+  const uncertaintyPatterns = [
+    /解析有问题/i,
+    /让我尝试/i,
+    /继续尝试/i,
+    /暂时无法/i,
+    /无法确认/i,
+    /不能确认/i,
+    /信息不足/i,
+    /需要进一步/i,
+    /需要人工确认/i,
+  ]
+
+  if (uncertaintyPatterns.some((pattern) => pattern.test(normalized))) {
+    return false
+  }
+
+  return /根因|诊断结论|关键查询|关键证据|已确认|异常配置|is_enabled|limit\s*=\s*0|expire_date|price\s*=\s*0|零元|memory|oom|disabled/i.test(normalized)
+}
+
+function resolveAssistantText(text: string, toolTrace: SummaryToolTrace[]): string {
+  const skills = extractActivatedSkills(toolTrace)
+  const queries = extractMeaningfulQueries(extractExecutedQueries(toolTrace))
+  const normalized = text.trim()
+
+  if (normalized) {
+    return enrichAssistantText(normalized, skills, queries)
+  }
+
+  if (skills.length === 0 && queries.length === 0) {
+    return '## 后台诊断记录\n- 本轮未生成可用结论，也没有形成足够的 MCP 证据。'
+  }
+
+  return buildDiagnosticHeader(skills, queries)
+}
+
+function extractActivatedSkills(toolTrace: SummaryToolTrace[]): string[] {
+  const skills: string[] = []
+  for (const trace of toolTrace) {
+    if (trace.toolName !== 'activateSkillMcp') continue
+    const skillSlug = trace.args?.skillSlug
+    if (typeof skillSlug === 'string' && skillSlug.trim()) {
+      skills.push(skillSlug.trim())
+    }
+  }
+  return [...new Set(skills)]
+}
+
+async function deactivateTrackedSkills(toolTrace: SummaryToolTrace[]) {
+  const skills = extractActivatedSkills(toolTrace).reverse()
+  for (const skillSlug of skills) {
+    try {
+      await skillMcpManager.deactivate(skillSlug)
+    } catch (error) {
+      logger.warn({ err: error, skillSlug }, '[Agent] failed to deactivate MCP after run')
+    }
+  }
+}
+
+function enrichAssistantText(text: string, skills: string[], queries: string[]): string {
+  const hasSkillMention = /skill|mcp|activat|mysql|postgres|redis|prometheus/i.test(text)
+  if (hasSkillMention) return text
+
+  const header = buildDiagnosticHeader(skills, queries)
+  return `${header}\n\n${text}`
+}
+
+function buildDiagnosticHeader(skills: string[], queries: string[]): string {
+  const lines = [
+    '## 后台诊断记录',
+    skills.length > 0 ? `- 使用的 Skill: ${skills.join(', ')}` : '',
+    skills.length > 0 ? '- MCP 已激活并执行只读查询' : '',
+    queries.length > 0 ? '- 关键查询:' : '',
+    ...queries.slice(0, 6).map((query) => `  - ${query}`),
+    queries.length === 0 ? '- 当前仅完成了连接或结构探测，尚未形成可确认根因。' : '',
+  ].filter(Boolean)
+
+  return lines.join('\n')
 }
 
 function formatServiceLabel(serviceType?: string | null): string {

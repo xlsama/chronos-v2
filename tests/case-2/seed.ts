@@ -1,4 +1,3 @@
-import mysql from 'mysql2/promise'
 import path from 'node:path'
 import {
   createProject,
@@ -6,6 +5,7 @@ import {
   uploadKnowledge,
   waitForKnowledgeReady,
 } from '../helpers/chronos-api'
+import { connectMySqlWithRetry } from '../helpers/mysql'
 
 const MYSQL_HOST = process.env.MYSQL_HOST ?? '127.0.0.1'
 const MYSQL_PORT = Number(process.env.MYSQL_PORT ?? 33307)
@@ -23,7 +23,7 @@ export async function seed(): Promise<SeedResult> {
   const runId = Date.now().toString(36)
 
   console.log('[1/4] 初始化 MySQL 数据...')
-  const conn = await mysql.createConnection({
+  const conn = await connectMySqlWithRetry({
     host: MYSQL_HOST,
     port: MYSQL_PORT,
     user: MYSQL_USER,

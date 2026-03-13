@@ -11,8 +11,9 @@ export function buildSupervisorPrompt(context?: {
   const collectionSection = context?.automationMode === 'background'
     ? `### 第一步：信息收集
 - 查看项目服务列表和服务拓扑
+- 如果服务列表返回了 recommendedSkills，优先加载与该服务精确匹配的第一个 Skill
 - 不要搜索知识库、Runbook、历史事件，也不要委派 Sub-Agent
-- 对数据库/缓存类事件，优先加载 Skill 并进入 MCP 诊断`
+- 对数据库/缓存/监控类事件，优先加载 Skill 并进入 MCP 诊断，不能只停留在列服务、列技能后直接结束`
     : `### 第一步：信息收集
 - 使用 Sub-Agent (knowledgeAgent, runbookAgent, incidentHistoryAgent) 搜索相关信息
 - 查看项目服务列表和服务拓扑
@@ -54,12 +55,14 @@ ${collectionSection}
 - 制定执行计划，说明每步操作的目的和风险
 - 如果项目里已经有明确可用的数据库/基础设施服务，优先进入 Skill + MCP 诊断，不要长时间停留在检索阶段
 - 如果字段名、表名或关联关系不确定，先执行 SHOW TABLES、DESCRIBE、或等价的 schema 探测查询，不要猜字段名
+- 在背景自动化模式下，至少完成 1 次结构探测查询和 1 次面向故障证据的查询，才允许进入总结或更新 resolved
 
 ### 第三步：执行
 - 加载所需 Skill (loadSkill)
 - 激活 MCP 服务器 (activateSkillMcp)
 - 执行具体工具 (executeMcpTool)
-- 如果 MCP 工具不足，可使用 runContainerCommand 在服务端容器内执行只读探测；如确有必要，可先说明用途和影响，再安装额外 CLI
+- 优先阅读 executeMcpTool 返回结果中的 \`text\`、\`structuredContent\`、\`parsedTextJson\` 字段，再决定下一步查询
+- 如果 MCP 工具不足，可使用 runContainerCommand 在服务端容器内执行只读探测；只有在 MCP 已失败或能力确实不足时才允许这么做，不能把 runContainerCommand 当成主路径
 - 执行完成后停用 MCP (deactivateSkillMcp)
 - 自动告警模式下，目标是在 3-6 次关键查询内完成诊断并闭环，不要反复执行相同查询
 
@@ -76,6 +79,8 @@ ${collectionSection}
 - 一旦拿到足够证据，必须先调用 updateIncidentStatus，再输出最终回复
 - 如果已经完成诊断且不需要人工批准，必须将事件更新为 "resolved"
 - 只有在高风险变更需要人工确认，或外部依赖不可用导致无法继续时，才更新为 "waiting_human"
+- 仅执行 \`SHOW DATABASES\`、\`SHOW TABLES\`、\`SELECT DATABASE()\`、列 key、或其他纯发现型查询，不构成“足够证据”，不能据此 resolved
+- 如果查询结果表明“解析有问题”“信息不足”或“仍在尝试”，不要 resolved；应继续查询，或明确说明阻塞并保持 waiting_human
 - 最终回复必须简洁，并明确写出：使用了哪个 Skill、是否激活了 MCP、执行了哪些关键查询、根因结论是什么
 - 除非用户明确要求持久化，不要声称“已保存到 incident history”或“已添加到记忆”
 

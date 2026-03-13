@@ -2,6 +2,65 @@ import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { skillMcpManager } from '../../lib/skill-mcp-manager'
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function simplifyMcpResult(result: unknown): unknown {
+  if (!isRecord(result)) return result
+
+  const content = Array.isArray(result.content) ? result.content : []
+  const textParts: string[] = []
+
+  for (const item of content) {
+    if (!isRecord(item)) continue
+    if (item.type === 'text' && typeof item.text === 'string' && item.text.trim()) {
+      textParts.push(item.text.trim())
+      continue
+    }
+    if (item.type === 'json' && item.json !== undefined) {
+      textParts.push(JSON.stringify(item.json, null, 2))
+    }
+  }
+
+  const text = textParts.join('\n\n').trim()
+  let parsedTextJson: unknown = undefined
+  if (text.startsWith('{') || text.startsWith('[')) {
+    try {
+      parsedTextJson = JSON.parse(text)
+    } catch {
+      parsedTextJson = undefined
+    }
+  }
+
+  return {
+    ...result,
+    ...(text ? { text } : {}),
+    ...(result.structuredContent !== undefined
+      ? { structuredContent: result.structuredContent }
+      : {}),
+    ...(parsedTextJson !== undefined ? { parsedTextJson } : {}),
+  }
+}
+
+function extractMcpErrorMessage(result: unknown): string | null {
+  if (!isRecord(result)) return null
+  if (result.isError !== true) return null
+
+  const text = typeof result.text === 'string' ? result.text.trim() : ''
+  if (text) return text
+
+  const content = Array.isArray(result.content) ? result.content : []
+  for (const item of content) {
+    if (!isRecord(item)) continue
+    if (item.type === 'text' && typeof item.text === 'string' && item.text.trim()) {
+      return item.text.trim()
+    }
+  }
+
+  return 'MCP tool returned an error result'
+}
+
 export const activateSkillMcp = createTool({
   id: 'activateSkillMcp',
   description: '激活 Skill 所需的 MCP 服务器。根据 Skill 的 mcpServers 配置和项目服务信息，动态注册 MCP 服务器并返回可用的工具列表。必须在 executeMcpTool 之前调用。',
@@ -38,7 +97,13 @@ export const executeMcpTool = createTool({
   }),
   execute: async (input) => {
     try {
-      const result = await skillMcpManager.executeTool(input.toolName, input.args)
+      const rawResult = await skillMcpManager.executeTool(input.toolName, input.args)
+      const result = simplifyMcpResult(rawResult)
+      const errorMessage = extractMcpErrorMessage(result)
+      if (errorMessage) {
+        return { success: false, error: errorMessage, result }
+      }
+
       return { success: true, result }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }

@@ -40,8 +40,8 @@ async function pushMetrics(metricsText: string): Promise<void> {
   const url = `http://${PUSHGATEWAY_HOST}:${PUSHGATEWAY_PORT}/metrics/job/microservice_monitor`
   const resp = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: metricsText,
+    headers: { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' },
+    body: `${metricsText.trim()}\n`,
   })
   if (!resp.ok) {
     throw new Error(`Failed to push metrics: ${resp.status} ${await resp.text()}`)

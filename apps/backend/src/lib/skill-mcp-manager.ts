@@ -9,6 +9,8 @@ interface ActiveMcp {
   transport: StdioClientTransport
   tools: string[]
   serverType: string
+  projectId: string
+  serviceId: string
 }
 
 interface SpawnConfig {
@@ -265,14 +267,20 @@ function buildSpawnConfig(serverType: string, config: Record<string, unknown>): 
 function normalizeMcpArgs(serverType: string, toolName: string, args: Record<string, unknown>) {
   const normalizedArgs = { ...args }
   const type = serverType.toLowerCase()
+  const isQueryTool = toolName === 'query' || toolName.endsWith('_query') || toolName.includes('query')
 
-  if (toolName === 'query') {
+  if (isQueryTool) {
     if ((type === 'postgresql' || type === 'postgres') && typeof normalizedArgs.query === 'string' && typeof normalizedArgs.sql !== 'string') {
       normalizedArgs.sql = normalizedArgs.query
     }
 
-    if (type === 'mysql' && typeof normalizedArgs.sql === 'string' && typeof normalizedArgs.query !== 'string') {
-      normalizedArgs.query = normalizedArgs.sql
+    if (type === 'mysql') {
+      if (typeof normalizedArgs.query === 'string' && typeof normalizedArgs.sql !== 'string') {
+        normalizedArgs.sql = normalizedArgs.query
+      }
+      if (typeof normalizedArgs.sql === 'string' && typeof normalizedArgs.query !== 'string') {
+        normalizedArgs.query = normalizedArgs.sql
+      }
     }
   }
 
@@ -283,12 +291,6 @@ function normalizeMcpArgs(serverType: string, toolName: string, args: Record<str
 
 export const skillMcpManager = {
   async activate(skillSlug: string, projectId: string): Promise<string[]> {
-    // If already active, return existing tools
-    if (activeMcps.has(skillSlug)) {
-      logger.info({ skillSlug, projectId }, 'Reusing active MCP server')
-      return activeMcps.get(skillSlug)!.tools
-    }
-
     const skill = await skillCatalogService.getBySlug(skillSlug)
     if (!skill) throw new Error(`Skill not found: ${skillSlug}`)
 
@@ -309,6 +311,26 @@ export const skillMcpManager = {
 
     if (!matchedService) {
       throw new Error(`No matching service found for skill ${skillSlug} (needs: ${applicableServiceTypes.join(', ')})`)
+    }
+
+    const existing = activeMcps.get(skillSlug)
+    if (existing) {
+      if (existing.projectId === projectId && existing.serviceId === matchedService.id) {
+        logger.info({ skillSlug, projectId, serviceId: matchedService.id }, 'Reusing active MCP server')
+        return existing.tools
+      }
+
+      logger.info(
+        {
+          skillSlug,
+          previousProjectId: existing.projectId,
+          previousServiceId: existing.serviceId,
+          projectId,
+          serviceId: matchedService.id,
+        },
+        'Replacing active MCP server due to context change',
+      )
+      await this.deactivate(skillSlug)
     }
 
     // Build MCP server spawn config based on service type and config
@@ -350,7 +372,14 @@ export const skillMcpManager = {
       const { tools: mcpTools } = await client.listTools()
       const toolNames = mcpTools.map((t) => `${skillSlug}_${t.name}`)
 
-      activeMcps.set(skillSlug, { client, transport, tools: toolNames, serverType })
+      activeMcps.set(skillSlug, {
+        client,
+        transport,
+        tools: toolNames,
+        serverType,
+        projectId,
+        serviceId: matchedService.id,
+      })
       logger.info({ skillSlug, tools: toolNames }, 'MCP server activated')
       return toolNames
     } catch (error) {

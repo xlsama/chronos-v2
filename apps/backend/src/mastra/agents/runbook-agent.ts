@@ -11,6 +11,6 @@ export const runbookAgent = new Agent({
   name: 'Runbook Agent',
   description: 'Runbook 搜索 Agent - 搜索已发布的操作手册，提供标准操作流程和解决方案',
   instructions: RUNBOOK_AGENT_PROMPT,
-  model: openai.chat(env.OPENAI_MODEL_MINI),
+  model: openai.chat(env.OPENAI_MODEL),
   tools: { searchRunbooks, getRunbook },
 })
